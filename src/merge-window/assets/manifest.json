@@ -1,0 +1,31 @@
+{
+	"manifest_version": 3,
+	"name": "__MSG_extensionName__",
+	"short_name": "__MSG_extensionShortName__",
+	"version": "1.0.1",
+	"description": "__MSG_extensionDescription__",
+	"default_locale": "en",
+	"author": "pHo9UBenaA",
+	"action": {
+		"default_icon": "icon.png"
+	},
+	"icons": {
+		"16": "icon.png",
+		"48": "icon.png",
+		"128": "icon.png"
+	},
+	"background": {
+		"service_worker": "background.js"
+	},
+	"commands": {
+		"_execute_action": {
+			"suggested_key": {
+				"default": "Ctrl+M",
+				"mac": "Command+M"
+			},
+			"description": "Triggering merge"
+		}
+	},
+	"permissions": ["contextMenus"],
+	"incognito": "spanning"
+}

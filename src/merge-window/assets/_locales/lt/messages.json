@@ -1,0 +1,23 @@
+{
+	"extensionName": {
+		"message": "Merge Window Extension",
+		"description": "Name of the extension."
+	},
+	"extensionShortName": {
+		"message": "Merge Window",
+		"description": "Name of the extension."
+	},
+	"extensionDescription": {
+		"message": "Merge windows per Profile",
+		"description": "Description of the extension."
+	},
+
+	"mergeWindowTitle": {
+		"message": "Sujungti langus",
+		"description": "Susijungusiame lange esantis pavadinimas."
+	},
+	"mergeIncognitoWindowTitle": {
+		"message": "Sujungti inkognito lango",
+		"description": "Susijungusiame inkognito lange esantis pavadinimas."
+	}
+}
