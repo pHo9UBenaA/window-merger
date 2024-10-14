@@ -1,5 +1,5 @@
 .DS_Store
 .env
 .pnpm-store
-dist
+dist/
 node_modules

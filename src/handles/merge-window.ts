@@ -3,12 +3,12 @@ const moveTabs = (tabs: chrome.tabs.Tab[], firstWindowId: number): number => {
 		.map((tab) => tab.id)
 		.flatMap((tabId) => (tabId !== undefined ? [tabId] : []));
 
-	tabIds.forEach((id) =>
+	for (const id of tabIds) {
 		chrome.tabs.move(id, {
 			windowId: firstWindowId,
 			index: -1,
-		})
-	);
+		});
+	}
 
 	const fatalCount = tabs.length - tabIds.length;
 	return fatalCount;
@@ -26,14 +26,14 @@ const mergeWindow = (windowIds: number[]) => {
 		return;
 	}
 
-	windowIds.forEach((windowId) => {
+	for (const windowId of windowIds) {
 		chrome.tabs.query({ windowId }, (tabs) => {
 			const fatalCount = moveTabs(tabs, firstWindowId);
 			if (fatalCount) {
 				console.error(`Merge skipped because ${fatalCount} tab IDs could not be found`);
 			}
 		});
-	});
+	}
 };
 
 const handleMergeWindowEvent = () => {

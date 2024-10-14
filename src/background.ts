@@ -45,7 +45,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 chrome.action.onClicked.addListener((tab) => {
 	const handles = Object.values(handleMapper);
-	handles.forEach((handle) => handle());
+	for (const handle of handles) {
+		handle();
+	}
 });
 
 // TODO
