@@ -24,7 +24,7 @@ const copyAssets = copyStaticFiles({
 });
 
 const outdir = `${distDir}`;
-const entryPoints = glob.sync(`${srcDir}/*.ts`)
+const entryPoints = glob.sync(`${srcDir}/*.ts`);
 
 const tsOption = {
 	...optionsStatic,
