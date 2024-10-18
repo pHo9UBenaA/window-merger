@@ -1,41 +1,46 @@
-const srcDirName = 'src';
-const distDirName = 'dist';
-
+const { build } = require('esbuild');
 const path = require('node:path');
 const glob = require('glob');
+const copyStaticFiles = require('esbuild-copy-static-files');
 
-const srcDir = path.join(__dirname, srcDirName);
-const distDir = path.join(__dirname, distDirName);
+const CONFIG = {
+	src: {
+		dirName: 'src',
+		get path() {
+			return path.join(__dirname, this.dirName);
+		},
+		get entryPoints() {
+			return glob.sync(`${this.path}/*.ts`);
+		}
+	},
+	dist: {
+		dirName: 'dist',
+		get path() {
+			return path.join(__dirname, this.dirName);
+		}
+	}
+};
 
-const optionsStatic = {
+const buildOptions = {
 	bundle: true,
 	minify: true,
 	treeShaking: true,
 	platform: 'browser',
 	tsconfig: './tsconfig.json',
+	outdir: CONFIG.dist.path,
+	entryPoints: CONFIG.src.entryPoints,
+	outbase: `./${CONFIG.src.dirName}`,
+	plugins: [
+		copyStaticFiles({
+			src: `./${CONFIG.src.dirName}/assets`,
+			dest: `./${CONFIG.dist.dirName}`,
+			dereference: true,
+			errorOnExist: false,
+		})
+	]
 };
 
-const copyStaticFiles = require('esbuild-copy-static-files');
-const copyAssets = copyStaticFiles({
-	src: `./${srcDirName}/assets`,
-	dest: `./${distDirName}`,
-	dereference: true,
-	errorOnExist: false,
-});
-
-const outdir = `${distDir}`;
-const entryPoints = glob.sync(`${srcDir}/*.ts`);
-
-const tsOption = {
-	...optionsStatic,
-	outdir,
-	entryPoints,
-	outbase: `./${srcDirName}`,
-	plugins: [copyAssets],
-};
-
-const { build } = require('esbuild');
-build(tsOption).catch((err) => {
+build(buildOptions).catch((err) => {
 	process.stderr.write(err.stderr);
 	process.exit(1);
 });
