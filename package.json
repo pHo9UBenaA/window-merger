@@ -2,7 +2,7 @@
 	"name": "window-merger",
 	"version": "0.0.0",
 	"scripts": {
-		"build": "node esbuild.js",
+		"build": "bun run ./bun.build.js",
 		"format": "biome format --write .",
 		"lint": "biome lint --write .",
 		"check": "biome check --write ."
