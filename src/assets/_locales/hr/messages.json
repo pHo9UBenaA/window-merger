@@ -1,0 +1,23 @@
+{
+	"extensionName": {
+		"message": "Merge Window Extension",
+		"description": "Name of the extension."
+	},
+	"extensionShortName": {
+		"message": "Merge Window",
+		"description": "Name of the extension."
+	},
+	"extensionDescription": {
+		"message": "Merge windows per Profile",
+		"description": "Description of the extension."
+	},
+
+	"mergeWindowTitle": {
+		"message": "Spojite prozore",
+		"description": "Naslov spojnog prozora."
+	},
+	"mergeIncognitoWindowTitle": {
+		"message": "Spojite inkognito prozore",
+		"description": "Naslov spojnog inkognito prozora."
+	}
+}

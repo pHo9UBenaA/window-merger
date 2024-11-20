@@ -1,0 +1,23 @@
+{
+	"extensionName": {
+		"message": "Merge Window Extension",
+		"description": "Name of the extension."
+	},
+	"extensionShortName": {
+		"message": "Merge Window",
+		"description": "Name of the extension."
+	},
+	"extensionDescription": {
+		"message": "Merge windows per Profile",
+		"description": "Description of the extension."
+	},
+
+	"mergeWindowTitle": {
+		"message": "Объединить окно",
+		"description": "Title of the merge window."
+	},
+	"mergeIncognitoWindowTitle": {
+		"message": "Объединить окно инкогнито",
+		"description": "Title of the merge secret window."
+	}
+}
