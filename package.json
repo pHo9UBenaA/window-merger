@@ -9,7 +9,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
-		"@types/chrome": "^0.0.243",
+		"@types/chrome": "^0.0.284",
 		"esbuild": "^0.19.2",
 		"esbuild-copy-static-files": "^0.1.0",
 		"glob": "^10.3.3",
