@@ -15,6 +15,22 @@ Install the extension from the [Chrome Web Store](https://chromewebstore.google.
 
 ## Development
 
+### Without Containers
+
+1. Install the dependencies
+
+```bash
+bun i --frozen-lockfile
+```
+
+2. Build the extension
+
+```bash
+bun run build
+```
+
+### With Containers
+
 1. Build the docker image
 
 ```bash
