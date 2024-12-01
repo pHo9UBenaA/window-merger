@@ -3,4 +3,4 @@ on: pull_request
 
 jobs:
   call-dependabot:
-    uses: pHo9UBenaA/workflows/.github/workflows/dependabot-auto-merge.yml@main
+    uses: pHo9UBenaA/workflows/.github/workflows/dependabot-auto-merge.yml@master
