@@ -17,7 +17,7 @@
 		"description": "Title of the merge window."
 	},
 	"mergeIncognitoWindowTitle": {
-		"message": "Merge Secret Window",
-		"description": "Title of the merge secret window."
+		"message": "Merge Incognito Window",
+		"description": "Title of the merge incognito window."
 	}
 }
