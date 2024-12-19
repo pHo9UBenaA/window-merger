@@ -1,25 +1,19 @@
-const contextMenuIdKeys = [
+const contextMenuKeys = [
 	'mergeWindow',
 	'mergeIncognitoWindow',
 ] as const satisfies readonly string[];
 
 export const ContextMenuIds = {
 	// TODO
-	[contextMenuIdKeys[0]]: contextMenuIdKeys[0],
-	[contextMenuIdKeys[1]]: contextMenuIdKeys[1],
-} as const satisfies { [key in (typeof contextMenuIdKeys)[number]]: key };
+	[contextMenuKeys[0]]: `${contextMenuKeys[0]}Id`,
+	[contextMenuKeys[1]]: `${contextMenuKeys[1]}Id`,
+} as const satisfies { [key in (typeof contextMenuKeys)[number]]: `${key}Id` };
 
 export const ContextMenuTitles = {
-	[contextMenuIdKeys[0]]: `${contextMenuIdKeys[0]}Title`,
-	[contextMenuIdKeys[1]]: `${contextMenuIdKeys[1]}Title`,
-} as const satisfies { [key in (typeof contextMenuIdKeys)[number]]: `${key}Title` };
+	[contextMenuKeys[0]]: `${contextMenuKeys[0]}Title`,
+	[contextMenuKeys[1]]: `${contextMenuKeys[1]}Title`,
+} as const satisfies { [key in (typeof contextMenuKeys)[number]]: `${key}Title` };
 
-export const isContextMenuId = (id: string): id is ContextMenuIds =>
-	contextMenuIdKeys.includes(id as ContextMenuIds);
+export type ContextMenuIds = (typeof ContextMenuIds)[keyof typeof ContextMenuIds];
 
-export const isContextMenuTitle = (title: string): title is ContextMenuTitles =>
-	Object.values(ContextMenuTitles).includes(title as ContextMenuTitles);
-
-export type ContextMenuIds = keyof typeof ContextMenuIds;
-
-export type ContextMenuTitles = typeof ContextMenuTitles[keyof typeof ContextMenuTitles];
+export type ContextMenuTitles = (typeof ContextMenuTitles)[keyof typeof ContextMenuTitles];
