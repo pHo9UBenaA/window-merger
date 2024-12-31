@@ -37,12 +37,12 @@ const mergeWindow = async (windowIds: number[]) => {
 		return;
 	}
 
-	const [firstWindowId, ..._] = windowIds;
+	const [firstWindowId, ...restWindowIds] = windowIds;
 	if (!firstWindowId) {
 		throw new Error('The first window could not be found.');
 	}
 
-	for (const windowId of windowIds) {
+	for (const windowId of restWindowIds) {
 		const tabs = await chrome.tabs.query({ windowId });
 		await moveTabs(tabs, firstWindowId);
 		for (const tab of tabs) {
