@@ -8,23 +8,32 @@ const isWindowType = <T extends boolean>(
 };
 
 const moveTabs = async (tabs: chrome.tabs.Tab[], firstWindowId: number) => {
-	const tabIds = tabs
+	const moveProperties = { windowId: firstWindowId, index: -1 } as const;
+
+	const groupTabs = tabs.filter((tab) => tab.groupId > 0);
+
+	const groupIds = [...new Set(groupTabs.map((tab) => tab.groupId))];
+
+	// Memo: `.filter((tab) => tab.groupId <= 0);`を避けるためだけどやりすぎかも
+	const groupTabIdSet = new Set(groupTabs.map((tab) => tab.id));
+	const ungroupedTabIds = tabs
+		.filter((tab) => !groupTabIdSet.has(tab.id))
 		.map((tab) => tab.id)
 		.filter((tabId): tabId is number => tabId !== undefined);
 
-	if (tabIds.length > 0) {
-		await chrome.tabs.move(tabIds, { windowId: firstWindowId, index: -1 });
+	if (groupIds.length > 0) {
+		await Promise.all(
+			Array.from(groupIds).map((groupId) => chrome.tabGroups.move(groupId, moveProperties))
+		);
 	}
 
-	const fatalCount = tabs.length - tabIds.length;
-	if (fatalCount > 0) {
-		throw new Error(`Merge skipped because ${fatalCount} tab IDs could not be found`);
+	if (ungroupedTabIds.length > 0) {
+		await chrome.tabs.move(ungroupedTabIds, moveProperties);
 	}
 };
 
 const mergeWindow = async (windowIds: number[]) => {
 	if (windowIds.length <= 1) {
-		console.info('There was only one window.');
 		return;
 	}
 
@@ -36,6 +45,11 @@ const mergeWindow = async (windowIds: number[]) => {
 	for (const windowId of windowIds) {
 		const tabs = await chrome.tabs.query({ windowId });
 		await moveTabs(tabs, firstWindowId);
+		for (const tab of tabs) {
+			if (tab.id === undefined) {
+				console.info('Undefined tab id:', tab);
+			}
+		}
 	}
 };
 
