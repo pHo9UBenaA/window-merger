@@ -1,10 +1,10 @@
 {
 	"extensionName": {
-		"message": "Merge Window Extension",
+		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
 	"extensionShortName": {
-		"message": "Merge Window",
+		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
 	"extensionDescription": {
@@ -18,6 +18,6 @@
 	},
 	"mergeIncognitoWindowTitle": {
 		"message": "Fuzionați fereastră incognito",
-		"description": "Title of the merge secret window."
+		"description": "Title of the merge incognito window."
 	}
 }

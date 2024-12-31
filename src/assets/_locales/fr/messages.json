@@ -1,10 +1,10 @@
 {
 	"extensionName": {
-		"message": "Merge Window Extension",
+		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
 	"extensionShortName": {
-		"message": "Merge Window",
+		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
 	"extensionDescription": {

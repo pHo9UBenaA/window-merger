@@ -1,59 +1,66 @@
-const moveTabs = (tabs: chrome.tabs.Tab[], firstWindowId: number): number => {
-  const tabIds = tabs
-    .map((tab) => tab.id)
-    .flatMap((tabId) => (tabId !== undefined ? [tabId] : []));
+const targetWindowType = 'normal' satisfies chrome.windows.windowTypeEnum;
 
-  for (const id of tabIds) {
-    chrome.tabs.move(id, {
-      windowId: firstWindowId,
-      index: -1,
-    });
-  }
-
-  const fatalCount = tabs.length - tabIds.length;
-  return fatalCount;
+const isWindowType = <T extends boolean>(
+	window: chrome.windows.Window,
+	{ incognito }: { incognito: T }
+): window is chrome.windows.Window & { incognito: T; type: typeof targetWindowType } => {
+	return window.incognito === incognito && window.type === targetWindowType;
 };
 
-const mergeWindow = (windowIds: number[]) => {
-  if (windowIds.length <= 1) {
-    console.info("There was only one window.");
-    return;
-  }
+const moveTabs = async (tabs: chrome.tabs.Tab[], firstWindowId: number) => {
+	const tabIds = tabs
+		.map((tab) => tab.id)
+		.filter((tabId): tabId is number => tabId !== undefined);
 
-  const firstWindowId = windowIds.shift();
-  if (!firstWindowId) {
-    console.error("The first window could not be found.");
-    return;
-  }
+	if (tabIds.length > 0) {
+		await chrome.tabs.move(tabIds, { windowId: firstWindowId, index: -1 });
+	}
 
-  for (const windowId of windowIds) {
-    chrome.tabs.query({ windowId }, (tabs) => {
-      const fatalCount = moveTabs(tabs, firstWindowId);
-      if (fatalCount) {
-        console.error(
-          `Merge skipped because ${fatalCount} tab IDs could not be found`
-        );
-      }
-    });
-  }
+	const fatalCount = tabs.length - tabIds.length;
+	if (fatalCount > 0) {
+		throw new Error(`Merge skipped because ${fatalCount} tab IDs could not be found`);
+	}
 };
 
-const handleMergeWindowEvent = () => {
-  chrome.windows.getAll({ populate: true }, (windows) => {
-    const windowIds: number[] = windows
-      .filter((window) => !window.incognito && window.type === "normal")
-      .flatMap((window) => (window.id !== undefined ? [window.id] : []));
-    mergeWindow(windowIds);
-  });
+const mergeWindow = async (windowIds: number[]) => {
+	if (windowIds.length <= 1) {
+		console.info('There was only one window.');
+		return;
+	}
+
+	const [firstWindowId, ..._] = windowIds;
+	if (!firstWindowId) {
+		throw new Error('The first window could not be found.');
+	}
+
+	for (const windowId of windowIds) {
+		const tabs = await chrome.tabs.query({ windowId });
+		await moveTabs(tabs, firstWindowId);
+	}
 };
 
-const handleMergeSecretWindowEvent = () => {
-  chrome.windows.getAll({ populate: true }, (windows) => {
-    const secretWindowIds: number[] = windows
-      .filter((window) => window.incognito && window.type === "normal")
-      .flatMap((window) => (window.id !== undefined ? [window.id] : []));
-    mergeWindow(secretWindowIds);
-  });
+const handleMergeWindowEvent = async () => {
+	try {
+		const windows = await chrome.windows.getAll({ populate: true });
+		const windowIds: number[] = windows
+			.map((window) => (isWindowType(window, { incognito: false }) ? window.id : undefined))
+			.filter((id) => id !== undefined);
+		await mergeWindow(windowIds);
+	} catch (error) {
+		console.error('Failed to process:', error);
+	}
 };
 
-export { handleMergeSecretWindowEvent, handleMergeWindowEvent };
+const handleMergeIncognitoWindowEvent = async () => {
+	try {
+		const windows = await chrome.windows.getAll({ populate: true });
+		const incognitoWindowIds: number[] = windows
+			.map((window) => (isWindowType(window, { incognito: true }) ? window.id : undefined))
+			.filter((id) => id !== undefined);
+		await mergeWindow(incognitoWindowIds);
+	} catch (error) {
+		console.error('Failed to process:', error);
+	}
+};
+
+export { handleMergeIncognitoWindowEvent, handleMergeWindowEvent };
