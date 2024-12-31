@@ -1,4 +1,4 @@
-# Merge Window Extension
+# Window Merger
 
 A Chrome extension that helps you efficiently manage browser windows by merging multiple windows into one.
 
