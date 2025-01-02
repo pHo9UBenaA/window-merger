@@ -1,11 +1,13 @@
 {
 	"name": "window-merger",
 	"version": "0.0.0",
+	"type": "module",
 	"scripts": {
 		"build": "bun run ./bun.build.js",
 		"format": "biome format --write .",
 		"lint": "biome lint --write .",
-		"check": "biome check --write ."
+		"check": "biome check --write .",
+		"zip": "zip -vr dist.zip dist -x \"*.DS_Store\""
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",

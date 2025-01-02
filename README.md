@@ -1,14 +1,13 @@
 # Window Merger
 
-A Chrome extension designed to help you efficiently manage your browser by merging multiple windows into one.
+A Chrome extension that helps you efficiently manage browser windows by merging multiple windows into one.
 
 ## Features
 
 - Merge all windows of the same profile.
-- Merge all incognito windows of the same profile (if permission is granted for incognito mode).
+- Merge all incognito windows (if permission is granted for incognito mode).
 - Simple activation via left-click on the extension icon or keyboard shortcut (Control/Command + M).
-- Privacy-focused: Regular windows and incognito windows are kept separate.
-- If tabs are in groups, the groups will stay the same when the windows are merged.
+- When windows are merged, tab groups and pinned tabs remain intact.
 
 ## Important Information
 
