@@ -32,6 +32,15 @@ const moveTabs = async (tabs: chrome.tabs.Tab[], firstWindowId: number) => {
 	}
 };
 
+const repinTabs = async (tabs: chrome.tabs.Tab[]) => {
+	const pinnedTabs = tabs.filter((tab) => tab.pinned && tab.id !== undefined);
+	await Promise.all(
+		pinnedTabs.map((tab) => {
+			if (tab.id) chrome.tabs.update(tab.id, { pinned: true });
+		})
+	);
+};
+
 const mergeWindow = async (windowIds: number[]) => {
 	if (windowIds.length <= 1) {
 		return;
@@ -45,6 +54,7 @@ const mergeWindow = async (windowIds: number[]) => {
 	for (const windowId of restWindowIds) {
 		const tabs = await chrome.tabs.query({ windowId });
 		await moveTabs(tabs, firstWindowId);
+		await repinTabs(tabs);
 		for (const tab of tabs) {
 			if (tab.id === undefined) {
 				console.info('Undefined tab id:', tab);

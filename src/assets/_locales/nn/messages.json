@@ -8,7 +8,7 @@
 		"description": "Name of the extension."
 	},
 	"extensionDescription": {
-		"message": "Merge windows per Profile",
+		"message": "Merge windows into one, preserving tab groups and pinned tabs.",
 		"description": "Description of the extension."
 	},
 
