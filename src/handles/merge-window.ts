@@ -1,7 +1,5 @@
 const targetWindowType = 'normal' satisfies chrome.windows.windowTypeEnum;
 
-const test: any = '';
-
 /**
  * ウィンドウが指定された型 (通常ウィンドウまたはシークレットウィンドウ) であるかどうかを判定します。
  * この関数は型ガードとして機能し、型の安全性を確保します。

@@ -3,8 +3,8 @@
 	"version": "0.0.0",
 	"type": "module",
 	"scripts": {
-		"build": "bun run ./bun.build.js",
-		"zip": "zip -vr dist.zip dist -x \"*.DS_Store\"",
+		"build": "bun run ./bun.build.ts",
+		"zip": "bun run build --minify; zip -vr dist.zip dist -x \"*.DS_Store\"",
 		"ci": "biome ci . --error-on-warnings",
 		"format": "biome format --write .",
 		"lint": "biome lint --write . --error-on-warnings",
