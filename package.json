@@ -19,6 +19,7 @@
 		"@types/chrome": "^0.0.243",
 		"@types/node": "^22.10.4",
 		"@vitest/coverage-v8": "2.1.8",
+		"gaxios": "^6.7.1",
 		"glob": "^10.3.3",
 		"typescript": "^5.3.2",
 		"vitest": "^2.1.8"
