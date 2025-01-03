@@ -7,8 +7,5 @@ export default defineConfig({
 		include: ['./__tests__/**/*.{spec,test}.{ts,tsx}'],
 		mockReset: true,
 		clearMocks: true,
-
-		// TODO
-		// coverage: {},
 	},
 });
