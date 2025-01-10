@@ -1,5 +1,5 @@
 import { WebStoreError } from './errors';
-import { publish } from './publish';
+// import { publish } from './publish';
 import { uploadPackage } from './upload';
 
 async function deploy() {
