@@ -1,20 +1,6 @@
-name: CI Pipeline
-
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
+name: Call Bun CI
+on: pull_request
 
 jobs:
-  ci:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: corepack enable
-      - uses: oven-sh/setup-bun@v1
-      - run: bun install
-      - run: bun run ci --reporter=github
-      - run: bun run test
+  call-bun-ci:
+    uses: pHo9UBenaA/gh-action-templates/.github/workflows/bun-ci.yml@master
