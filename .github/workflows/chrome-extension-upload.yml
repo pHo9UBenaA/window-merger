@@ -1,32 +1,26 @@
-name: Call Chrome extension upload
+name: "Chrome Extension Upload Workflow"
 
 on: pull_request
 
 jobs:
-  prepare-zip:
+  prepare-and-upload:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
       - run: corepack enable
       - uses: oven-sh/setup-bun@v1
+
       - run: bun install
       - run: bun run zip
-      - name: Verify ZIP file
-        run: ls -lh ./dist.zip
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: dist-zip
-          path: "./dist.zip"
 
-  call-chrome-extension-upload:
-    needs: prepare-zip
-    uses: pHo9UBenaA/gh-action-templates/.github/workflows/chrome-extension-upload.yml@master
-    with:
-      extension-id: "fijodggmkbkjcmlpkpahjpepngppdppb"
-      file-path: "./dist.zip"
-      publish: "false"
-    secrets:
-      client-id: ${{ secrets.CLIENT_ID }}
-      client-secret: ${{ secrets.CLIENT_SECRET }}
-      refresh-token: ${{ secrets.REFRESH_TOKEN }}
+      # Call the custom action to upload the Chrome extension
+      - name: "Upload Chrome Extension"
+        uses: pHo9UBenaA/chrome-extension-upload-action@master
+        with:
+          client-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
+          refresh-token: ${{ secrets.REFRESH_TOKEN }}
+          extension-id: "fijodggmkbkjcmlpkpahjpepngppdppb"
+          file-path: "./dist.zip"
+          publish: "false"
