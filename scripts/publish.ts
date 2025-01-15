@@ -1,14 +1,15 @@
 import { GaxiosError, request } from 'gaxios';
-import { getAccessToken } from './auth';
 import { WebStoreError } from './errors';
-import type { Config, PublishResponse } from './types';
+import type { AccessTokenResponse, PublishResponse } from './interfaces';
+import type { ExtensionId } from './types';
 
-export const publish = async (config: Config): Promise<void> => {
-	const accessToken = await getAccessToken(config);
-
+export const publish = async (
+	accessToken: AccessTokenResponse,
+	extensionId: ExtensionId
+): Promise<void> => {
 	try {
 		const response = await request<PublishResponse>({
-			url: `https://www.googleapis.com/chromewebstore/v1.1/items/${config.extensionId}/publish`,
+			url: `https://www.googleapis.com/chromewebstore/v1.1/items/${extensionId}/publish`,
 			method: 'POST',
 			headers: {
 				Authorization: `Bearer ${accessToken}`,

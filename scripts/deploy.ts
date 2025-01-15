@@ -1,28 +1,58 @@
+import { getAccessToken } from './auth';
 import { WebStoreError } from './errors';
-// import { publish } from './publish';
+import type { AccessTokenRequestBody } from './interfaces';
+import { publish } from './publish';
+import type { ExtensionId } from './types';
 import { uploadPackage } from './upload';
 
-async function deploy() {
-	const { CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN, EXTENSION_ID } = process.env;
+const missingEnvironmentErrorMessage = 'Missing required environment variables';
 
-	if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN || !EXTENSION_ID) {
-		console.error('Missing required environment variables');
-		process.exit(1);
+const getAccessTokenRequestBody = (): AccessTokenRequestBody => {
+	const { CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN } = process.env;
+
+	if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
+		throw new Error(missingEnvironmentErrorMessage);
 	}
 
-	const config = {
+	return {
 		clientId: CLIENT_ID,
 		clientSecret: CLIENT_SECRET,
 		refreshToken: REFRESH_TOKEN,
-		extensionId: EXTENSION_ID,
+		grant_type: 'refresh_token',
 	};
+};
+
+const getExtensionId = (): ExtensionId => {
+	const { EXTENSION_ID } = process.env;
+
+	if (!EXTENSION_ID) {
+		throw new Error(missingEnvironmentErrorMessage);
+	}
+
+	return EXTENSION_ID as ExtensionId;
+};
+
+const getShouldPublish = () => {
+	const args = process.argv.slice(2);
+	return args.includes('--publish');
+};
+
+const deploy = async () => {
+	const requestBody = getAccessTokenRequestBody();
+	const accessToken = await getAccessToken(requestBody);
+
+	const extensionId = getExtensionId();
+
+	const shouldPublish = getShouldPublish();
 
 	try {
 		console.info('Uploading package...');
-		await uploadPackage(config, './dist.zip');
+		await uploadPackage(accessToken, extensionId, './dist.zip');
 
-		// console.info("Publishing...");
-		// await publish(config);
+		if (shouldPublish) {
+			console.info('Publishing...');
+			await publish(accessToken, extensionId);
+		}
 
 		console.info('Deployment completed successfully!');
 	} catch (error) {
@@ -34,8 +64,7 @@ async function deploy() {
 		} else {
 			console.error('Unexpected error during deployment:', error);
 		}
-		process.exit(1);
 	}
-}
+};
 
 deploy();

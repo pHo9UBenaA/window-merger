@@ -1,12 +1,10 @@
 import { GaxiosError, request } from 'gaxios';
 import { WebStoreError } from './errors';
-import type { AccessTokenResponse, Config } from './types';
+import type { AccessTokenRequestBody, AccessTokenResponse } from './interfaces';
 
-let accessToken: string | null = null;
-
-export const getAccessToken = async (config: Config): Promise<string> => {
-	if (accessToken) return accessToken;
-
+export const getAccessToken = async (
+	body: AccessTokenRequestBody
+): Promise<AccessTokenResponse> => {
 	try {
 		const response = await request<AccessTokenResponse>({
 			url: 'https://accounts.google.com/o/oauth2/token',
@@ -14,16 +12,10 @@ export const getAccessToken = async (config: Config): Promise<string> => {
 			headers: {
 				'Content-Type': 'application/x-www-form-urlencoded',
 			},
-			data: new URLSearchParams({
-				client_id: config.clientId,
-				client_secret: config.clientSecret,
-				refresh_token: config.refreshToken,
-				grant_type: 'refresh_token',
-			}).toString(),
+			data: new URLSearchParams({ ...body }).toString(),
 		});
 
-		accessToken = response.data.access_token;
-		return accessToken;
+		return response.data;
 	} catch (error) {
 		if (error instanceof GaxiosError) {
 			throw new WebStoreError(
