@@ -1,0 +1,6 @@
+name: Call Bun CI
+on: pull_request
+
+jobs:
+  call:
+    uses: pHo9UBenaA/gh-action-templates/.github/workflows/bun-ci.yml@master

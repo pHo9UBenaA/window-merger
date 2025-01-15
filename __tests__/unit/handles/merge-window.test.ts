@@ -14,35 +14,33 @@ const runTestsForHandler = (
 ) => {
 	it('複数のウィンドウがマージされること', async () => {
 		// Arrange
-		const mockWindows: Partial<ChromeWindow>[] = [
-			{ id: 1, type: 'normal', incognito },
-			{ id: 2, type: 'normal', incognito },
-		];
 		const mockTabs: Partial<ChromeTab>[] = [
 			{ id: 1, windowId: 2, pinned: false },
 			{ id: 2, windowId: 2, pinned: true },
 		];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito },
+			{ id: 2, type: 'normal', incognito, tabs: mockTabs as ChromeTab[] },
+		];
 		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
-		chrome.tabs.query.mockResolvedValue(mockTabs as ChromeTab[]);
 
 		// Act
 		await handlerFunction();
 
 		// Assert
 		expect(chrome.windows.getAll).toHaveBeenCalledWith({ populate: true });
-		expect(chrome.tabs.query).toHaveBeenCalledWith({ windowId: 2 });
 		expect(chrome.tabs.move).toHaveBeenCalled();
 	});
 
 	it('ピン留めされたがマージ後も保持されていること', async () => {
 		// Arrange
-		const mockWindows: Partial<ChromeWindow>[] = [
-			{ id: 1, type: 'normal', incognito },
-			{ id: 2, type: 'normal', incognito },
-		];
 		const mockTabs: Partial<ChromeTab>[] = [
 			{ id: 1, windowId: 2, pinned: false },
 			{ id: 2, windowId: 2, pinned: true },
+		];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito },
+			{ id: 2, type: 'normal', incognito, tabs: mockTabs as ChromeTab[] },
 		];
 		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
 		chrome.tabs.query.mockResolvedValue(mockTabs as ChromeTab[]);
@@ -56,16 +54,15 @@ const runTestsForHandler = (
 
 	it('タブグループがマージ後も保持されていること', async () => {
 		// Arrange
-		const mockWindows: Partial<ChromeWindow>[] = [
-			{ id: 1, type: 'normal', incognito },
-			{ id: 2, type: 'normal', incognito },
-		];
 		const mockTabs: Partial<ChromeTab>[] = [
 			{ id: 1, windowId: 2, groupId: 1 },
 			{ id: 2, windowId: 2, groupId: 1 },
 		];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito },
+			{ id: 2, type: 'normal', incognito, tabs: mockTabs as ChromeTab[] },
+		];
 		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
-		chrome.tabs.query.mockResolvedValue(mockTabs as ChromeTab[]);
 
 		// Act
 		await handlerFunction();
@@ -84,7 +81,6 @@ const runTestsForHandler = (
 
 		// Assert
 		expect(chrome.windows.getAll).toHaveBeenCalled();
-		expect(chrome.tabs.query).not.toHaveBeenCalled();
 		expect(chrome.tabs.move).not.toHaveBeenCalled();
 	});
 
@@ -101,7 +97,6 @@ const runTestsForHandler = (
 
 		// Assert
 		expect(chrome.windows.getAll).toHaveBeenCalledWith({ populate: true });
-		expect(chrome.tabs.query).not.toHaveBeenCalled();
 		expect(chrome.tabs.move).not.toHaveBeenCalled();
 	});
 
