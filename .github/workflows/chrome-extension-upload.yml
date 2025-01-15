@@ -1,9 +1,12 @@
-name: "Chrome Extension Upload Workflow"
+name: Upload Chrome extension
 
-on: pull_request
+on:
+  push:
+    branches:
+      - master
 
 jobs:
-  prepare-and-upload:
+  upload:
     runs-on: ubuntu-latest
 
     steps:
@@ -14,8 +17,7 @@ jobs:
       - run: bun install
       - run: bun run zip
 
-      # Call the custom action to upload the Chrome extension
-      - name: "Upload Chrome Extension"
+      - name: Upload Chrome Extension
         uses: pHo9UBenaA/chrome-extension-upload-action@master
         with:
           client-id: ${{ secrets.CLIENT_ID }}
