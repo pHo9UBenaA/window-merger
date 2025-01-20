@@ -53,3 +53,8 @@ docker compose exec bub bun i --frozen-lockfile
 ```bash
 docker compose exec bun bun run build
 ```
+
+## License
+
+This project is licensed under the [MIT License](LICENSE). See the license file
+for more details.
