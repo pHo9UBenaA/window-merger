@@ -45,7 +45,7 @@ docker compose up -d --build
 2. Install the dependencies
 
 ```bash
-docker compose exec bub bun i --frozen-lockfile
+docker compose exec bun bun i --frozen-lockfile
 ```
 
 3. Build the extension
