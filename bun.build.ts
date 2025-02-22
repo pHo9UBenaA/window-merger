@@ -1,7 +1,6 @@
-import { copyFile, mkdir, rm } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import type { BuildConfig } from 'bun';
-import { sync as globSync } from 'glob';
 
 const CONFIG = {
 	src: {
@@ -23,24 +22,27 @@ const clearDist = async () => {
 };
 
 const copyStaticFiles = async () => {
-	const entries: string[] = globSync(`${CONFIG.src.path}/assets/**`, { nodir: true });
-	await Promise.all(
-		entries.map(async (entry) => {
-			const relativePath = relative(`${CONFIG.src.path}/assets`, entry);
-			const destPath = join(CONFIG.dist.path, relativePath);
-			await mkdir(dirname(destPath), { recursive: true });
-			await copyFile(entry, destPath);
-		})
-	);
+	const entries = new Bun.Glob(`${CONFIG.src.path}/assets/**`).scan('.');
+	for await (const entry of entries) {
+		const relativePath = relative(`${CONFIG.src.path}/assets`, entry);
+		const destPath = join(CONFIG.dist.path, relativePath);
+		await mkdir(dirname(destPath), { recursive: true });
+		await Bun.write(destPath, Bun.file(entry));
+	}
 };
 
 const build = async (minify: boolean) => {
+	const entrypoints: string[] = [];
+	for await (const entry of new Bun.Glob(`${CONFIG.src.path}/*.ts`).scan('.')) {
+		entrypoints.push(entry);
+	}
+
 	const buildOptions: BuildConfig = {
 		minify,
 		target: 'browser',
 		outdir: CONFIG.dist.path,
 		root: CONFIG.src.dirName,
-		entrypoints: globSync(`${CONFIG.src.path}/*.ts`),
+		entrypoints,
 	};
 
 	await Bun.build(buildOptions);

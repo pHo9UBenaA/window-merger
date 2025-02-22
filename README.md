@@ -45,7 +45,7 @@ docker compose up -d --build
 2. Install the dependencies
 
 ```bash
-docker compose exec bub bun i --frozen-lockfile
+docker compose exec bun bun i --frozen-lockfile
 ```
 
 3. Build the extension
@@ -53,3 +53,8 @@ docker compose exec bub bun i --frozen-lockfile
 ```bash
 docker compose exec bun bun run build
 ```
+
+## License
+
+This project is licensed under the [MIT License](LICENSE). See the license file
+for more details.

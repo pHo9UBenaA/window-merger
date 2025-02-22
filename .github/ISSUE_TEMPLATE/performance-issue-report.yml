@@ -1,0 +1,59 @@
+name: Performance Issue Report
+
+description: Create a report about a performance issue you experienced while using Window Merger.
+
+title: "[Performance Issue] Replace with title"
+
+labels: ["performance-issue"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Place a brief description in the title of this report.
+
+        Thank you for taking the time to report this performance issue.
+  - type: checkboxes
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have restarted the web browser to check if that resolved this performance issue.
+          required: true
+        - label: I can reproduce this performance issue in a new, unmodified web browser profile with Window Merger installed as the only extension.
+          required: true
+
+  - type: textarea
+    attributes:
+      label: Performance Issue Description
+      description: Provide a clear and concise description of this performance issue.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Steps To Reproduce
+      description: Provide steps to reproduce this performance issue.
+      placeholder: |
+        1. [First Step]
+        2. [Second Step]
+        3. [and so on...]
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Operating System
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Web Browser name and version
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Window Merger version
+    validations:
+      required: true
