@@ -1,0 +1,14 @@
+name: Auto Tag on Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    uses: pHo9UBenaA/gh-action-templates/.github/workflows/auto-tag-on-merge.yml@master
