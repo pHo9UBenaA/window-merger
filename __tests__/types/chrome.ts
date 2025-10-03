@@ -1,4 +1,3 @@
-// Memo: vitest-chromeを検討
 import { type MockedFunction, vi } from 'vitest';
 
 type VitestChrome = {

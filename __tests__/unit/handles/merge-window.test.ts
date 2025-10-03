@@ -12,7 +12,7 @@ const runTestsForHandler = (
 	handlerFunction: typeof handleMergeWindowEvent | typeof handleMergeIncognitoWindowEvent,
 	incognito: boolean
 ) => {
-	it('複数のウィンドウがマージされること', async () => {
+	it('merges multiple windows together', async () => {
 		// Arrange
 		const mockTabs: Partial<ChromeTab>[] = [
 			{ id: 1, windowId: 2, pinned: false },
@@ -32,7 +32,7 @@ const runTestsForHandler = (
 		expect(chrome.tabs.move).toHaveBeenCalled();
 	});
 
-	it('ピン留めされたがマージ後も保持されていること', async () => {
+	it('retains pinned tabs after merging', async () => {
 		// Arrange
 		const mockTabs: Partial<ChromeTab>[] = [
 			{ id: 1, windowId: 2, pinned: false },
@@ -52,7 +52,7 @@ const runTestsForHandler = (
 		expect(chrome.tabs.update).toHaveBeenCalledWith(2, { pinned: true });
 	});
 
-	it('タブグループがマージ後も保持されていること', async () => {
+	it('preserves tab groups after merging', async () => {
 		// Arrange
 		const mockTabs: Partial<ChromeTab>[] = [
 			{ id: 1, windowId: 2, groupId: 1 },
@@ -71,7 +71,7 @@ const runTestsForHandler = (
 		expect(chrome.tabGroups.move).toHaveBeenCalledWith(1, expect.any(Object));
 	});
 
-	it('ウィンドウが1つしかない場合は何もしないこと', async () => {
+	it('does nothing when only one window exists', async () => {
 		// Arrange
 		const mockWindows: Partial<ChromeWindow>[] = [{ id: 1, type: 'normal', incognito }];
 		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
@@ -84,7 +84,7 @@ const runTestsForHandler = (
 		expect(chrome.tabs.move).not.toHaveBeenCalled();
 	});
 
-	it('通常ウィンドウとシークレットウィンドウをマージしないこと', async () => {
+	it('does not mix normal and incognito windows', async () => {
 		// Arrange
 		const mockWindows: Partial<ChromeWindow>[] = [
 			{ id: 1, type: 'normal', incognito },
@@ -100,7 +100,7 @@ const runTestsForHandler = (
 		expect(chrome.tabs.move).not.toHaveBeenCalled();
 	});
 
-	it('エラーが発生した際コンソールにエラー内容が出力されること', async () => {
+	it('logs the error to the console when a failure occurs', async () => {
 		// Arrange
 		const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		chrome.windows.getAll.mockRejectedValue(new Error('Test error'));
@@ -111,7 +111,7 @@ const runTestsForHandler = (
 		// Assert
 		expect(consoleSpy).toHaveBeenCalledWith(
 			'Failed to process:',
-			expect.any(Error) // エラーオブジェクトが渡されていることを確認
+			expect.any(Error) // Validate that an Error instance reaches the logger
 		);
 		expect(consoleSpy.mock.calls[0][1].message).toBe('Test error');
 	});

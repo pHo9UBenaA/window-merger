@@ -15,7 +15,7 @@ chrome.runtime.onInstalled.addListener(() => {
 		chrome.contextMenus.create({
 			id,
 			title: chrome.i18n.getMessage(message),
-			// Memo: 最初にallにしてしまってたから混乱を避けるためにそのままにしてるけどデフォルト（page）のままでよかった
+			// Memo: Keeping this as `all` avoids surprising users even though the `page` default would suffice
 			contexts: ['all'],
 		});
 	};
