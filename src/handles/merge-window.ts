@@ -195,6 +195,63 @@ const reactivateTab = async (tabId: number | undefined): Promise<void> => {
 	await chrome.tabs.update(tabId, { active: true });
 };
 
+/**
+ * Reorders all tabs in the target window to achieve the desired layout:
+ * pinned tabs (by ID/creation order) → tab groups (by ID/creation order) → regular tabs (by ID/creation order).
+ * Tab IDs are used as a proxy for creation order since Chrome Tab API doesn't provide creation timestamps.
+ * Moves tab groups as units to preserve group membership.
+ * @param targetWindowId - The window whose tabs should be reordered.
+ */
+const reorderTabsInWindow = async (targetWindowId: number): Promise<void> => {
+	// Get all tabs in the target window
+	const tabs = await chrome.tabs.query({ windowId: targetWindowId });
+
+	// Safety check
+	if (!Array.isArray(tabs) || tabs.length === 0) {
+		return;
+	}
+
+	// Sort all tabs by ID (proxy for creation order)
+	const sortedTabs = [...tabs].sort((a, b) => {
+		const idA = a.id ?? Number.MAX_SAFE_INTEGER;
+		const idB = b.id ?? Number.MAX_SAFE_INTEGER;
+		return idA - idB;
+	});
+
+	// Partition sorted tabs by type
+	const pinnedTabs = sortedTabs.filter((tab) => tab.pinned === true);
+	const groupedTabs = sortedTabs.filter(
+		(tab) => tab.pinned === false && typeof tab.groupId === 'number' && tab.groupId > 0
+	);
+	const regularTabs = sortedTabs.filter(
+		(tab) => tab.pinned === false && (typeof tab.groupId !== 'number' || tab.groupId <= 0)
+	);
+
+	// Get unique group IDs in order of first appearance (by tab ID)
+	const groupIds = [...new Set(groupedTabs.map((tab) => tab.groupId))].filter(
+		(id): id is number => typeof id === 'number' && id > 0
+	);
+
+	// Calculate target positions
+	let currentIndex = pinnedTabs.length; // Start after pinned tabs
+
+	// Move each group to its correct position
+	for (const groupId of groupIds) {
+		await chrome.tabGroups.move(groupId, { windowId: targetWindowId, index: currentIndex });
+		// Count tabs in this group to update the current index
+		const tabsInGroup = groupedTabs.filter((tab) => tab.groupId === groupId);
+		currentIndex += tabsInGroup.length;
+	}
+
+	// Move regular tabs one by one to the end (in ID order)
+	for (const tab of regularTabs) {
+		if (typeof tab.id === 'number') {
+			await chrome.tabs.move(tab.id, { index: currentIndex });
+			currentIndex += 1;
+		}
+	}
+};
+
 const runSequentially = (tasks: Array<() => Promise<void>>): Promise<void> =>
 	tasks.reduce<Promise<void>>((previous, task) => previous.then(() => task()), Promise.resolve());
 
@@ -265,6 +322,9 @@ const mergeWindow = async (windows: chrome.windows.Window[]) => {
 	});
 
 	await runSequentially(tasks);
+
+	// Reorder all tabs to ensure correct layout: pinned → groups → regular
+	await reorderTabsInWindow(targetWindowId);
 
 	// Restore the last active tab (from the last merged window)
 	if (activeTabIds.length > 0) {
