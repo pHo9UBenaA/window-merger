@@ -184,6 +184,35 @@ const hasValidTabs = (window: chrome.windows.Window): boolean => {
 	return tabs.length > 0;
 };
 
+/**
+ * Sorts windows to prioritize the best merge target.
+ * Priority order:
+ * 1. Focused window (user's current active window)
+ * 2. Windows in normal or maximized state (over minimized)
+ * This ensures merging into the user's working context rather than a hidden window.
+ * @param a - First window to compare.
+ * @param b - Second window to compare.
+ * @returns Sort order (-1, 0, or 1).
+ */
+const sortWindowsByTargetPriority = (
+	a: chrome.windows.Window,
+	b: chrome.windows.Window
+): number => {
+	// Focused window takes highest priority
+	if (a.focused && !b.focused) return -1;
+	if (!a.focused && b.focused) return 1;
+
+	// Next priority: normal/maximized over minimized
+	const aPreferredState = a.state === 'normal' || a.state === 'maximized';
+	const bPreferredState = b.state === 'normal' || b.state === 'maximized';
+
+	if (aPreferredState && !bPreferredState) return -1;
+	if (!aPreferredState && bPreferredState) return 1;
+
+	// No preference
+	return 0;
+};
+
 const mergeWindow = async (windows: chrome.windows.Window[]) => {
 	const validWindows = windows.filter(hasValidTabs);
 
@@ -192,7 +221,8 @@ const mergeWindow = async (windows: chrome.windows.Window[]) => {
 		return;
 	}
 
-	const [firstWindow, ...restWindows] = validWindows;
+	const sortedWindows = [...validWindows].sort(sortWindowsByTargetPriority);
+	const [firstWindow, ...restWindows] = sortedWindows;
 	const targetWindowId = ensureWindowId(firstWindow);
 
 	const tasks = restWindows.map((window) => {
