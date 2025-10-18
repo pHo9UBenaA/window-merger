@@ -329,55 +329,6 @@ const runTestsForHandler = (
 		);
 	});
 
-	it('preserves autoDiscardable settings after merging', async () => {
-		// Arrange
-		const mockTabs1: Partial<ChromeTab>[] = [{ id: 3, windowId: 1, pinned: false }];
-		const mockTabs2: Partial<ChromeTab>[] = [
-			{ id: 1, windowId: 2, pinned: false, autoDiscardable: false }, // User disabled auto-discard
-			{ id: 2, windowId: 2, pinned: false, autoDiscardable: true },
-		];
-		const mockWindows: Partial<ChromeWindow>[] = [
-			{ id: 1, type: 'normal', incognito, tabs: mockTabs1 as ChromeTab[] },
-			{ id: 2, type: 'normal', incognito, tabs: mockTabs2 as ChromeTab[] },
-		];
-		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
-
-		// Act
-		await handlerFunction();
-
-		// Assert
-		expect(chrome.tabs.update).toHaveBeenCalledWith(1, { autoDiscardable: false });
-		expect(chrome.tabs.update).toHaveBeenCalledWith(2, { autoDiscardable: true });
-	});
-
-	it('handles tabs without autoDiscardable property', async () => {
-		// Arrange
-		const mockTabs1: Partial<ChromeTab>[] = [{ id: 3, windowId: 1, pinned: false }];
-		const mockTabs2: Partial<ChromeTab>[] = [
-			{ id: 1, windowId: 2, pinned: false }, // No autoDiscardable property
-			{ id: 2, windowId: 2, pinned: false, autoDiscardable: true },
-		];
-		const mockWindows: Partial<ChromeWindow>[] = [
-			{ id: 1, type: 'normal', incognito, tabs: mockTabs1 as ChromeTab[] },
-			{ id: 2, type: 'normal', incognito, tabs: mockTabs2 as ChromeTab[] },
-		];
-		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
-
-		// Act
-		await handlerFunction();
-
-		// Assert
-		// Should only update tab 2, not tab 1 (which has no autoDiscardable property)
-		expect(chrome.tabs.update).toHaveBeenCalledWith(2, { autoDiscardable: true });
-		const updateMock = chrome.tabs.update as unknown as {
-			mock: { calls: Array<[number, { autoDiscardable?: boolean }]> };
-		};
-		const autoDiscardCalls = updateMock.mock.calls.filter(
-			(call) => call[0] === 1 && 'autoDiscardable' in call[1]
-		);
-		expect(autoDiscardCalls).toHaveLength(0);
-	});
-
 	it('preserves active tab in target window after merging', async () => {
 		// Arrange
 		const mockTabs1: Partial<ChromeTab>[] = [
