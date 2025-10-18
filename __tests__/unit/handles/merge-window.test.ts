@@ -398,6 +398,81 @@ const runTestsForHandler = (
 		// Check that tabs are repositioned to maintain order
 		expect(tabMoveCalls.length).toBeGreaterThan(0);
 	});
+
+	it('restores focus to the previously active tab after merge', async () => {
+		// Arrange: Window1 has active tab, Window2 is target (focused)
+		const mockTabs1: Partial<ChromeTab>[] = [
+			{ id: 1, windowId: 1, pinned: false, groupId: -1, active: true }, // Active in source
+			{ id: 2, windowId: 1, pinned: false, groupId: -1, active: false },
+		];
+		const mockTabs2: Partial<ChromeTab>[] = [
+			{ id: 3, windowId: 2, pinned: false, groupId: -1, active: false },
+			{ id: 4, windowId: 2, pinned: false, groupId: -1, active: false },
+		];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito, focused: false, tabs: mockTabs1 as ChromeTab[] },
+			{ id: 2, type: 'normal', incognito, focused: true, tabs: mockTabs2 as ChromeTab[] },
+		];
+		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
+		chrome.tabs.query.mockResolvedValue([...mockTabs2, ...mockTabs1] as ChromeTab[]);
+
+		// Act
+		await handlerFunction();
+
+		// Assert
+		// Tab 1 (which was active in Window1) should be reactivated
+		expect(chrome.tabs.update).toHaveBeenCalledWith(1, { active: true });
+	});
+
+	it('preserves focus on focused window active tab after merge', async () => {
+		// Arrange: Window2 is focused and has active tab, Window1 also has active tab
+		const mockTabs1: Partial<ChromeTab>[] = [
+			{ id: 1, windowId: 1, pinned: false, groupId: -1, active: true }, // Active but not focused window
+			{ id: 2, windowId: 1, pinned: false, groupId: -1, active: false },
+		];
+		const mockTabs2: Partial<ChromeTab>[] = [
+			{ id: 3, windowId: 2, pinned: false, groupId: -1, active: true }, // Active in focused window
+			{ id: 4, windowId: 2, pinned: false, groupId: -1, active: false },
+		];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito, focused: false, tabs: mockTabs1 as ChromeTab[] },
+			{ id: 2, type: 'normal', incognito, focused: true, tabs: mockTabs2 as ChromeTab[] },
+		];
+		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
+		chrome.tabs.query.mockResolvedValue([...mockTabs2, ...mockTabs1] as ChromeTab[]);
+
+		// Act
+		await handlerFunction();
+
+		// Assert
+		// Tab 3 (which was active in focused Window2) should remain/be reactivated
+		expect(chrome.tabs.update).toHaveBeenCalledWith(3, { active: true });
+	});
+
+	it('keeps target window active tab if no other windows have active tabs', async () => {
+		// Arrange: Only Window2 (target, focused) has an active tab
+		const mockTabs1: Partial<ChromeTab>[] = [
+			{ id: 1, windowId: 1, pinned: false, groupId: -1, active: false },
+			{ id: 2, windowId: 1, pinned: false, groupId: -1, active: false },
+		];
+		const mockTabs2: Partial<ChromeTab>[] = [
+			{ id: 3, windowId: 2, pinned: false, groupId: -1, active: true }, // Active in target
+			{ id: 4, windowId: 2, pinned: false, groupId: -1, active: false },
+		];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito, focused: false, tabs: mockTabs1 as ChromeTab[] },
+			{ id: 2, type: 'normal', incognito, focused: true, tabs: mockTabs2 as ChromeTab[] },
+		];
+		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
+		chrome.tabs.query.mockResolvedValue([...mockTabs2, ...mockTabs1] as ChromeTab[]);
+
+		// Act
+		await handlerFunction();
+
+		// Assert
+		// Tab 3 should remain active (focused window's active tab is preserved)
+		expect(chrome.tabs.update).toHaveBeenCalledWith(3, { active: true });
+	});
 };
 
 describe('Window merger functionality', () => {

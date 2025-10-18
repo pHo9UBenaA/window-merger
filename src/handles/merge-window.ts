@@ -307,13 +307,17 @@ const mergeWindow = async (windows: chrome.windows.Window[]) => {
 	const [firstWindow, ...restWindows] = sortedWindows;
 	const targetWindowId = ensureWindowId(firstWindow);
 
-	// Collect active tab IDs from all windows being merged
-	const activeTabIds: number[] = [];
+	// Collect active tab ID from the target window (focused window gets priority)
+	const targetPartition = partitionTabs(safeGetTabs(firstWindow));
+	const targetActiveTabId = targetPartition.activeTabId;
+
+	// Collect active tab IDs from source windows being merged
+	const sourceActiveTabIds: number[] = [];
 
 	const tasks = restWindows.map((window) => {
 		const partition = partitionTabs(safeGetTabs(window));
 		if (typeof partition.activeTabId === 'number') {
-			activeTabIds.push(partition.activeTabId);
+			sourceActiveTabIds.push(partition.activeTabId);
 		}
 		return () =>
 			moveTabsToTargetWindow(partition, targetWindowId)
@@ -326,9 +330,11 @@ const mergeWindow = async (windows: chrome.windows.Window[]) => {
 	// Reorder all tabs to ensure correct layout: pinned → groups → regular
 	await reorderTabsInWindow(targetWindowId);
 
-	// Restore the last active tab (from the last merged window)
-	if (activeTabIds.length > 0) {
-		await reactivateTab(activeTabIds[activeTabIds.length - 1]);
+	// Restore focus: prioritize target window's active tab (focused window)
+	// If target has no active tab, fall back to first source window's active tab
+	const tabToReactivate = targetActiveTabId ?? sourceActiveTabIds[0];
+	if (typeof tabToReactivate === 'number') {
+		await reactivateTab(tabToReactivate);
 	}
 };
 
