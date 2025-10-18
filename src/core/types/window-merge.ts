@@ -18,3 +18,20 @@ export type MergeResult = {
 	/** ID of the tab that should be activated after merge */
 	readonly activeTabId: chrome.tabs.Tab['id'];
 };
+
+/**
+ * Error cases that can occur during window merge operations.
+ */
+export type MergeError =
+	| {
+			readonly type: 'insufficient-windows';
+			readonly message: string;
+	  }
+	| {
+			readonly type: 'no-valid-target';
+			readonly message: string;
+	  }
+	| {
+			readonly type: 'no-active-tab';
+			readonly message: string;
+	  };

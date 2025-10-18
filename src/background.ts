@@ -10,16 +10,16 @@ import { ContextMenuIds, ContextMenuTitles } from './constants/context-menu';
  * @returns Handler function that executes the merge.
  */
 const createMergeHandler = (incognito: boolean) => async (): Promise<void> => {
-	try {
-		const deps = {
-			windowPort: createChromeWindowAdapter(),
-			tabPort: createChromeTabAdapter(),
-			tabGroupPort: createChromeTabGroupAdapter(),
-		};
+	const deps = {
+		windowPort: createChromeWindowAdapter(),
+		tabPort: createChromeTabAdapter(),
+		tabGroupPort: createChromeTabGroupAdapter(),
+	};
 
-		await mergeWindows(incognito, deps);
-	} catch (error) {
-		console.error('Failed to merge windows:', error);
+	const result = await mergeWindows(incognito, deps);
+
+	if (!result.ok) {
+		console.error('Failed to merge windows:', result.error);
 	}
 };
 

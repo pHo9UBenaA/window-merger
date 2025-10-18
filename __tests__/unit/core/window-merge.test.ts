@@ -105,7 +105,7 @@ describe('Core Logic - Window Merge', () => {
 		expect(hasValidTabs(window)).toBe(false);
 	});
 
-	it('planMerge: returns undefined for single window', () => {
+	it('planMerge: returns error for single window', () => {
 		const window = {
 			id: 1,
 			incognito: false,
@@ -117,7 +117,10 @@ describe('Core Logic - Window Merge', () => {
 
 		const result = planMerge([window]);
 
-		expect(result).toBeUndefined();
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.type).toBe('insufficient-windows');
+		}
 	});
 
 	it('planMerge: plans merge for multiple windows', () => {
@@ -140,9 +143,64 @@ describe('Core Logic - Window Merge', () => {
 
 		const result = planMerge([window1, window2]);
 
-		expect(result).toEqual({
-			targetWindowId: 1,
-			activeTabId: 1,
-		});
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.data).toEqual({
+				targetWindowId: 1,
+				activeTabId: 1,
+			});
+		}
+	});
+
+	it('planMerge: returns error when target window has no valid ID', () => {
+		const window1 = {
+			id: undefined,
+			incognito: false,
+			type: 'normal',
+			focused: true,
+			state: 'normal',
+			tabs: [{ id: 1, active: true } as chrome.tabs.Tab],
+		} as unknown as chrome.windows.Window;
+		const window2 = {
+			id: 2,
+			incognito: false,
+			type: 'normal',
+			focused: false,
+			state: 'normal',
+			tabs: [{ id: 2, active: true } as chrome.tabs.Tab],
+		} as unknown as chrome.windows.Window;
+
+		const result = planMerge([window1, window2]);
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.type).toBe('no-valid-target');
+		}
+	});
+
+	it('planMerge: returns error when no active tab found', () => {
+		const window1 = {
+			id: 1,
+			incognito: false,
+			type: 'normal',
+			focused: true,
+			state: 'normal',
+			tabs: [{ id: 1, active: false } as chrome.tabs.Tab],
+		} as unknown as chrome.windows.Window;
+		const window2 = {
+			id: 2,
+			incognito: false,
+			type: 'normal',
+			focused: false,
+			state: 'normal',
+			tabs: [{ id: 2, active: false } as chrome.tabs.Tab],
+		} as unknown as chrome.windows.Window;
+
+		const result = planMerge([window1, window2]);
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.type).toBe('no-active-tab');
+		}
 	});
 });

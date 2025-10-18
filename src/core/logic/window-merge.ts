@@ -4,7 +4,9 @@
  */
 
 import { sortBy } from '../../foundation/array';
-import type { MergeResult } from '../types/window-merge';
+import type { Result } from '../../foundation/result';
+import { failure, success } from '../../foundation/result';
+import type { MergeError, MergeResult } from '../types/window-merge';
 
 /**
  * Sorts windows by merge target priority.
@@ -41,11 +43,16 @@ export const compareWindowsByTargetPriority = (
  * Plans a merge operation from multiple windows.
  * Pure function that determines the merge strategy without executing it.
  * @param windows - Windows to merge (at least 2 required).
- * @returns Merge plan with target and sources, or undefined if merge not possible.
+ * @returns Result containing merge plan or error.
  */
-export const planMerge = (windows: readonly chrome.windows.Window[]): MergeResult | undefined => {
+export const planMerge = (
+	windows: readonly chrome.windows.Window[]
+): Result<MergeResult, MergeError> => {
 	if (windows.length <= 1) {
-		return undefined;
+		return failure({
+			type: 'insufficient-windows',
+			message: 'At least 2 windows are required for merging',
+		});
 	}
 
 	const sorted = sortBy(windows, compareWindowsByTargetPriority);
@@ -53,7 +60,10 @@ export const planMerge = (windows: readonly chrome.windows.Window[]): MergeResul
 
 	// Validate target window has ID
 	if (typeof targetWindow.id !== 'number') {
-		return undefined;
+		return failure({
+			type: 'no-valid-target',
+			message: 'Target window does not have a valid ID',
+		});
 	}
 
 	// Find active tab - first check target window, then source windows
@@ -68,10 +78,17 @@ export const planMerge = (windows: readonly chrome.windows.Window[]): MergeResul
 		}
 	}
 
-	return {
+	if (typeof activeTabId !== 'number') {
+		return failure({
+			type: 'no-active-tab',
+			message: 'No active tab found in any window',
+		});
+	}
+
+	return success({
 		targetWindowId: targetWindow.id,
 		activeTabId,
-	};
+	});
 };
 
 /**

@@ -18,7 +18,7 @@ describe('App Layer - Merge Windows', () => {
 		const deps = createMockMergeWindowsDeps();
 
 		const windows: chrome.windows.Window[] = [
-			createMockChromeWindow(1, [{ id: 3 }]),
+			createMockChromeWindow(1, [{ id: 3, active: true }]),
 			createMockChromeWindow(2, [{ id: 1 }, { id: 2, pinned: true }]),
 		];
 
@@ -29,8 +29,9 @@ describe('App Layer - Merge Windows', () => {
 			{ id: 3, groupId: -1, pinned: false } as chrome.tabs.Tab,
 		]);
 
-		await mergeWindows(false, deps);
+		const result = await mergeWindows(false, deps);
 
+		expect(result.ok).toBe(true);
 		expect(deps.mocks.getAllWindows).toHaveBeenCalledWith(true);
 		expect(deps.mocks.moveTabs).toHaveBeenCalled();
 	});
@@ -39,7 +40,7 @@ describe('App Layer - Merge Windows', () => {
 		const deps = createMockMergeWindowsDeps();
 
 		const windows: chrome.windows.Window[] = [
-			createMockChromeWindow(1, [{ id: 3 }]),
+			createMockChromeWindow(1, [{ id: 3, active: true }]),
 			createMockChromeWindow(2, [{ id: 1 }, { id: 2, pinned: true }]),
 		];
 
@@ -55,7 +56,7 @@ describe('App Layer - Merge Windows', () => {
 		const deps = createMockMergeWindowsDeps();
 
 		const windows: chrome.windows.Window[] = [
-			createMockChromeWindow(1, [{ id: 3 }]),
+			createMockChromeWindow(1, [{ id: 3, active: true }]),
 			createMockChromeWindow(2, [
 				{ id: 1, groupId: 1 },
 				{ id: 2, groupId: 1 },
@@ -83,7 +84,10 @@ describe('App Layer - Merge Windows', () => {
 
 		const result = await mergeWindows(false, deps);
 
-		expect(result).toBeUndefined();
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.type).toBe('insufficient-windows');
+		}
 		expect(deps.mocks.moveTabs).not.toHaveBeenCalled();
 	});
 
@@ -99,7 +103,10 @@ describe('App Layer - Merge Windows', () => {
 
 		const result = await mergeWindows(false, deps);
 
-		expect(result).toBeUndefined();
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.type).toBe('insufficient-windows');
+		}
 		expect(deps.mocks.moveTabs).not.toHaveBeenCalled();
 	});
 
@@ -115,7 +122,10 @@ describe('App Layer - Merge Windows', () => {
 
 		const result = await mergeWindows(false, deps);
 
-		expect(result).toBeUndefined();
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.type).toBe('insufficient-windows');
+		}
 		expect(deps.mocks.moveTabs).not.toHaveBeenCalled();
 	});
 
@@ -123,7 +133,7 @@ describe('App Layer - Merge Windows', () => {
 		const deps = createMockMergeWindowsDeps();
 
 		const windows: chrome.windows.Window[] = [
-			createMockChromeWindow(1, [{ id: 3 }]),
+			createMockChromeWindow(1, [{ id: 3, active: true }]),
 			createMockChromeWindow(2, [
 				{ id: 1, mutedInfo: { muted: true } },
 				{ id: 2, mutedInfo: { muted: false } },
@@ -144,7 +154,7 @@ describe('App Layer - Merge Windows', () => {
 
 		const windows: chrome.windows.Window[] = [
 			createMockChromeWindow(1, [{ id: 1 }]),
-			createMockChromeWindow(2, [{ id: 2 }], { focused: true }),
+			createMockChromeWindow(2, [{ id: 2, active: true }], { focused: true }),
 		];
 
 		deps.mocks.getAllWindows.mockResolvedValue(windows);

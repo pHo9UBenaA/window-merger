@@ -5,7 +5,9 @@
  */
 
 import { hasValidTabs, planMerge } from '../core/logic/window-merge';
-import { type MergeResult, TARGET_WINDOW_TYPE } from '../core/types/window-merge';
+import { type MergeError, type MergeResult, TARGET_WINDOW_TYPE } from '../core/types/window-merge';
+import type { Result } from '../foundation/result';
+import { failure } from '../foundation/result';
 import type { TabPort } from '../ports/tab';
 import type { TabGroupPort } from '../ports/tab-group';
 import type { WindowPort } from '../ports/window';
@@ -188,31 +190,31 @@ const reorderTabsInWindow = async (
  * Executes the merge operation.
  * @param windows - Windows to merge.
  * @param deps - Port dependencies.
- * @returns MergeResult or undefined if merge not executed.
+ * @returns Result containing MergeResult or error.
  */
 const executeMerge = async (
 	windows: readonly chrome.windows.Window[],
 	deps: MergeWindowsDeps
-): Promise<MergeResult | undefined> => {
+): Promise<Result<MergeResult, MergeError>> => {
 	const plan = planMerge(windows);
 
-	if (plan === undefined) {
-		return undefined;
+	if (!plan.ok) {
+		return plan;
 	}
 
-	const sourceWindows = windows.filter((window) => window.id !== plan.targetWindowId);
+	const sourceWindows = windows.filter((window) => window.id !== plan.data.targetWindowId);
 
 	// Move tabs from each source window sequentially
 	for (const sourceWindow of sourceWindows) {
-		await moveTabsToTarget(sourceWindow.tabs ?? [], plan.targetWindowId, deps);
+		await moveTabsToTarget(sourceWindow.tabs ?? [], plan.data.targetWindowId, deps);
 	}
 
 	// Reorder all tabs in target window
-	await reorderTabsInWindow(plan.targetWindowId, deps);
+	await reorderTabsInWindow(plan.data.targetWindowId, deps);
 
 	// Activate the determined tab
-	if (typeof plan.activeTabId === 'number') {
-		await deps.tabPort.updateTab(plan.activeTabId, { active: true });
+	if (typeof plan.data.activeTabId === 'number') {
+		await deps.tabPort.updateTab(plan.data.activeTabId, { active: true });
 	}
 
 	return plan;
@@ -223,17 +225,20 @@ const executeMerge = async (
  * Main entry point for the merge windows use case.
  * @param incognito - Whether to merge incognito or regular windows.
  * @param deps - Injected port dependencies.
- * @returns MergeResult or undefined if merge was not performed.
+ * @returns Result containing MergeResult or error.
  */
 export const mergeWindows = async (
 	incognito: boolean,
 	deps: MergeWindowsDeps
-): Promise<MergeResult | undefined> => {
+): Promise<Result<MergeResult, MergeError>> => {
 	const rawWindows = await deps.windowPort.getAllWindows(true);
 	const windows = filterWindows(rawWindows, incognito);
 
 	if (windows.length <= 1) {
-		return undefined;
+		return failure({
+			type: 'insufficient-windows',
+			message: 'At least 2 windows are required for merging',
+		});
 	}
 
 	return executeMerge(windows, deps);
