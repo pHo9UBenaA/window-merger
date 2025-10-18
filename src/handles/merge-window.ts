@@ -56,12 +56,13 @@ type TabPartition = {
 	ungroupedTabIds: number[];
 	pinnedTabIds: number[];
 	mutedTabIds: number[];
+	autoDiscardableMap: Map<number, boolean>;
 };
 
 const partitionTabs = (tabs: chrome.tabs.Tab[]): TabPartition => {
 	const interim = tabs.reduce(
 		(accumulator, tab) => {
-			const { id, groupId, pinned, mutedInfo } = tab;
+			const { id, groupId, pinned, mutedInfo, autoDiscardable } = tab;
 			const isGrouped = typeof groupId === 'number' && groupId > 0;
 
 			if (isGrouped) {
@@ -80,6 +81,10 @@ const partitionTabs = (tabs: chrome.tabs.Tab[]): TabPartition => {
 				if (mutedInfo?.muted === true) {
 					accumulator.mutedTabIds.push(id);
 				}
+
+				if (typeof autoDiscardable === 'boolean') {
+					accumulator.autoDiscardableMap.set(id, autoDiscardable);
+				}
 			}
 
 			return accumulator;
@@ -89,6 +94,7 @@ const partitionTabs = (tabs: chrome.tabs.Tab[]): TabPartition => {
 			ungroupedTabIds: [] as number[],
 			pinnedTabIds: [] as number[],
 			mutedTabIds: [] as number[],
+			autoDiscardableMap: new Map<number, boolean>(),
 		}
 	);
 
@@ -97,6 +103,7 @@ const partitionTabs = (tabs: chrome.tabs.Tab[]): TabPartition => {
 		ungroupedTabIds: interim.ungroupedTabIds,
 		pinnedTabIds: interim.pinnedTabIds,
 		mutedTabIds: interim.mutedTabIds,
+		autoDiscardableMap: interim.autoDiscardableMap,
 	};
 };
 
@@ -170,6 +177,23 @@ const remuteTabs = async (tabIds: number[]): Promise<void> => {
 	await Promise.all(tabIds.map((tabId) => chrome.tabs.update(tabId, { muted: true })));
 };
 
+/**
+ * Re-applies autoDiscardable settings lost during Chrome's tab move operations.
+ * Restores user-configured auto-discard preferences for memory management.
+ * @param autoDiscardableMap - Map of tab IDs to their autoDiscardable values.
+ */
+const restoreAutoDiscardable = async (autoDiscardableMap: Map<number, boolean>): Promise<void> => {
+	if (autoDiscardableMap.size === 0) {
+		return;
+	}
+
+	await Promise.all(
+		Array.from(autoDiscardableMap.entries()).map(([tabId, autoDiscardable]) =>
+			chrome.tabs.update(tabId, { autoDiscardable })
+		)
+	);
+};
+
 const runSequentially = (tasks: Array<() => Promise<void>>): Promise<void> =>
 	tasks.reduce<Promise<void>>((previous, task) => previous.then(() => task()), Promise.resolve());
 
@@ -230,7 +254,8 @@ const mergeWindow = async (windows: chrome.windows.Window[]) => {
 		return () =>
 			moveTabsToTargetWindow(partition, targetWindowId)
 				.then(() => repinTabs(partition.pinnedTabIds))
-				.then(() => remuteTabs(partition.mutedTabIds));
+				.then(() => remuteTabs(partition.mutedTabIds))
+				.then(() => restoreAutoDiscardable(partition.autoDiscardableMap));
 	});
 
 	await runSequentially(tasks);
