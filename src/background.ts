@@ -1,5 +1,30 @@
+import { createChromeTabAdapter } from './adapters/chrome/tab';
+import { createChromeTabGroupAdapter } from './adapters/chrome/tab-group';
+import { createChromeWindowAdapter } from './adapters/chrome/window';
+import { mergeWindows } from './app/merge-windows';
 import { ContextMenuIds, ContextMenuTitles } from './constants/context-menu';
-import { handleMergeIncognitoWindowEvent, handleMergeWindowEvent } from './handles/merge-window';
+
+/**
+ * Creates a merge handler with injected dependencies.
+ * @param incognito - Whether to merge incognito or regular windows.
+ * @returns Handler function that executes the merge.
+ */
+const createMergeHandler = (incognito: boolean) => async (): Promise<void> => {
+	try {
+		const deps = {
+			windowPort: createChromeWindowAdapter(),
+			tabPort: createChromeTabAdapter(),
+			tabGroupPort: createChromeTabGroupAdapter(),
+		};
+
+		await mergeWindows(incognito, deps);
+	} catch (error) {
+		console.error('Failed to merge windows:', error);
+	}
+};
+
+const handleMergeWindowEvent = createMergeHandler(false);
+const handleMergeIncognitoWindowEvent = createMergeHandler(true);
 
 const handleMapper = {
 	[ContextMenuIds.mergeWindow]: handleMergeWindowEvent,
