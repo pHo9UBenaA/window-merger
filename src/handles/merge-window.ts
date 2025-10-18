@@ -170,30 +170,6 @@ const remuteTabs = async (tabIds: number[]): Promise<void> => {
 	await Promise.all(tabIds.map((tabId) => chrome.tabs.update(tabId, { muted: true })));
 };
 
-/**
- * Finds the active tab ID in a window.
- * @param window - Window to search for active tab.
- * @returns Active tab ID, or undefined if not found.
- */
-const findActiveTabId = (window: chrome.windows.Window): number | undefined => {
-	const tabs = safeGetTabs(window);
-	const activeTab = tabs.find((tab) => tab.active === true);
-	return activeTab?.id;
-};
-
-/**
- * Re-activates a specific tab in the target window.
- * Ensures the user's focused tab remains active after merge operations.
- * @param tabId - Identifier of the tab to activate.
- */
-const reactivateTab = async (tabId: number | undefined): Promise<void> => {
-	if (typeof tabId !== 'number') {
-		return;
-	}
-
-	await chrome.tabs.update(tabId, { active: true });
-};
-
 const runSequentially = (tasks: Array<() => Promise<void>>): Promise<void> =>
 	tasks.reduce<Promise<void>>((previous, task) => previous.then(() => task()), Promise.resolve());
 
@@ -248,7 +224,6 @@ const mergeWindow = async (windows: chrome.windows.Window[]) => {
 	const sortedWindows = [...validWindows].sort(sortWindowsByTargetPriority);
 	const [firstWindow, ...restWindows] = sortedWindows;
 	const targetWindowId = ensureWindowId(firstWindow);
-	const activeTabId = findActiveTabId(firstWindow);
 
 	const tasks = restWindows.map((window) => {
 		const partition = partitionTabs(safeGetTabs(window));
@@ -259,7 +234,6 @@ const mergeWindow = async (windows: chrome.windows.Window[]) => {
 	});
 
 	await runSequentially(tasks);
-	await reactivateTab(activeTabId);
 };
 
 const mergeWindowsByIncognito = (incognito: boolean) =>
