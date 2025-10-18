@@ -377,6 +377,57 @@ const runTestsForHandler = (
 		);
 		expect(autoDiscardCalls).toHaveLength(0);
 	});
+
+	it('preserves active tab in target window after merging', async () => {
+		// Arrange
+		const mockTabs1: Partial<ChromeTab>[] = [
+			{ id: 1, windowId: 1, pinned: false, active: true }, // Active tab in target window
+			{ id: 2, windowId: 1, pinned: false, active: false },
+		];
+		const mockTabs2: Partial<ChromeTab>[] = [
+			{ id: 3, windowId: 2, pinned: false, active: true }, // Active in source window
+		];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito, tabs: mockTabs1 as ChromeTab[] },
+			{ id: 2, type: 'normal', incognito, tabs: mockTabs2 as ChromeTab[] },
+		];
+		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
+
+		// Act
+		await handlerFunction();
+
+		// Assert
+		// Tab 1 should remain active in the target window
+		expect(chrome.tabs.update).toHaveBeenCalledWith(1, { active: true });
+	});
+
+	it('handles windows without active tab', async () => {
+		// Arrange
+		const mockTabs1: Partial<ChromeTab>[] = [
+			{ id: 1, windowId: 1, pinned: false, active: false }, // No active tab
+			{ id: 2, windowId: 1, pinned: false, active: false },
+		];
+		const mockTabs2: Partial<ChromeTab>[] = [
+			{ id: 3, windowId: 2, pinned: false, active: true },
+		];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito, tabs: mockTabs1 as ChromeTab[] },
+			{ id: 2, type: 'normal', incognito, tabs: mockTabs2 as ChromeTab[] },
+		];
+		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
+
+		// Act
+		await handlerFunction();
+
+		// Assert
+		// Should not crash even if no active tab is found
+		const updateMock = chrome.tabs.update as unknown as {
+			mock: { calls: Array<[number, { active?: boolean }]> };
+		};
+		const activateCalls = updateMock.mock.calls.filter((call) => call[1]?.active === true);
+		// No activation call should be made (or only for non-undefined tab IDs)
+		expect(activateCalls.every((call) => typeof call[0] === 'number')).toBe(true);
+	});
 };
 
 describe('Window merger functionality', () => {
