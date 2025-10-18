@@ -56,12 +56,13 @@ type TabPartition = {
 	ungroupedTabIds: number[];
 	pinnedTabIds: number[];
 	mutedTabIds: number[];
+	activeTabId: number | undefined;
 };
 
 const partitionTabs = (tabs: chrome.tabs.Tab[]): TabPartition => {
 	const interim = tabs.reduce(
 		(accumulator, tab) => {
-			const { id, groupId, pinned, mutedInfo } = tab;
+			const { id, groupId, pinned, mutedInfo, active } = tab;
 			const isGrouped = typeof groupId === 'number' && groupId > 0;
 
 			if (isGrouped) {
@@ -80,6 +81,10 @@ const partitionTabs = (tabs: chrome.tabs.Tab[]): TabPartition => {
 				if (mutedInfo?.muted === true) {
 					accumulator.mutedTabIds.push(id);
 				}
+
+				if (active === true) {
+					accumulator.activeTabId = id;
+				}
 			}
 
 			return accumulator;
@@ -89,6 +94,7 @@ const partitionTabs = (tabs: chrome.tabs.Tab[]): TabPartition => {
 			ungroupedTabIds: [] as number[],
 			pinnedTabIds: [] as number[],
 			mutedTabIds: [] as number[],
+			activeTabId: undefined as number | undefined,
 		}
 	);
 
@@ -97,6 +103,7 @@ const partitionTabs = (tabs: chrome.tabs.Tab[]): TabPartition => {
 		ungroupedTabIds: interim.ungroupedTabIds,
 		pinnedTabIds: interim.pinnedTabIds,
 		mutedTabIds: interim.mutedTabIds,
+		activeTabId: interim.activeTabId,
 	};
 };
 
@@ -131,7 +138,9 @@ const moveUngroupedTabs = async (
 
 /**
  * Relocates the given tabs into the target window without breaking Chrome tab groups.
- * Runs group moves first so membership survives, then appends loose tabs with `chrome.tabs.move`.
+ * Moves tabs to achieve final layout: pinned tabs → tab groups → regular tabs (all in chronological order).
+ * With index: -1 (append to end): grouped tabs first, then ungrouped tabs.
+ * Finally, pinning is restored which moves pinned tabs to the front automatically.
  * @param partition - Tabs scheduled for relocation partitioned by their characteristics.
  * @param targetWindowId - Identifier of the destination window.
  */
@@ -141,8 +150,11 @@ const moveTabsToTargetWindow = async (
 ): Promise<void> => {
 	const moveProperties = createMoveProperties(targetWindowId);
 
+	// Move grouped tabs first (they appear at the end, but before ungrouped)
 	await moveGroupedTabs(partition.groupIds, moveProperties);
+	// Move ungrouped tabs second (they appear after grouped tabs)
 	await moveUngroupedTabs(partition.ungroupedTabIds, moveProperties);
+	// Finally, repinTabs will move pinned tabs to the front
 };
 
 /**
@@ -168,6 +180,19 @@ const remuteTabs = async (tabIds: number[]): Promise<void> => {
 	}
 
 	await Promise.all(tabIds.map((tabId) => chrome.tabs.update(tabId, { muted: true })));
+};
+
+/**
+ * Restores the active tab state after merge operations.
+ * Ensures the user's focused tab remains active.
+ * @param tabId - Identifier of the tab to activate, or undefined to skip.
+ */
+const reactivateTab = async (tabId: number | undefined): Promise<void> => {
+	if (typeof tabId !== 'number') {
+		return;
+	}
+
+	await chrome.tabs.update(tabId, { active: true });
 };
 
 const runSequentially = (tasks: Array<() => Promise<void>>): Promise<void> =>
@@ -225,8 +250,14 @@ const mergeWindow = async (windows: chrome.windows.Window[]) => {
 	const [firstWindow, ...restWindows] = sortedWindows;
 	const targetWindowId = ensureWindowId(firstWindow);
 
+	// Collect active tab IDs from all windows being merged
+	const activeTabIds: number[] = [];
+
 	const tasks = restWindows.map((window) => {
 		const partition = partitionTabs(safeGetTabs(window));
+		if (typeof partition.activeTabId === 'number') {
+			activeTabIds.push(partition.activeTabId);
+		}
 		return () =>
 			moveTabsToTargetWindow(partition, targetWindowId)
 				.then(() => repinTabs(partition.pinnedTabIds))
@@ -234,6 +265,11 @@ const mergeWindow = async (windows: chrome.windows.Window[]) => {
 	});
 
 	await runSequentially(tasks);
+
+	// Restore the last active tab (from the last merged window)
+	if (activeTabIds.length > 0) {
+		await reactivateTab(activeTabIds[activeTabIds.length - 1]);
+	}
 };
 
 const mergeWindowsByIncognito = (incognito: boolean) =>
