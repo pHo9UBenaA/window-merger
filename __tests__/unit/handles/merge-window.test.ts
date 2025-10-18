@@ -14,13 +14,14 @@ const runTestsForHandler = (
 ) => {
 	it('merges multiple windows together', async () => {
 		// Arrange
-		const mockTabs: Partial<ChromeTab>[] = [
+		const mockTabs1: Partial<ChromeTab>[] = [{ id: 3, windowId: 1, pinned: false }];
+		const mockTabs2: Partial<ChromeTab>[] = [
 			{ id: 1, windowId: 2, pinned: false },
 			{ id: 2, windowId: 2, pinned: true },
 		];
 		const mockWindows: Partial<ChromeWindow>[] = [
-			{ id: 1, type: 'normal', incognito },
-			{ id: 2, type: 'normal', incognito, tabs: mockTabs as ChromeTab[] },
+			{ id: 1, type: 'normal', incognito, tabs: mockTabs1 as ChromeTab[] },
+			{ id: 2, type: 'normal', incognito, tabs: mockTabs2 as ChromeTab[] },
 		];
 		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
 
@@ -34,16 +35,17 @@ const runTestsForHandler = (
 
 	it('retains pinned tabs after merging', async () => {
 		// Arrange
-		const mockTabs: Partial<ChromeTab>[] = [
+		const mockTabs1: Partial<ChromeTab>[] = [{ id: 3, windowId: 1, pinned: false }];
+		const mockTabs2: Partial<ChromeTab>[] = [
 			{ id: 1, windowId: 2, pinned: false },
 			{ id: 2, windowId: 2, pinned: true },
 		];
 		const mockWindows: Partial<ChromeWindow>[] = [
-			{ id: 1, type: 'normal', incognito },
-			{ id: 2, type: 'normal', incognito, tabs: mockTabs as ChromeTab[] },
+			{ id: 1, type: 'normal', incognito, tabs: mockTabs1 as ChromeTab[] },
+			{ id: 2, type: 'normal', incognito, tabs: mockTabs2 as ChromeTab[] },
 		];
 		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
-		chrome.tabs.query.mockResolvedValue(mockTabs as ChromeTab[]);
+		chrome.tabs.query.mockResolvedValue(mockTabs2 as ChromeTab[]);
 
 		// Act
 		await handlerFunction();
@@ -54,13 +56,14 @@ const runTestsForHandler = (
 
 	it('preserves tab groups after merging', async () => {
 		// Arrange
-		const mockTabs: Partial<ChromeTab>[] = [
+		const mockTabs1: Partial<ChromeTab>[] = [{ id: 3, windowId: 1, groupId: -1 }];
+		const mockTabs2: Partial<ChromeTab>[] = [
 			{ id: 1, windowId: 2, groupId: 1 },
 			{ id: 2, windowId: 2, groupId: 1 },
 		];
 		const mockWindows: Partial<ChromeWindow>[] = [
-			{ id: 1, type: 'normal', incognito },
-			{ id: 2, type: 'normal', incognito, tabs: mockTabs as ChromeTab[] },
+			{ id: 1, type: 'normal', incognito, tabs: mockTabs1 as ChromeTab[] },
+			{ id: 2, type: 'normal', incognito, tabs: mockTabs2 as ChromeTab[] },
 		];
 		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
 
@@ -73,7 +76,10 @@ const runTestsForHandler = (
 
 	it('does nothing when only one window exists', async () => {
 		// Arrange
-		const mockWindows: Partial<ChromeWindow>[] = [{ id: 1, type: 'normal', incognito }];
+		const mockTabs: Partial<ChromeTab>[] = [{ id: 1, windowId: 1, pinned: false }];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito, tabs: mockTabs as ChromeTab[] },
+		];
 		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
 
 		// Act
@@ -86,9 +92,11 @@ const runTestsForHandler = (
 
 	it('does not mix normal and incognito windows', async () => {
 		// Arrange
+		const mockTabs1: Partial<ChromeTab>[] = [{ id: 1, windowId: 1, pinned: false }];
+		const mockTabs2: Partial<ChromeTab>[] = [{ id: 2, windowId: 2, pinned: false }];
 		const mockWindows: Partial<ChromeWindow>[] = [
-			{ id: 1, type: 'normal', incognito },
-			{ id: 2, type: 'normal', incognito: !incognito },
+			{ id: 1, type: 'normal', incognito, tabs: mockTabs1 as ChromeTab[] },
+			{ id: 2, type: 'normal', incognito: !incognito, tabs: mockTabs2 as ChromeTab[] },
 		];
 		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
 
@@ -114,6 +122,101 @@ const runTestsForHandler = (
 			expect.any(Error) // Validate that an Error instance reaches the logger
 		);
 		expect(consoleSpy.mock.calls[0][1].message).toBe('Test error');
+	});
+
+	it('safely skips windows with no tabs', async () => {
+		// Arrange
+		const mockTabs: Partial<ChromeTab>[] = [{ id: 1, windowId: 2, pinned: false }];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito, tabs: [] }, // Empty tabs
+			{ id: 2, type: 'normal', incognito, tabs: mockTabs as ChromeTab[] },
+		];
+		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
+
+		// Act
+		await handlerFunction();
+
+		// Assert
+		expect(chrome.windows.getAll).toHaveBeenCalledWith({ populate: true });
+		expect(chrome.tabs.move).not.toHaveBeenCalled(); // Only one valid window, no merge
+	});
+
+	it('safely skips windows without tabs property', async () => {
+		// Arrange
+		const mockTabs: Partial<ChromeTab>[] = [{ id: 1, windowId: 2, pinned: false }];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito }, // No tabs property
+			{ id: 2, type: 'normal', incognito, tabs: mockTabs as ChromeTab[] },
+		];
+		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
+
+		// Act
+		await handlerFunction();
+
+		// Assert
+		expect(chrome.windows.getAll).toHaveBeenCalledWith({ populate: true });
+		expect(chrome.tabs.move).not.toHaveBeenCalled(); // Only one valid window, no merge
+	});
+
+	it('does not crash when all windows are empty', async () => {
+		// Arrange
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito, tabs: [] },
+			{ id: 2, type: 'normal', incognito, tabs: [] },
+		];
+		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
+
+		// Act
+		await handlerFunction();
+
+		// Assert
+		expect(chrome.windows.getAll).toHaveBeenCalledWith({ populate: true });
+		expect(chrome.tabs.move).not.toHaveBeenCalled();
+	});
+
+	it('retains muted state after merging', async () => {
+		// Arrange
+		const mockTabs1: Partial<ChromeTab>[] = [{ id: 3, windowId: 1, pinned: false }];
+		const mockTabs2: Partial<ChromeTab>[] = [
+			{ id: 1, windowId: 2, pinned: false, mutedInfo: { muted: true } },
+			{ id: 2, windowId: 2, pinned: false, mutedInfo: { muted: false } },
+		];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito, tabs: mockTabs1 as ChromeTab[] },
+			{ id: 2, type: 'normal', incognito, tabs: mockTabs2 as ChromeTab[] },
+		];
+		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
+
+		// Act
+		await handlerFunction();
+
+		// Assert
+		expect(chrome.tabs.update).toHaveBeenCalledWith(1, { muted: true });
+		expect(chrome.tabs.update).not.toHaveBeenCalledWith(2, { muted: true });
+	});
+
+	it('does not modify unmuted tabs', async () => {
+		// Arrange
+		const mockTabs1: Partial<ChromeTab>[] = [{ id: 3, windowId: 1, pinned: false }];
+		const mockTabs2: Partial<ChromeTab>[] = [
+			{ id: 1, windowId: 2, pinned: false, mutedInfo: { muted: false } },
+			{ id: 2, windowId: 2, pinned: false },
+		];
+		const mockWindows: Partial<ChromeWindow>[] = [
+			{ id: 1, type: 'normal', incognito, tabs: mockTabs1 as ChromeTab[] },
+			{ id: 2, type: 'normal', incognito, tabs: mockTabs2 as ChromeTab[] },
+		];
+		chrome.windows.getAll.mockResolvedValue(mockWindows as ChromeWindow[]);
+
+		// Act
+		await handlerFunction();
+
+		// Assert
+		const updateMock = chrome.tabs.update as unknown as {
+			mock: { calls: Array<[number, { muted?: boolean }]> };
+		};
+		const mutedCalls = updateMock.mock.calls.filter((call) => call[1]?.muted === true);
+		expect(mutedCalls).toHaveLength(0);
 	});
 };
 

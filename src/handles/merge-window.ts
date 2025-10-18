@@ -20,10 +20,13 @@ const isWindowType = <T extends boolean>(
 
 const filterByWindowType =
 	<T extends boolean>(incognito: T) =>
-	(window: chrome.windows.Window): window is chrome.windows.Window & {
+	(
+		window: chrome.windows.Window
+	): window is chrome.windows.Window & {
 		incognito: T;
 		type: typeof targetWindowType;
-	} => isWindowType(window, { incognito });
+	} =>
+		isWindowType(window, { incognito });
 
 const ensureWindowId = (window: chrome.windows.Window): number => {
 	if (typeof window.id === 'number') {
@@ -33,26 +36,32 @@ const ensureWindowId = (window: chrome.windows.Window): number => {
 	throw new Error('The first window is undefined or null.');
 };
 
-const ensureTabs = (window: chrome.windows.Window): chrome.tabs.Tab[] => {
+/**
+ * Safely retrieves tabs from a window.
+ * Returns an empty array if tabs are not available, preventing crashes.
+ * @param window - Window returned from the Chrome API.
+ * @returns Array of tabs, or empty array if tabs are not available.
+ */
+const safeGetTabs = (window: chrome.windows.Window): chrome.tabs.Tab[] => {
 	if (Array.isArray(window.tabs)) {
 		return window.tabs;
 	}
 
-	throw new Error(
-		`Window with id ${window.id ?? 'unknown'} does not have any tabs: ${JSON.stringify(window)}`
-	);
+	console.debug(`Window with id ${window.id ?? 'unknown'} has no tabs; skipping.`);
+	return [];
 };
 
 type TabPartition = {
 	groupIds: number[];
 	ungroupedTabIds: number[];
 	pinnedTabIds: number[];
+	mutedTabIds: number[];
 };
 
 const partitionTabs = (tabs: chrome.tabs.Tab[]): TabPartition => {
 	const interim = tabs.reduce(
 		(accumulator, tab) => {
-			const { id, groupId, pinned } = tab;
+			const { id, groupId, pinned, mutedInfo } = tab;
 			const isGrouped = typeof groupId === 'number' && groupId > 0;
 
 			if (isGrouped) {
@@ -67,6 +76,10 @@ const partitionTabs = (tabs: chrome.tabs.Tab[]): TabPartition => {
 				if (pinned) {
 					accumulator.pinnedTabIds.push(id);
 				}
+
+				if (mutedInfo?.muted === true) {
+					accumulator.mutedTabIds.push(id);
+				}
 			}
 
 			return accumulator;
@@ -75,6 +88,7 @@ const partitionTabs = (tabs: chrome.tabs.Tab[]): TabPartition => {
 			groupIds: new Set<number>(),
 			ungroupedTabIds: [] as number[],
 			pinnedTabIds: [] as number[],
+			mutedTabIds: [] as number[],
 		}
 	);
 
@@ -82,6 +96,7 @@ const partitionTabs = (tabs: chrome.tabs.Tab[]): TabPartition => {
 		groupIds: [...interim.groupIds],
 		ungroupedTabIds: interim.ungroupedTabIds,
 		pinnedTabIds: interim.pinnedTabIds,
+		mutedTabIds: interim.mutedTabIds,
 	};
 };
 
@@ -100,9 +115,7 @@ const moveGroupedTabs = async (
 		return;
 	}
 
-	await Promise.all(
-		groupIds.map((groupId) => chrome.tabGroups.move(groupId, moveProperties))
-	);
+	await Promise.all(groupIds.map((groupId) => chrome.tabGroups.move(groupId, moveProperties)));
 };
 
 const moveUngroupedTabs = async (
@@ -144,26 +157,50 @@ const repinTabs = async (tabIds: number[]): Promise<void> => {
 	await Promise.all(tabIds.map((tabId) => chrome.tabs.update(tabId, { pinned: true })));
 };
 
-const runSequentially = (tasks: Array<() => Promise<void>>): Promise<void> =>
-	tasks.reduce<Promise<void>>(
-		(previous, task) => previous.then(() => task()),
-		Promise.resolve()
-	);
-
-const mergeWindow = async (windows: chrome.windows.Window[]) => {
-	if (windows.length <= 1) {
+/**
+ * Re-applies muted state lost during Chrome's tab move operations.
+ * Must be called after repinTabs to avoid interference with pin restoration.
+ * @param tabIds - Identifiers of tabs whose muted status must be restored.
+ */
+const remuteTabs = async (tabIds: number[]): Promise<void> => {
+	if (tabIds.length === 0) {
 		return;
 	}
 
-	const [firstWindow, ...restWindows] = windows;
+	await Promise.all(tabIds.map((tabId) => chrome.tabs.update(tabId, { muted: true })));
+};
+
+const runSequentially = (tasks: Array<() => Promise<void>>): Promise<void> =>
+	tasks.reduce<Promise<void>>((previous, task) => previous.then(() => task()), Promise.resolve());
+
+/**
+ * Filters out windows that have no tabs or empty tab arrays.
+ * Prevents exceptions when processing windows without meaningful content.
+ * @param window - Window to validate.
+ * @returns `true` if the window has at least one tab.
+ */
+const hasValidTabs = (window: chrome.windows.Window): boolean => {
+	const tabs = safeGetTabs(window);
+	return tabs.length > 0;
+};
+
+const mergeWindow = async (windows: chrome.windows.Window[]) => {
+	const validWindows = windows.filter(hasValidTabs);
+
+	if (validWindows.length <= 1) {
+		console.debug(`Merge skipped: only ${validWindows.length} valid window(s) found.`);
+		return;
+	}
+
+	const [firstWindow, ...restWindows] = validWindows;
 	const targetWindowId = ensureWindowId(firstWindow);
 
 	const tasks = restWindows.map((window) => {
-		const partition = partitionTabs(ensureTabs(window));
+		const partition = partitionTabs(safeGetTabs(window));
 		return () =>
-			moveTabsToTargetWindow(partition, targetWindowId).then(() =>
-				repinTabs(partition.pinnedTabIds)
-			);
+			moveTabsToTargetWindow(partition, targetWindowId)
+				.then(() => repinTabs(partition.pinnedTabIds))
+				.then(() => remuteTabs(partition.mutedTabIds));
 	});
 
 	await runSequentially(tasks);
