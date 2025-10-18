@@ -17,7 +17,6 @@ describe('Core Logic - Window Merge', () => {
 			incognito: false,
 			type: 'normal',
 			focused: true,
-			state: 'normal',
 			tabs: [],
 		} as unknown as chrome.windows.Window;
 		const notFocused = {
@@ -25,7 +24,6 @@ describe('Core Logic - Window Merge', () => {
 			incognito: false,
 			type: 'normal',
 			focused: false,
-			state: 'normal',
 			tabs: [],
 		} as unknown as chrome.windows.Window;
 
@@ -33,47 +31,43 @@ describe('Core Logic - Window Merge', () => {
 		expect(compareWindowsByTargetPriority(notFocused, focused)).toBe(1);
 	});
 
-	it('compareWindowsByTargetPriority: prioritizes normal/maximized over minimized', () => {
-		const normal = {
+	it('compareWindowsByTargetPriority: prioritizes older windows by ID (creation order)', () => {
+		const olderWindow = {
 			id: 1,
 			incognito: false,
 			type: 'normal',
 			focused: false,
-			state: 'normal',
 			tabs: [],
 		} as unknown as chrome.windows.Window;
-		const minimized = {
-			id: 2,
+		const newerWindow = {
+			id: 5,
 			incognito: false,
 			type: 'normal',
 			focused: false,
-			state: 'minimized',
 			tabs: [],
 		} as unknown as chrome.windows.Window;
 
-		expect(compareWindowsByTargetPriority(normal, minimized)).toBe(-1);
-		expect(compareWindowsByTargetPriority(minimized, normal)).toBe(1);
+		expect(compareWindowsByTargetPriority(olderWindow, newerWindow)).toBe(-4);
+		expect(compareWindowsByTargetPriority(newerWindow, olderWindow)).toBe(4);
 	});
 
-	it('compareWindowsByTargetPriority: focused takes priority over state', () => {
-		const focusedMinimized = {
-			id: 1,
+	it('compareWindowsByTargetPriority: focused takes priority over creation order', () => {
+		const focusedNewer = {
+			id: 5,
 			incognito: false,
 			type: 'normal',
 			focused: true,
-			state: 'minimized',
 			tabs: [],
 		} as unknown as chrome.windows.Window;
-		const notFocusedNormal = {
-			id: 2,
+		const notFocusedOlder = {
+			id: 1,
 			incognito: false,
 			type: 'normal',
 			focused: false,
-			state: 'normal',
 			tabs: [],
 		} as unknown as chrome.windows.Window;
 
-		expect(compareWindowsByTargetPriority(focusedMinimized, notFocusedNormal)).toBe(-1);
+		expect(compareWindowsByTargetPriority(focusedNewer, notFocusedOlder)).toBe(-1);
 	});
 
 	it('hasValidTabs: returns true for windows with tabs', () => {
@@ -82,7 +76,6 @@ describe('Core Logic - Window Merge', () => {
 			incognito: false,
 			type: 'normal',
 			focused: false,
-			state: 'normal',
 			tabs: [
 				{ id: 1, groupId: -1, pinned: false } as chrome.tabs.Tab,
 				{ id: 2, groupId: -1, pinned: false } as chrome.tabs.Tab,
@@ -103,7 +96,6 @@ describe('Core Logic - Window Merge', () => {
 			incognito: false,
 			type: 'normal',
 			focused: true,
-			state: 'normal',
 			tabs: [{ id: 1, active: true } as chrome.tabs.Tab],
 		} as unknown as chrome.windows.Window;
 		const window2 = {
@@ -111,7 +103,6 @@ describe('Core Logic - Window Merge', () => {
 			incognito: false,
 			type: 'normal',
 			focused: false,
-			state: 'normal',
 			tabs: [{ id: 2, active: true } as chrome.tabs.Tab],
 		} as unknown as chrome.windows.Window;
 
@@ -132,7 +123,6 @@ describe('Core Logic - Window Merge', () => {
 			incognito: false,
 			type: 'normal',
 			focused: true,
-			state: 'normal',
 			tabs: [{ id: 1, active: true } as chrome.tabs.Tab],
 		} as unknown as chrome.windows.Window;
 		const window2 = {
@@ -140,7 +130,6 @@ describe('Core Logic - Window Merge', () => {
 			incognito: false,
 			type: 'normal',
 			focused: false,
-			state: 'normal',
 			tabs: [{ id: 2, active: true } as chrome.tabs.Tab],
 		} as unknown as chrome.windows.Window;
 
@@ -158,7 +147,6 @@ describe('Core Logic - Window Merge', () => {
 			incognito: false,
 			type: 'normal',
 			focused: true,
-			state: 'normal',
 			tabs: [{ id: 1, active: false } as chrome.tabs.Tab],
 		} as unknown as chrome.windows.Window;
 		const window2 = {
@@ -166,7 +154,6 @@ describe('Core Logic - Window Merge', () => {
 			incognito: false,
 			type: 'normal',
 			focused: false,
-			state: 'normal',
 			tabs: [{ id: 2, active: false } as chrome.tabs.Tab],
 		} as unknown as chrome.windows.Window;
 

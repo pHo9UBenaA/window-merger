@@ -100,11 +100,7 @@ const executeMerge = async (
 ): Promise<Result<MergeResult | null, MergeError>> => {
 	const plan = planMerge(windows);
 
-	if (!plan.ok) {
-		return plan;
-	}
-
-	if (plan.data === null) {
+	if (!plan.ok || plan.data === null) {
 		return plan;
 	}
 

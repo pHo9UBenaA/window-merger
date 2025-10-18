@@ -10,17 +10,6 @@
  */
 export type TabPort = {
 	/**
-	 * Moves tabs to a new position.
-	 * @param tabIds - Array of tab IDs to move.
-	 * @param moveProperties - Destination window and index.
-	 * @returns Promise that resolves when tabs are moved.
-	 */
-	readonly moveTabs: (
-		tabIds: readonly NonNullable<chrome.tabs.Tab['id']>[],
-		moveProperties: chrome.tabs.MoveProperties
-	) => Promise<void>;
-
-	/**
 	 * Updates tab properties.
 	 * @param tabId - ID of the tab to update.
 	 * @param properties - Properties to update (pinned, muted, active).
@@ -33,6 +22,17 @@ export type TabPort = {
 			readonly muted?: NonNullable<chrome.tabs.Tab['mutedInfo']>['muted'];
 			readonly active?: chrome.tabs.Tab['active'];
 		}
+	) => Promise<void>;
+
+	/**
+	 * Moves tabs to a new position.
+	 * @param tabIds - Array of tab IDs to move.
+	 * @param moveProperties - Destination window and index.
+	 * @returns Promise that resolves when tabs are moved.
+	 */
+	readonly moveTabs: (
+		tabIds: readonly NonNullable<chrome.tabs.Tab['id']>[],
+		moveProperties: chrome.tabs.MoveProperties
 	) => Promise<void>;
 
 	/**

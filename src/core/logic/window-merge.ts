@@ -11,7 +11,7 @@ import { type MergeError, type MergeResult, TARGET_WINDOW_TYPE } from '../types/
  * Sorts windows by merge target priority.
  * Priority order:
  * 1. Focused window (user's current active window)
- * 2. Windows in normal or maximized state (over minimized)
+ * 2. Older windows by creation order (window ID ascending: older → newer)
  * @param a - First window to compare.
  * @param b - Second window to compare.
  * @returns Sort order (-1, 0, or 1).
@@ -26,16 +26,11 @@ export const compareWindowsByTargetPriority = (
 	if (aFocused && !bFocused) return -1;
 	if (!aFocused && bFocused) return 1;
 
-	// Next priority: normal/maximized over minimized
-	const aState = a.state ?? 'normal';
-	const bState = b.state ?? 'normal';
-	const aPreferredState = aState === 'normal' || aState === 'maximized';
-	const bPreferredState = bState === 'normal' || bState === 'maximized';
+	// Next priority: older windows by creation order (ID ascending)
+	const aId = a.id ?? Number.MAX_SAFE_INTEGER;
+	const bId = b.id ?? Number.MAX_SAFE_INTEGER;
 
-	if (aPreferredState && !bPreferredState) return -1;
-	if (!aPreferredState && bPreferredState) return 1;
-
-	return 0;
+	return aId - bId;
 };
 
 /**
@@ -65,6 +60,13 @@ export const planMerge = (
 	// Find active tab - first check target window, then source windows
 	let activeTabId = (targetWindow.tabs ?? []).find((t) => t.active)?.id;
 
+	// Fallback: Search source windows for active tab
+	// Note: This fallback is extremely defensive and should rarely (if ever) be reached.
+	// It protects against exceptional edge cases such as:
+	// - Race conditions during window state transitions
+	// - Chrome API inconsistencies or bugs
+	// - Future Chrome behavior changes
+	// By checking source windows, we ensure the best user experience even in unexpected scenarios.
 	if (typeof activeTabId !== 'number') {
 		for (const window of sourceWindows) {
 			activeTabId = (window.tabs ?? []).find((t) => t.active)?.id;
