@@ -84,9 +84,9 @@ describe('App Layer - Merge Windows', () => {
 
 		const result = await mergeWindows(false, deps);
 
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
-			expect(result.error.type).toBe('insufficient-windows');
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.data).toBeNull();
 		}
 		expect(deps.mocks.moveTabs).not.toHaveBeenCalled();
 	});
@@ -103,9 +103,9 @@ describe('App Layer - Merge Windows', () => {
 
 		const result = await mergeWindows(false, deps);
 
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
-			expect(result.error.type).toBe('insufficient-windows');
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.data).toBeNull();
 		}
 		expect(deps.mocks.moveTabs).not.toHaveBeenCalled();
 	});
@@ -122,9 +122,9 @@ describe('App Layer - Merge Windows', () => {
 
 		const result = await mergeWindows(false, deps);
 
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
-			expect(result.error.type).toBe('insufficient-windows');
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.data).toBeNull();
 		}
 		expect(deps.mocks.moveTabs).not.toHaveBeenCalled();
 	});

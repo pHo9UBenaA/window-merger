@@ -18,9 +18,9 @@ describe('Chrome Tab Adapter', () => {
 		VitestChrome.tabs.move.mockResolvedValue(undefined as never);
 
 		const adapter = createChromeTabAdapter();
-		await adapter.moveTabs(123, { windowId: 1, index: -1 });
+		await adapter.moveTabs([123], { windowId: 1, index: -1 });
 
-		expect(VitestChrome.tabs.move).toHaveBeenCalledWith(123, {
+		expect(VitestChrome.tabs.move).toHaveBeenCalledWith([123], {
 			windowId: 1,
 			index: -1,
 		});
@@ -51,9 +51,9 @@ describe('Chrome Tab Adapter', () => {
 		VitestChrome.tabs.move.mockResolvedValue(undefined as never);
 
 		const adapter = createChromeTabAdapter();
-		await adapter.moveTabs(1, { windowId: 1, index: 5 });
+		await adapter.moveTabs([1], { windowId: 1, index: 5 });
 
-		expect(VitestChrome.tabs.move).toHaveBeenCalledWith(1, {
+		expect(VitestChrome.tabs.move).toHaveBeenCalledWith([1], {
 			windowId: 1,
 			index: 5,
 		});
@@ -162,7 +162,7 @@ describe('Chrome Tab Adapter', () => {
 
 		const adapter = createChromeTabAdapter();
 
-		await expect(adapter.moveTabs(1, { windowId: 1, index: 0 })).rejects.toThrow(
+		await expect(adapter.moveTabs([1], { windowId: 1, index: 0 })).rejects.toThrow(
 			'Chrome API error'
 		);
 	});

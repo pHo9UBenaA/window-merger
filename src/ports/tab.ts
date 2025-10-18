@@ -10,13 +10,13 @@
  */
 export type TabPort = {
 	/**
-	 * Moves a single tab or multiple tabs to a new position.
-	 * @param tabIds - Single tab ID or array of tab IDs to move.
+	 * Moves tabs to a new position.
+	 * @param tabIds - Array of tab IDs to move.
 	 * @param moveProperties - Destination window and index.
 	 * @returns Promise that resolves when tabs are moved.
 	 */
 	readonly moveTabs: (
-		tabIds: NonNullable<chrome.tabs.Tab['id']> | readonly NonNullable<chrome.tabs.Tab['id']>[],
+		tabIds: readonly NonNullable<chrome.tabs.Tab['id']>[],
 		moveProperties: chrome.tabs.MoveProperties
 	) => Promise<void>;
 

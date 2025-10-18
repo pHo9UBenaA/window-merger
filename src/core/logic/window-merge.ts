@@ -3,10 +3,9 @@
  * Contains domain rules, validation, and decision-making without side effects.
  */
 
-import { sortBy } from '../../foundation/array';
 import type { Result } from '../../foundation/result';
 import { failure, success } from '../../foundation/result';
-import type { MergeError, MergeResult } from '../types/window-merge';
+import { type MergeError, type MergeResult, TARGET_WINDOW_TYPE } from '../types/window-merge';
 
 /**
  * Sorts windows by merge target priority.
@@ -43,19 +42,16 @@ export const compareWindowsByTargetPriority = (
  * Plans a merge operation from multiple windows.
  * Pure function that determines the merge strategy without executing it.
  * @param windows - Windows to merge (at least 2 required).
- * @returns Result containing merge plan or error.
+ * @returns Result containing merge plan (or null if skipped) or error.
  */
 export const planMerge = (
 	windows: readonly chrome.windows.Window[]
-): Result<MergeResult, MergeError> => {
+): Result<MergeResult | null, MergeError> => {
 	if (windows.length <= 1) {
-		return failure({
-			type: 'insufficient-windows',
-			message: 'At least 2 windows are required for merging',
-		});
+		return success(null);
 	}
 
-	const sorted = sortBy(windows, compareWindowsByTargetPriority);
+	const sorted = [...windows].sort(compareWindowsByTargetPriority);
 	const [targetWindow, ...sourceWindows] = sorted;
 
 	// Validate target window has ID
@@ -99,4 +95,39 @@ export const planMerge = (
 export const hasValidTabs = (window: chrome.windows.Window): boolean => {
 	const tabs = window.tabs ?? [];
 	return tabs.length > 0;
+};
+
+/**
+ * Filters windows by incognito status and target type.
+ * @param windows - Chrome windows.
+ * @param incognito - Incognito mode to filter by.
+ * @returns Array of valid windows matching the criteria.
+ */
+export const filterWindows = (
+	windows: readonly chrome.windows.Window[],
+	incognito: boolean
+): chrome.windows.Window[] => {
+	return windows.filter((window) => {
+		// Incognito mode check
+		if (window.incognito !== incognito) {
+			return false;
+		}
+
+		// Type check
+		if (window.type !== TARGET_WINDOW_TYPE) {
+			return false;
+		}
+
+		// Must have valid ID
+		if (typeof window.id !== 'number') {
+			return false;
+		}
+
+		// Must have tabs
+		if (!hasValidTabs(window)) {
+			return false;
+		}
+
+		return true;
+	});
 };

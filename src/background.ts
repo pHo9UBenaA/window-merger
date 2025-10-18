@@ -40,7 +40,6 @@ chrome.runtime.onInstalled.addListener(() => {
 		chrome.contextMenus.create({
 			id,
 			title: chrome.i18n.getMessage(message),
-			// Memo: Keeping this as `all` avoids surprising users even though the `page` default would suffice
 			contexts: ['all'],
 		});
 	};

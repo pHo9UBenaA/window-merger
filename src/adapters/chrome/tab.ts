@@ -12,20 +12,13 @@ import type { TabPort } from '../../ports/tab';
  */
 export const createChromeTabAdapter = (): TabPort => ({
 	moveTabs: async (
-		tabIds: NonNullable<chrome.tabs.Tab['id']> | readonly NonNullable<chrome.tabs.Tab['id']>[],
+		tabIds: readonly NonNullable<chrome.tabs.Tab['id']>[],
 		moveProperties: chrome.tabs.MoveProperties
 	): Promise<void> => {
-		if (typeof tabIds === 'number') {
-			await chrome.tabs.move(tabIds, {
-				windowId: moveProperties.windowId,
-				index: moveProperties.index,
-			});
-		} else {
-			await chrome.tabs.move([...tabIds], {
-				windowId: moveProperties.windowId,
-				index: moveProperties.index,
-			});
-		}
+		await chrome.tabs.move([...tabIds], {
+			windowId: moveProperties.windowId,
+			index: moveProperties.index,
+		});
 	},
 
 	updateTab: async (

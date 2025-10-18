@@ -24,10 +24,6 @@ export type MergeResult = {
  */
 export type MergeError =
 	| {
-			readonly type: 'insufficient-windows';
-			readonly message: string;
-	  }
-	| {
 			readonly type: 'no-valid-target';
 			readonly message: string;
 	  }

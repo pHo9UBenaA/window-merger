@@ -93,34 +93,8 @@ describe('Core Logic - Window Merge', () => {
 	});
 
 	it('hasValidTabs: returns false for windows without tabs', () => {
-		const window = {
-			id: 1,
-			incognito: false,
-			type: 'normal',
-			focused: false,
-			state: 'normal',
-			tabs: [],
-		} as unknown as chrome.windows.Window;
-
+		const window = { id: 1, tabs: undefined } as unknown as chrome.windows.Window;
 		expect(hasValidTabs(window)).toBe(false);
-	});
-
-	it('planMerge: returns error for single window', () => {
-		const window = {
-			id: 1,
-			incognito: false,
-			type: 'normal',
-			focused: false,
-			state: 'normal',
-			tabs: [{ id: 1, active: true } as chrome.tabs.Tab],
-		} as unknown as chrome.windows.Window;
-
-		const result = planMerge([window]);
-
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
-			expect(result.error.type).toBe('insufficient-windows');
-		}
 	});
 
 	it('planMerge: plans merge for multiple windows', () => {
