@@ -1,0 +1,12 @@
+[install]
+exact = true
+# frozenLockfile = true
+
+minimumReleaseAge = 259200
+
+[install.lockfile]
+save = true
+
+[install.security]
+# run `bun add -d @acme/bun-security-scanner` to install the scanner
+# scanner = "@acme/bun-security-scanner"
