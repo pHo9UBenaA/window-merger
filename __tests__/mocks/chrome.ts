@@ -2,10 +2,12 @@ import { type MockedFunction, vi } from 'vitest';
 
 type VitestChrome = {
 	windows: {
-		getAll: MockedFunction<(typeof chrome.windows)['getAll']>;
+		getAll: MockedFunction<
+			(queryInfo: chrome.windows.QueryOptions) => Promise<chrome.windows.Window[]>
+		>;
 	};
 	tabs: {
-		query: MockedFunction<(typeof chrome.tabs)['query']>;
+		query: MockedFunction<(queryInfo: chrome.tabs.QueryInfo) => Promise<chrome.tabs.Tab[]>>;
 		move: MockedFunction<(typeof chrome.tabs)['move']>;
 		update: MockedFunction<(typeof chrome.tabs)['update']>;
 	};
