@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createChromeWindowAdapter } from '../../../../src/adapters/chrome/window';
 import { createMockChromeWindow } from '../../../helpers/chrome-factories';
-import { VitestChrome, resetChromeMocks } from '../../../mocks/chrome';
+import { resetChromeMocks, VitestChrome } from '../../../mocks/chrome';
 
 describe('Chrome Window Adapter', () => {
 	beforeEach(() => {

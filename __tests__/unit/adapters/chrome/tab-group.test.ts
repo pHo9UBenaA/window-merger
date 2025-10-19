@@ -6,7 +6,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createChromeTabGroupAdapter } from '../../../../src/adapters/chrome/tab-group';
-import { VitestChrome, resetChromeMocks } from '../../../mocks/chrome';
+import { resetChromeMocks, VitestChrome } from '../../../mocks/chrome';
 
 describe('Chrome TabGroup Adapter', () => {
 	beforeEach(() => {

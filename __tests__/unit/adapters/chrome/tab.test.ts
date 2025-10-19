@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createChromeTabAdapter } from '../../../../src/adapters/chrome/tab';
 import { createMockChromeTab } from '../../../helpers/chrome-factories';
-import { VitestChrome, resetChromeMocks } from '../../../mocks/chrome';
+import { resetChromeMocks, VitestChrome } from '../../../mocks/chrome';
 
 describe('Chrome Tab Adapter', () => {
 	beforeEach(() => {
