@@ -8,6 +8,7 @@ A Chrome extension that helps you efficiently manage browser windows by merging 
 - Merge all incognito windows (if permission is granted for incognito mode).
 - Simple activation via left-click on the extension icon or keyboard shortcut (Control/Command + M).
 - When windows are merged, tab groups and pinned tabs remain intact.
+- Preserves tab mute states after merging.
 
 ## Important Information
 
