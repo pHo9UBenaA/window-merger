@@ -1,14 +1,13 @@
 # Window Merger
 
-A Chrome extension that helps you efficiently manage browser windows by merging multiple windows into one.
+A Chrome extension that lets you efficiently manage your browser windows by merging them into one.
 
 ## Features
 
 - Merge all windows of the same profile.
 - Merge all incognito windows (if permission is granted for incognito mode).
-- Simple activation via left-click on the extension icon or keyboard shortcut (Control/Command + M).
-- When windows are merged, tab groups and pinned tabs remain intact.
-- Preserves tab mute states after merging.
+- Preserve pinned tabs, tab groups, and tab mute states when merging.
+- Activate easily by clicking the extension icon or pressing `Ctrl/Command + M`.
 
 ## Important Information
 
@@ -20,8 +19,6 @@ A Chrome extension that helps you efficiently manage browser windows by merging 
 Install the extension from the [Chrome Web Store](https://chromewebstore.google.com/detail/merge-window-extension/fijodggmkbkjcmlpkpahjpepngppdppb).
 
 ## Development
-
-### Without Containers
 
 1. Install the dependencies
 
@@ -36,6 +33,8 @@ bun run build
 ```
 
 ### With Containers
+
+<details>
 
 1. Build the docker image
 
@@ -55,7 +54,8 @@ docker compose exec bun bun i --frozen-lockfile
 docker compose exec bun bun run build
 ```
 
+</details>
+
 ## License
 
-This project is licensed under the [MIT License](LICENSE). See the license file
-for more details.
+[MIT](LICENSE).
