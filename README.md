@@ -23,13 +23,13 @@ Install the extension from the [Chrome Web Store](https://chromewebstore.google.
 1. Install the dependencies
 
 ```bash
-bun i --frozen-lockfile
+pnpm i --frozen-lockfile
 ```
 
 2. Build the extension
 
 ```bash
-bun run build
+pnpm build
 ```
 
 ### With Containers
