@@ -1,7 +1,24 @@
 {
 	"name": "window-merger",
-	"version": "0.0.0",
 	"type": "module",
+	"author": "Komiya",
+	"contributors": [
+		"pHo9UBenaA <pho9ubenaa@gmail.com>"
+	],
+	"repository": {
+		"type": "git",
+		"url": "http://github.com/npm/npm.git"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "catalog:",
+		"@types/chrome": "catalog:",
+		"@types/node": "catalog:",
+		"@typescript/native-preview": "catalog:",
+		"@vitest/coverage-v8": "catalog:",
+		"esbuild": "catalog:",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	},
 	"scripts": {
 		"build": "node --experimental-strip-types ./build.ts",
 		"zip": "pnpm run build --minify; zip -vr dist.zip dist -x \"*.DS_Store\"",
@@ -13,14 +30,6 @@
 		"typecheck": "tsgo",
 		"typecheck:tsc": "tsc --noEmit"
 	},
-	"devDependencies": {
-		"@biomejs/biome": "catalog:",
-		"@types/chrome": "catalog:",
-		"@types/node": "catalog:",
-		"@typescript/native-preview": "catalog:",
-		"@vitest/coverage-v8": "catalog:",
-		"esbuild": "catalog:",
-		"typescript": "catalog:",
-		"vitest": "catalog:"
-	}
+	"license": "MIT",
+	"packageManager": "pnpm@10.18.2"
 }
