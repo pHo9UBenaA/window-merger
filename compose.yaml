@@ -1,9 +1,8 @@
 services:
-    bun:
+    node:
         build:
             context: .
-            dockerfile: docker/bun/Dockerfile
+            dockerfile: docker/node/Dockerfile
         tty: true
-        command: sleep infinity
         volumes:
             - .:/workspace

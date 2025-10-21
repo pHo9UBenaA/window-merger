@@ -5,17 +5,30 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
 jobs:
   upload:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - run: corepack enable
-      - uses: oven-sh/setup-bun@v1
+      - name: Checkout
+        uses: actions/checkout@v5
 
-      - run: bun install
-      - run: bun run zip
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - name: Build and zip extension
+        run: pnpm run zip
 
       - name: Upload Chrome Extension
         uses: pHo9UBenaA/chrome-extension-upload-action@master
