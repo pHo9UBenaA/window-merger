@@ -45,13 +45,13 @@ docker compose up -d --build
 2. Install the dependencies
 
 ```bash
-docker compose exec bun bun i --frozen-lockfile
+docker compose exec node pnpm i --frozen-lockfile
 ```
 
 3. Build the extension
 
 ```bash
-docker compose exec bun bun run build
+docker compose exec node pnpm build
 ```
 
 </details>
