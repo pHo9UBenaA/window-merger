@@ -16,10 +16,10 @@
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",
 		"@types/chrome": "catalog:",
+		"@types/node": "catalog:",
 		"@typescript/native-preview": "catalog:",
 		"@vitest/coverage-v8": "catalog:",
 		"esbuild": "catalog:",
-		"glob": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:"
 	}
