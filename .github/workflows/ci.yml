@@ -1,4 +1,4 @@
-name: Call Bun CI
+name: Call CI
 on: pull_request
 
 permissions:
