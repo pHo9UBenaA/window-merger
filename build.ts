@@ -1,6 +1,10 @@
-import { mkdir, rm } from 'node:fs/promises';
-import { dirname, join, relative } from 'node:path';
-import type { BuildConfig } from 'bun';
+import { copyFile, mkdir, readdir, rm } from 'node:fs/promises';
+import { dirname, extname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { build as esbuild } from 'esbuild';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const CONFIG = {
 	src: {
@@ -17,35 +21,59 @@ const CONFIG = {
 	},
 };
 
+/**
+ * Recursively collect all file paths under the given directory
+ */
+const collectFiles = async (dir: string): Promise<string[]> => {
+	const entries = await readdir(dir, { withFileTypes: true });
+	const files = await Promise.all(
+		entries.map(async (entry) => {
+			const fullPath = join(dir, entry.name);
+			return entry.isDirectory() ? collectFiles(fullPath) : [fullPath];
+		})
+	);
+	return files.flat();
+};
+
+/**
+ * Get all TypeScript entry files (*.ts) directly under the src directory
+ */
+const getEntrypoints = async (srcPath: string): Promise<string[]> => {
+	const entries = await readdir(srcPath, { withFileTypes: true });
+	return entries
+		.filter((entry) => entry.isFile() && extname(entry.name) === '.ts')
+		.map((entry) => join(srcPath, entry.name));
+};
+
 const clearDist = async () => {
 	await rm(CONFIG.dist.path, { recursive: true, force: true });
 };
 
 const copyStaticFiles = async () => {
-	const entries = new Bun.Glob(`${CONFIG.src.path}/assets/**`).scan('.');
-	for await (const entry of entries) {
-		const relativePath = relative(`${CONFIG.src.path}/assets`, entry);
+	const assetsPath = join(CONFIG.src.path, 'assets');
+	const files = await collectFiles(assetsPath);
+
+	for (const file of files) {
+		const relativePath = relative(assetsPath, file);
 		const destPath = join(CONFIG.dist.path, relativePath);
 		await mkdir(dirname(destPath), { recursive: true });
-		await Bun.write(destPath, Bun.file(entry));
+		await copyFile(file, destPath);
 	}
 };
 
-const build = async (minify: boolean) => {
-	const entrypoints: string[] = [];
-	for await (const entry of new Bun.Glob(`${CONFIG.src.path}/*.ts`).scan('.')) {
-		entrypoints.push(entry);
-	}
+const buildScripts = async (minify: boolean) => {
+	const entrypoints = await getEntrypoints(CONFIG.src.path);
 
-	const buildOptions: BuildConfig = {
+	await esbuild({
+		entryPoints: entrypoints,
+		bundle: true,
 		minify,
-		target: 'browser',
+		target: 'chrome120',
+		format: 'esm',
 		outdir: CONFIG.dist.path,
-		root: CONFIG.src.dirName,
-		entrypoints,
-	};
-
-	await Bun.build(buildOptions);
+		outbase: CONFIG.src.dirName,
+		platform: 'browser',
+	});
 };
 
 const run = async (minify: boolean) => {
@@ -56,7 +84,7 @@ const run = async (minify: boolean) => {
 	await copyStaticFiles();
 
 	process.stdout.write('Building...\n');
-	await build(minify);
+	await buildScripts(minify);
 };
 
 const args = process.argv.slice(2);
