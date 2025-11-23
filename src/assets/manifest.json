@@ -20,8 +20,8 @@
 	"commands": {
 		"_execute_action": {
 			"suggested_key": {
-				"default": "Ctrl+M",
-				"mac": "Command+M"
+				"default": "Alt+Shift+M",
+				"mac": "Alt+Shift+M"
 			},
 			"description": "Triggering merge"
 		}
