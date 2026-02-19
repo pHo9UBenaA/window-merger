@@ -13,8 +13,8 @@ catalogs:
       specifier: 0.1.29
       version: 0.1.29
     '@types/node':
-      specifier: 24.10.1
-      version: 24.10.1
+      specifier: 25.0.3
+      version: 25.0.3
     '@typescript/native-preview':
       specifier: 7.0.0-dev.20251123.1
       version: 7.0.0-dev.20251123.1
@@ -43,13 +43,13 @@ importers:
         version: 0.1.29
       '@types/node':
         specifier: 'catalog:'
-        version: 24.10.1
+        version: 25.0.3
       '@typescript/native-preview':
         specifier: 'catalog:'
         version: 7.0.0-dev.20251123.1
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.9(vitest@4.0.9(@types/node@24.10.1))
+        version: 4.0.9(vitest@4.0.9(@types/node@25.0.3))
       esbuild:
         specifier: 'catalog:'
         version: 0.27.0
@@ -58,7 +58,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.9(@types/node@24.10.1)
+        version: 4.0.9(@types/node@25.0.3)
 
 packages:
 
@@ -607,8 +607,43 @@ packages:
   '@types/har-format@1.2.16':
     resolution: {integrity: sha512-fluxdy7ryD3MV6h8pTfTYpy/xQzCFC7m89nOH9y94cNqJ1mDIDPut7MnRHI3F6qRmh/cT2fUjG1MLdCNb4hE9A==}
 
-  '@types/node@24.10.1':
-    resolution: {integrity: sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==}
+  '@types/node@25.0.3':
+    resolution: {integrity: sha512-W609buLVRVmeW693xKfzHeIV6nJGGz98uCPfeXI1ELMLXVeKYZ9m15fAMSaUPBHYLGFsVRcMmSCksQOrZV9BYA==}
+
+  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20251123.1':
+    resolution: {integrity: sha512-Fr9BVEIPCapAt+nEi+tOV0tOCYG39/cNjeULPmqj07YvxhDpkU73rMShnbrXguY5Pprgi570ks5S8MI45YePIw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@typescript/native-preview-darwin-x64@7.0.0-dev.20251123.1':
+    resolution: {integrity: sha512-FH9IRdvFqxPyez9k775jK00ms7d9+X3m2Kc3LcAUV3Hiwxlzfs/Q06WWDeQV20WkVHr78hxcZGlIeqt1yGZC5Q==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@typescript/native-preview-linux-arm64@7.0.0-dev.20251123.1':
+    resolution: {integrity: sha512-eHfHopS+hcoHD49bg0IIg5SYVGk4Ljq8aFZRko83LUv9vN8Zs8DBmQL6APgs3triIQMEONjqArh6v9YkpOmjHA==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@typescript/native-preview-linux-arm@7.0.0-dev.20251123.1':
+    resolution: {integrity: sha512-ty7UBZwyAZUrSmVBavOnQ+nQia/oB3BfY3LOZW4xyfSGEhNQQFebZMlUqTh+rD4W+zsgOAa7+TGLB7HT9mHyQg==}
+    cpu: [arm]
+    os: [linux]
+
+  '@typescript/native-preview-linux-x64@7.0.0-dev.20251123.1':
+    resolution: {integrity: sha512-Z3H+XSRrhpbhZnmeyDbqGZ4mDkxG54QO1ZIxPGRyhurBwTjdMiEI8SeCVXA54KwSgM1oeAKZS765DN7+9WTI7A==}
+    cpu: [x64]
+    os: [linux]
+
+  '@typescript/native-preview-win32-arm64@7.0.0-dev.20251123.1':
+    resolution: {integrity: sha512-K89G2e7r/vNkeJkR1QdxZwc7WWxsjqmi4TJCrppS7gkXCcLXHmFcSInKn4T5ewfjLe2yrGoLPtAoitP/5f23pQ==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@typescript/native-preview-win32-x64@7.0.0-dev.20251123.1':
+    resolution: {integrity: sha512-Z++8epMjd5Ptz/BihxXbEUjyqPo6x0kPkNbQT8QRSCovyGhm6KST9itEYCvD5ta1J0c5EqAJL5c8krjOHeNwGQ==}
+    cpu: [x64]
+    os: [win32]
 
   '@typescript/native-preview@7.0.0-dev.20251123.1':
     resolution: {integrity: sha512-6RhDqHTom3N4QMxZYiWXxaye2bDdsVgbsPcW7J3bMCp5LVATi3KP2zYk2SZpZLJVQ0es5E/6FHLk5Gyjeb0Jzw==}
@@ -1199,13 +1234,42 @@ snapshots:
 
   '@types/har-format@1.2.16': {}
 
-  '@types/node@24.10.1':
+  '@types/node@25.0.3':
     dependencies:
       undici-types: 7.16.0
 
-  '@typescript/native-preview@7.0.0-dev.20251123.1': {}
+  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20251123.1':
+    optional: true
 
-  '@vitest/coverage-v8@4.0.9(vitest@4.0.9(@types/node@24.10.1))':
+  '@typescript/native-preview-darwin-x64@7.0.0-dev.20251123.1':
+    optional: true
+
+  '@typescript/native-preview-linux-arm64@7.0.0-dev.20251123.1':
+    optional: true
+
+  '@typescript/native-preview-linux-arm@7.0.0-dev.20251123.1':
+    optional: true
+
+  '@typescript/native-preview-linux-x64@7.0.0-dev.20251123.1':
+    optional: true
+
+  '@typescript/native-preview-win32-arm64@7.0.0-dev.20251123.1':
+    optional: true
+
+  '@typescript/native-preview-win32-x64@7.0.0-dev.20251123.1':
+    optional: true
+
+  '@typescript/native-preview@7.0.0-dev.20251123.1':
+    optionalDependencies:
+      '@typescript/native-preview-darwin-arm64': 7.0.0-dev.20251123.1
+      '@typescript/native-preview-darwin-x64': 7.0.0-dev.20251123.1
+      '@typescript/native-preview-linux-arm': 7.0.0-dev.20251123.1
+      '@typescript/native-preview-linux-arm64': 7.0.0-dev.20251123.1
+      '@typescript/native-preview-linux-x64': 7.0.0-dev.20251123.1
+      '@typescript/native-preview-win32-arm64': 7.0.0-dev.20251123.1
+      '@typescript/native-preview-win32-x64': 7.0.0-dev.20251123.1
+
+  '@vitest/coverage-v8@4.0.9(vitest@4.0.9(@types/node@25.0.3))':
     dependencies:
       '@bcoe/v8-coverage': 1.0.2
       '@vitest/utils': 4.0.9
@@ -1218,7 +1282,7 @@ snapshots:
       magicast: 0.5.1
       std-env: 3.10.0
       tinyrainbow: 3.0.3
-      vitest: 4.0.9(@types/node@24.10.1)
+      vitest: 4.0.9(@types/node@25.0.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -1231,13 +1295,13 @@ snapshots:
       chai: 6.2.1
       tinyrainbow: 3.0.3
 
-  '@vitest/mocker@4.0.9(vite@7.2.2(@types/node@24.10.1))':
+  '@vitest/mocker@4.0.9(vite@7.2.2(@types/node@25.0.3))':
     dependencies:
       '@vitest/spy': 4.0.9
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 7.2.2(@types/node@24.10.1)
+      vite: 7.2.2(@types/node@25.0.3)
 
   '@vitest/pretty-format@4.0.9':
     dependencies:
@@ -1462,7 +1526,7 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  vite@7.2.2(@types/node@24.10.1):
+  vite@7.2.2(@types/node@25.0.3):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.3)
@@ -1471,13 +1535,13 @@ snapshots:
       rollup: 4.53.2
       tinyglobby: 0.2.15
     optionalDependencies:
-      '@types/node': 24.10.1
+      '@types/node': 25.0.3
       fsevents: 2.3.3
 
-  vitest@4.0.9(@types/node@24.10.1):
+  vitest@4.0.9(@types/node@25.0.3):
     dependencies:
       '@vitest/expect': 4.0.9
-      '@vitest/mocker': 4.0.9(vite@7.2.2(@types/node@24.10.1))
+      '@vitest/mocker': 4.0.9(vite@7.2.2(@types/node@25.0.3))
       '@vitest/pretty-format': 4.0.9
       '@vitest/runner': 4.0.9
       '@vitest/snapshot': 4.0.9
@@ -1494,10 +1558,10 @@ snapshots:
       tinyexec: 0.3.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vite: 7.2.2(@types/node@24.10.1)
+      vite: 7.2.2(@types/node@25.0.3)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 24.10.1
+      '@types/node': 25.0.3
     transitivePeerDependencies:
       - jiti
       - less
