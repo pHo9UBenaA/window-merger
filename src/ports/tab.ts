@@ -1,12 +1,12 @@
 /**
  * Port (capability interface) for tab operations.
- * Defines what the application layer needs from tab management,
- * independent of Chrome API implementation.
+ * Defines what the application layer needs from tab management.
  */
+
+import type { MoveToWindow, TabId, TabUpdate } from '../core/types/window-merge';
 
 /**
  * Capability interface for tab operations.
- * Uses Chrome API types directly.
  */
 export type TabPort = {
 	/**
@@ -15,14 +15,7 @@ export type TabPort = {
 	 * @param properties - Properties to update (pinned, muted, active).
 	 * @returns Promise that resolves when tab is updated.
 	 */
-	readonly updateTab: (
-		tabId: NonNullable<chrome.tabs.Tab['id']>,
-		properties: {
-			readonly pinned?: chrome.tabs.Tab['pinned'];
-			readonly muted?: NonNullable<chrome.tabs.Tab['mutedInfo']>['muted'];
-			readonly active?: chrome.tabs.Tab['active'];
-		}
-	) => Promise<void>;
+	readonly updateTab: (tabId: TabId, properties: TabUpdate) => Promise<void>;
 
 	/**
 	 * Moves tabs to a new position.
@@ -30,17 +23,5 @@ export type TabPort = {
 	 * @param moveProperties - Destination window and index.
 	 * @returns Promise that resolves when tabs are moved.
 	 */
-	readonly moveTabs: (
-		tabIds: readonly NonNullable<chrome.tabs.Tab['id']>[],
-		moveProperties: chrome.tabs.MoveProperties
-	) => Promise<void>;
-
-	/**
-	 * Queries tabs in a specific window.
-	 * @param windowId - ID of the window to query.
-	 * @returns Promise of Chrome tabs.
-	 */
-	readonly queryTabs: (
-		windowId: NonNullable<chrome.windows.Window['id']>
-	) => Promise<readonly chrome.tabs.Tab[]>;
+	readonly moveTabs: (tabIds: readonly TabId[], moveProperties: MoveToWindow) => Promise<void>;
 };

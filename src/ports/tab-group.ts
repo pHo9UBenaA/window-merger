@@ -1,12 +1,12 @@
 /**
  * Port (capability interface) for tab group operations.
- * Defines what the application layer needs from tab group management,
- * independent of Chrome API implementation.
+ * Defines what the application layer needs from tab group management.
  */
+
+import type { GroupId, MoveToWindow } from '../core/types/window-merge';
 
 /**
  * Capability interface for tab group operations.
- * Uses Chrome API types directly.
  */
 export type TabGroupPort = {
 	/**
@@ -15,8 +15,5 @@ export type TabGroupPort = {
 	 * @param moveProperties - Destination window and index.
 	 * @returns Promise that resolves when group is moved.
 	 */
-	readonly moveGroup: (
-		groupId: NonNullable<chrome.tabs.Tab['groupId']>,
-		moveProperties: chrome.tabGroups.MoveProperties
-	) => Promise<void>;
+	readonly moveGroup: (groupId: GroupId, moveProperties: MoveToWindow) => Promise<void>;
 };
