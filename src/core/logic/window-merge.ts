@@ -5,7 +5,12 @@
 
 import type { Result } from '../../foundation/result';
 import { failure, success } from '../../foundation/result';
-import { type MergeError, type MergeResult, TARGET_WINDOW_TYPE } from '../types/window-merge';
+import {
+	type MergeError,
+	type MergeResult,
+	TARGET_WINDOW_TYPE,
+	type WindowSnapshot,
+} from '../types/window-merge';
 
 /**
  * Sorts windows by merge target priority.
@@ -16,21 +21,16 @@ import { type MergeError, type MergeResult, TARGET_WINDOW_TYPE } from '../types/
  * @param b - Second window to compare.
  * @returns Sort order (-1, 0, or 1).
  */
-export const compareWindowsByTargetPriority = (
-	a: chrome.windows.Window,
-	b: chrome.windows.Window
-): number => {
-	// Focused window takes highest priority
-	const aFocused = a.focused ?? false;
-	const bFocused = b.focused ?? false;
-	if (aFocused && !bFocused) return -1;
-	if (!aFocused && bFocused) return 1;
+export const compareWindowsByTargetPriority = (a: WindowSnapshot, b: WindowSnapshot): number => {
+	if (a.focused && !b.focused) {
+		return -1;
+	}
 
-	// Next priority: older windows by creation order (ID ascending)
-	const aId = a.id ?? Number.MAX_SAFE_INTEGER;
-	const bId = b.id ?? Number.MAX_SAFE_INTEGER;
+	if (!a.focused && b.focused) {
+		return 1;
+	}
 
-	return aId - bId;
+	return a.id.value - b.id.value;
 };
 
 /**
@@ -40,46 +40,40 @@ export const compareWindowsByTargetPriority = (
  * @returns Result containing merge plan (or null if skipped) or error.
  */
 export const planMerge = (
-	windows: readonly chrome.windows.Window[]
+	windows: readonly WindowSnapshot[]
 ): Result<MergeResult | null, MergeError> => {
 	if (windows.length <= 1) {
 		return success(null);
 	}
 
-	const sorted = [...windows].sort(compareWindowsByTargetPriority);
-	const [targetWindow, ...sourceWindows] = sorted;
-
-	// Validate target window has ID
-	if (typeof targetWindow.id !== 'number') {
+	const [targetWindow, ...sourceWindows] = [...windows].sort(compareWindowsByTargetPriority);
+	if (targetWindow.id.value < 1) {
 		return failure({
 			type: 'no-valid-target',
 			message: 'Target window does not have a valid ID',
+			context: {
+				windowCount: windows.length,
+			},
 		});
 	}
 
-	// Find active tab - first check target window, then source windows
-	let activeTabId = (targetWindow.tabs ?? []).find((t) => t.active)?.id;
-
-	// Fallback: Search source windows for active tab
-	// Note: This fallback is extremely defensive and should rarely (if ever) be reached.
-	// It protects against exceptional edge cases such as:
-	// - Race conditions during window state transitions
-	// - Chrome API inconsistencies or bugs
-	// - Future Chrome behavior changes
-	// By checking source windows, we ensure the best user experience even in unexpected scenarios.
-	if (typeof activeTabId !== 'number') {
+	let activeTabId = targetWindow.tabs.find((tab) => tab.active)?.id;
+	if (activeTabId === undefined) {
 		for (const window of sourceWindows) {
-			activeTabId = (window.tabs ?? []).find((t) => t.active)?.id;
-			if (typeof activeTabId === 'number') {
+			activeTabId = window.tabs.find((tab) => tab.active)?.id;
+			if (activeTabId !== undefined) {
 				break;
 			}
 		}
 	}
 
-	if (typeof activeTabId !== 'number') {
+	if (activeTabId === undefined) {
 		return failure({
 			type: 'no-active-tab',
 			message: 'No active tab found in any window',
+			context: {
+				windowCount: windows.length,
+			},
 		});
 	}
 
@@ -94,9 +88,8 @@ export const planMerge = (
  * @param window - Window to check.
  * @returns True if window has at least one tab.
  */
-export const hasValidTabs = (window: chrome.windows.Window): boolean => {
-	const tabs = window.tabs ?? [];
-	return tabs.length > 0;
+export const hasValidTabs = (window: WindowSnapshot): boolean => {
+	return window.tabs.length > 0;
 };
 
 /**
@@ -106,26 +99,22 @@ export const hasValidTabs = (window: chrome.windows.Window): boolean => {
  * @returns Array of valid windows matching the criteria.
  */
 export const filterWindows = (
-	windows: readonly chrome.windows.Window[],
+	windows: readonly WindowSnapshot[],
 	incognito: boolean
-): chrome.windows.Window[] => {
+): WindowSnapshot[] => {
 	return windows.filter((window) => {
-		// Incognito mode check
 		if (window.incognito !== incognito) {
 			return false;
 		}
 
-		// Type check
 		if (window.type !== TARGET_WINDOW_TYPE) {
 			return false;
 		}
 
-		// Must have valid ID
-		if (typeof window.id !== 'number') {
+		if (window.id.value < 1) {
 			return false;
 		}
 
-		// Must have tabs
 		if (!hasValidTabs(window)) {
 			return false;
 		}
