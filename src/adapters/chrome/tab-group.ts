@@ -1,9 +1,9 @@
 /**
  * Chrome adapter for tab group operations.
  * Implements TabGroupPort using Chrome Tab Groups API.
- * Contains all Chrome-specific implementation details.
  */
 
+import type { GroupId, MoveToWindow } from '../../core/types/window-merge';
 import type { TabGroupPort } from '../../ports/tab-group';
 
 /**
@@ -11,12 +11,9 @@ import type { TabGroupPort } from '../../ports/tab-group';
  * @returns TabGroupPort implementation using chrome.tabGroups API.
  */
 export const createChromeTabGroupAdapter = (): TabGroupPort => ({
-	moveGroup: async (
-		groupId: NonNullable<chrome.tabs.Tab['groupId']>,
-		moveProperties: chrome.tabGroups.MoveProperties
-	): Promise<void> => {
-		await chrome.tabGroups.move(groupId, {
-			windowId: moveProperties.windowId,
+	moveGroup: async (groupId: GroupId, moveProperties: MoveToWindow): Promise<void> => {
+		await chrome.tabGroups.move(groupId.value, {
+			windowId: moveProperties.windowId.value,
 			index: moveProperties.index,
 		});
 	},

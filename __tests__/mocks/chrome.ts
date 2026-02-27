@@ -1,32 +1,47 @@
 import { type MockedFunction, vi } from 'vitest';
 
+type WindowsGetAll = (
+	queryInfo: chrome.windows.QueryOptions
+) => Promise<readonly chrome.windows.Window[]>;
+
+type TabsMove = (
+	tabIds: number | number[],
+	moveProperties: chrome.tabs.MoveProperties
+) => Promise<chrome.tabs.Tab | chrome.tabs.Tab[] | undefined>;
+
+type TabsUpdate = (
+	tabId: number,
+	updateProperties: chrome.tabs.UpdateProperties
+) => Promise<chrome.tabs.Tab | undefined>;
+
+type TabGroupsMove = (
+	groupId: number,
+	moveProperties: chrome.tabGroups.MoveProperties
+) => Promise<chrome.tabGroups.TabGroup | undefined>;
+
 type VitestChrome = {
 	windows: {
-		getAll: MockedFunction<
-			(queryInfo: chrome.windows.QueryOptions) => Promise<chrome.windows.Window[]>
-		>;
+		getAll: MockedFunction<WindowsGetAll>;
 	};
 	tabs: {
-		query: MockedFunction<(queryInfo: chrome.tabs.QueryInfo) => Promise<chrome.tabs.Tab[]>>;
-		move: MockedFunction<(typeof chrome.tabs)['move']>;
-		update: MockedFunction<(typeof chrome.tabs)['update']>;
+		move: MockedFunction<TabsMove>;
+		update: MockedFunction<TabsUpdate>;
 	};
 	tabGroups: {
-		move: MockedFunction<(typeof chrome.tabGroups)['move']>;
+		move: MockedFunction<TabGroupsMove>;
 	};
 };
 
 export const VitestChrome: VitestChrome = {
 	windows: {
-		getAll: vi.fn(),
+		getAll: vi.fn<WindowsGetAll>(),
 	},
 	tabs: {
-		query: vi.fn(),
-		move: vi.fn(),
-		update: vi.fn(),
+		move: vi.fn<TabsMove>(),
+		update: vi.fn<TabsUpdate>(),
 	},
 	tabGroups: {
-		move: vi.fn(),
+		move: vi.fn<TabGroupsMove>(),
 	},
 };
 
@@ -36,7 +51,6 @@ export const VitestChrome: VitestChrome = {
  */
 export const resetChromeMocks = (): void => {
 	VitestChrome.windows.getAll.mockReset();
-	VitestChrome.tabs.query.mockReset();
 	VitestChrome.tabs.move.mockReset();
 	VitestChrome.tabs.update.mockReset();
 	VitestChrome.tabGroups.move.mockReset();
