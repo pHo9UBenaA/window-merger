@@ -1,18 +1,12 @@
-const contextMenuKeys = [
-	'mergeWindow',
-	'mergeIncognitoWindow',
-] as const satisfies readonly string[];
-
 export const ContextMenuIds = {
-	// TODO
-	[contextMenuKeys[0]]: `${contextMenuKeys[0]}Id`,
-	[contextMenuKeys[1]]: `${contextMenuKeys[1]}Id`,
-} as const satisfies { [key in (typeof contextMenuKeys)[number]]: `${key}Id` };
+	mergeWindow: 'mergeWindowId',
+	mergeIncognitoWindow: 'mergeIncognitoWindowId',
+} as const;
 
 export const ContextMenuTitles = {
-	[contextMenuKeys[0]]: `${contextMenuKeys[0]}Title`,
-	[contextMenuKeys[1]]: `${contextMenuKeys[1]}Title`,
-} as const satisfies { [key in (typeof contextMenuKeys)[number]]: `${key}Title` };
+	mergeWindow: 'mergeWindowTitle',
+	mergeIncognitoWindow: 'mergeIncognitoWindowTitle',
+} as const;
 
 export type ContextMenuIds = (typeof ContextMenuIds)[keyof typeof ContextMenuIds];
 
