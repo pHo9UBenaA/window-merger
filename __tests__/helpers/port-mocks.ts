@@ -16,28 +16,25 @@ import type { WindowPort } from '../../src/ports/window';
  */
 export const createMockMergeWindowsDeps = (): MergeWindowsDeps & {
 	mocks: {
-		getAllWindows: ReturnType<typeof vi.fn>;
-		moveTabs: ReturnType<typeof vi.fn>;
-		updateTab: ReturnType<typeof vi.fn>;
-		queryTabs: ReturnType<typeof vi.fn>;
-		moveGroup: ReturnType<typeof vi.fn>;
+		getAllWindows: ReturnType<typeof vi.fn<WindowPort['getAllWindows']>>;
+		moveTabs: ReturnType<typeof vi.fn<TabPort['moveTabs']>>;
+		updateTab: ReturnType<typeof vi.fn<TabPort['updateTab']>>;
+		moveGroup: ReturnType<typeof vi.fn<TabGroupPort['moveGroup']>>;
 	};
 } => {
-	const getAllWindows = vi.fn();
-	const moveTabs = vi.fn();
-	const updateTab = vi.fn();
-	const queryTabs = vi.fn();
-	const moveGroup = vi.fn();
+	const getAllWindows = vi.fn<WindowPort['getAllWindows']>();
+	const moveTabs = vi.fn<TabPort['moveTabs']>();
+	const updateTab = vi.fn<TabPort['updateTab']>();
+	const moveGroup = vi.fn<TabGroupPort['moveGroup']>();
 
-	// Type-check: Ensure mocks satisfy port interfaces
 	const windowPort: WindowPort = { getAllWindows };
-	const tabPort: TabPort = { moveTabs, updateTab, queryTabs };
+	const tabPort: TabPort = { moveTabs, updateTab };
 	const tabGroupPort: TabGroupPort = { moveGroup };
 
 	return {
 		windowPort,
 		tabPort,
 		tabGroupPort,
-		mocks: { getAllWindows, moveTabs, updateTab, queryTabs, moveGroup },
+		mocks: { getAllWindows, moveTabs, updateTab, moveGroup },
 	};
 };
