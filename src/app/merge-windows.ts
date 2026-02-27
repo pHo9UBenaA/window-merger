@@ -1,16 +1,29 @@
 /**
- * Application use case: Merge Windows
- * Pure orchestration logic that coordinates domain logic and port capabilities.
- * No direct Chrome API dependencies - only uses injected port interfaces.
+ * Application use case: Merge Windows.
+ * Pure orchestration logic that coordinates domain logic and ports.
  */
 
 import { filterWindows, planMerge } from '../core/logic/window-merge';
-import type { MergeError, MergeResult } from '../core/types/window-merge';
+import type {
+	GroupId,
+	MergeError,
+	MergeResult,
+	MoveToWindow,
+	TabId,
+	TabSnapshot,
+	WindowId,
+	WindowSnapshot,
+} from '../core/types/window-merge';
 import type { Result } from '../foundation/result';
 import { success } from '../foundation/result';
 import type { TabPort } from '../ports/tab';
 import type { TabGroupPort } from '../ports/tab-group';
 import type { WindowPort } from '../ports/window';
+
+/**
+ * Move index for appending tabs/groups at the end of the target window.
+ */
+const APPEND_TO_END_INDEX = -1;
 
 /**
  * Dependencies required by the merge windows use case.
@@ -22,6 +35,44 @@ export type MergeWindowsDeps = {
 };
 
 /**
+ * Collects unique group IDs from tabs.
+ * @param tabs - Source tabs.
+ * @returns Unique group IDs.
+ */
+const collectGroupIds = (tabs: readonly TabSnapshot[]): readonly GroupId[] => {
+	const groupIds: GroupId[] = [];
+	const seen = new Set<number>();
+
+	for (const tab of tabs) {
+		if (tab.groupId === null) {
+			continue;
+		}
+
+		if (seen.has(tab.groupId.value)) {
+			continue;
+		}
+
+		seen.add(tab.groupId.value);
+		groupIds.push(tab.groupId);
+	}
+
+	return groupIds;
+};
+
+/**
+ * Collects tab IDs from tabs matched by predicate.
+ * @param tabs - Source tabs.
+ * @param predicate - Selection predicate.
+ * @returns Selected tab IDs.
+ */
+const collectTabIds = (
+	tabs: readonly TabSnapshot[],
+	predicate: (tab: TabSnapshot) => boolean
+): readonly TabId[] => {
+	return tabs.filter(predicate).map((tab) => tab.id);
+};
+
+/**
  * Moves tabs from a source window to the target window.
  * Preserves tab groups, pinning, and muting.
  * @param tabs - Tabs from source window.
@@ -29,62 +80,32 @@ export type MergeWindowsDeps = {
  * @param deps - Port dependencies.
  */
 const moveTabsToTarget = async (
-	tabs: readonly chrome.tabs.Tab[],
-	targetWindowId: NonNullable<chrome.windows.Window['id']>,
+	tabs: readonly TabSnapshot[],
+	targetWindowId: WindowId,
 	deps: MergeWindowsDeps
 ): Promise<void> => {
-	// Moves tab to target window at the end
-	const moveProperties = { windowId: targetWindowId, index: -1 };
+	const moveProperties: MoveToWindow = { windowId: targetWindowId, index: APPEND_TO_END_INDEX };
 
-	const groupIds = [
-		...new Set(
-			tabs
-				.map((tab) => tab.groupId)
-				.filter(
-					(id): id is NonNullable<chrome.tabs.Tab['groupId']> =>
-						typeof id === 'number' && id > 0
-				)
-		),
-	];
-
-	// Move grouped tabs first
+	const groupIds = collectGroupIds(tabs);
 	if (groupIds.length > 0) {
 		await Promise.all(
 			groupIds.map((groupId) => deps.tabGroupPort.moveGroup(groupId, moveProperties))
 		);
 	}
 
-	const ungroupedTabIds = tabs
-		.filter(
-			(tab) =>
-				typeof tab.id === 'number' && (typeof tab.groupId !== 'number' || tab.groupId <= 0)
-		)
-		.map((tab) => tab.id as number);
-
-	// Move ungrouped tabs
+	const ungroupedTabIds = collectTabIds(tabs, (tab) => tab.groupId === null);
 	if (ungroupedTabIds.length > 0) {
 		await deps.tabPort.moveTabs(ungroupedTabIds, moveProperties);
 	}
 
-	const pinnedTabIds = tabs
-		.filter((tab) => tab.pinned)
-		.map((tab) => tab.id)
-		.filter((id): id is number => typeof id === 'number');
-	const mutedTabIds = tabs
-		.filter((tab) => tab.mutedInfo?.muted === true)
-		.map((tab) => tab.id)
-		.filter((id): id is number => typeof id === 'number');
+	const pinnedTabIds = collectTabIds(tabs, (tab) => tab.pinned);
+	const mutedTabIds = collectTabIds(tabs, (tab) => tab.muted);
 
-	const pinnedPromises = pinnedTabIds.map((tabId) =>
-		deps.tabPort.updateTab(tabId, { pinned: true })
-	);
-	const mutedPromises = mutedTabIds.map((tabId) =>
-		deps.tabPort.updateTab(tabId, { muted: true })
-	);
+	const pinTasks = pinnedTabIds.map((tabId) => deps.tabPort.updateTab(tabId, { pinned: true }));
+	const muteTasks = mutedTabIds.map((tabId) => deps.tabPort.updateTab(tabId, { muted: true }));
 
-	// Await all pinning and muting updates
-	if (pinnedPromises.length || mutedPromises.length) {
-		await Promise.all([...pinnedPromises, ...mutedPromises]);
+	if (pinTasks.length > 0 || muteTasks.length > 0) {
+		await Promise.all([...pinTasks, ...muteTasks]);
 	}
 };
 
@@ -92,38 +113,32 @@ const moveTabsToTarget = async (
  * Executes the merge operation.
  * @param windows - Windows to merge.
  * @param deps - Port dependencies.
- * @returns Result containing MergeResult (or null if skipped) or error.
+ * @returns Merge result or error.
  */
 const executeMerge = async (
-	windows: readonly chrome.windows.Window[],
+	windows: readonly WindowSnapshot[],
 	deps: MergeWindowsDeps
 ): Promise<Result<MergeResult | null, MergeError>> => {
-	const plan = planMerge(windows);
-
-	if (!plan.ok || plan.data === null) {
-		return plan;
+	const mergePlan = planMerge(windows);
+	if (!mergePlan.ok || mergePlan.data === null) {
+		return mergePlan;
 	}
 
-	const mergeResult = plan.data;
+	const mergeResult = mergePlan.data;
+	const sourceWindows = windows.filter(
+		(window) => window.id.value !== mergeResult.targetWindowId.value
+	);
 
-	const sourceWindows = windows.filter((window) => window.id !== mergeResult.targetWindowId);
-
-	// Move tabs from each source window sequentially
 	for (const sourceWindow of sourceWindows) {
-		await moveTabsToTarget(sourceWindow.tabs ?? [], mergeResult.targetWindowId, deps);
+		await moveTabsToTarget(sourceWindow.tabs, mergeResult.targetWindowId, deps);
 	}
 
-	// Activate the determined tab
-	if (typeof mergeResult.activeTabId === 'number') {
-		await deps.tabPort.updateTab(mergeResult.activeTabId, { active: true });
-	}
-
+	await deps.tabPort.updateTab(mergeResult.activeTabId, { active: true });
 	return success(mergeResult);
 };
 
 /**
  * Merges all windows with the specified incognito mode.
- * Main entry point for the merge windows use case.
  * @param incognito - Whether to merge incognito or regular windows.
  * @param deps - Injected port dependencies.
  * @returns Result containing MergeResult (or null if skipped) or error.
@@ -132,9 +147,7 @@ export const mergeWindows = async (
 	incognito: boolean,
 	deps: MergeWindowsDeps
 ): Promise<Result<MergeResult | null, MergeError>> => {
-	const rawWindows = await deps.windowPort.getAllWindows(true);
-	const windows = filterWindows(rawWindows, incognito);
-
+	const windows = filterWindows(await deps.windowPort.getAllWindows(true), incognito);
 	if (windows.length <= 1) {
 		return success(null);
 	}
