@@ -31,6 +31,17 @@ const handleMapper = {
 	[ContextMenuIds.mergeIncognitoWindow]: handleMergeIncognitoWindowEvent,
 } as const satisfies { [key in ContextMenuIds]: () => void };
 
+const contextMenuIdSet: ReadonlySet<string> = new Set(Object.values(ContextMenuIds));
+
+/**
+ * Checks whether menu ID is managed by this extension.
+ * @param menuItemId - Menu item ID.
+ * @returns True when the ID is a known context menu ID.
+ */
+const isContextMenuId = (menuItemId: string): menuItemId is ContextMenuIds => {
+	return contextMenuIdSet.has(menuItemId);
+};
+
 chrome.runtime.onInstalled.addListener(() => {
 	const removeAllContextMenus = () => {
 		chrome.contextMenus.removeAll();
@@ -56,22 +67,19 @@ chrome.runtime.onInstalled.addListener(() => {
 	createContextMenu(ContextMenuIds.mergeWindow, ContextMenuTitles.mergeWindow);
 	createContextMenu(ContextMenuIds.mergeIncognitoWindow, ContextMenuTitles.mergeIncognitoWindow);
 
-	syncMenuStateWithIncognitoPermission();
+	void syncMenuStateWithIncognitoPermission();
 });
 
 chrome.contextMenus.onClicked.addListener((info) => {
-	const isContextMenuId = (title: string): title is ContextMenuIds =>
-		Object.values(ContextMenuIds).includes(title as ContextMenuIds);
-
 	const menuItemId = info.menuItemId.toString();
 	if (isContextMenuId(menuItemId)) {
-		handleMapper[menuItemId]();
+		void handleMapper[menuItemId]();
 	}
 });
 
 chrome.action.onClicked.addListener(() => {
 	const handles = Object.values(handleMapper);
 	for (const handle of handles) {
-		handle();
+		void handle();
 	}
 });
