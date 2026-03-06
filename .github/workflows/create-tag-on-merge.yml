@@ -17,4 +17,4 @@ jobs:
     name: Auto Tag on Merge
     permissions:
       contents: write # needed for creating and pushing tags
-    uses: pHo9UBenaA/gh-action-templates/.github/workflows/auto-tag-on-merge.yml@ac8266b50282c82e90ebb01ae2911625d0ca1246 # master
+    uses: pHo9UBenaA/gh-action-templates/.github/workflows/auto-tag-on-merge.yml@19edb5410545784a60afe55689770f09407c704f # master
