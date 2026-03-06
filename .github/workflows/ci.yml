@@ -1,9 +1,15 @@
 name: Call CI
 on: pull_request
 
-permissions:
-  contents: read
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   call:
-    uses: pHo9UBenaA/gh-action-templates/.github/workflows/pnpm-biome-ci.yml@master
+    name: CI
+    permissions:
+      contents: read # needed for reusable workflow
+    uses: pHo9UBenaA/gh-action-templates/.github/workflows/pnpm-biome-ci.yml@ac8266b50282c82e90ebb01ae2911625d0ca1246 # master
