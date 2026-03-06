@@ -6,9 +6,15 @@ on:
     branches:
       - main
 
-permissions:
-  contents: write
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   tag:
-    uses: pHo9UBenaA/gh-action-templates/.github/workflows/auto-tag-on-merge.yml@master
+    name: Auto Tag on Merge
+    permissions:
+      contents: write # needed for creating and pushing tags
+    uses: pHo9UBenaA/gh-action-templates/.github/workflows/auto-tag-on-merge.yml@ac8266b50282c82e90ebb01ae2911625d0ca1246 # master
