@@ -1,25 +1,19 @@
 import { copyFile, mkdir, readdir, rm } from 'node:fs/promises';
-import { dirname, extname, join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build as esbuild } from 'esbuild';
+import { type BuildOptions, build as esbuild, context as esbuildContext } from 'esbuild';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const CONFIG = {
-	src: {
-		dirName: 'src',
-		get path() {
-			return join(__dirname, this.dirName);
-		},
-	},
-	dist: {
-		dirName: 'dist',
-		get path() {
-			return join(__dirname, this.dirName);
-		},
-	},
-};
+const SRC_DIR_NAME = 'src';
+const SRC_PATH = join(__dirname, SRC_DIR_NAME);
+const DIST_PATH = join(__dirname, 'dist');
+const ASSETS_PATH = join(SRC_PATH, 'assets');
+
+// Chrome extension entry points. Add popup/content/options scripts here
+// as they're introduced; files only referenced by these stay internal.
+const ENTRYPOINTS = ['background.ts'];
 
 /**
  * Recursively collect all file paths under the given directory
@@ -35,59 +29,59 @@ const collectFiles = async (dir: string): Promise<string[]> => {
 	return files.flat();
 };
 
-/**
- * Get all TypeScript entry files (*.ts) directly under the src directory
- */
-const getEntrypoints = async (srcPath: string): Promise<string[]> => {
-	const entries = await readdir(srcPath, { withFileTypes: true });
-	return entries
-		.filter((entry) => entry.isFile() && extname(entry.name) === '.ts')
-		.map((entry) => join(srcPath, entry.name));
-};
-
 const clearDist = async () => {
-	await rm(CONFIG.dist.path, { recursive: true, force: true });
+	await rm(DIST_PATH, { recursive: true, force: true });
 };
 
 const copyStaticFiles = async () => {
-	const assetsPath = join(CONFIG.src.path, 'assets');
-	const files = await collectFiles(assetsPath);
-
-	for (const file of files) {
-		const relativePath = relative(assetsPath, file);
-		const destPath = join(CONFIG.dist.path, relativePath);
-		await mkdir(dirname(destPath), { recursive: true });
-		await copyFile(file, destPath);
-	}
+	const files = await collectFiles(ASSETS_PATH);
+	await Promise.all(
+		files.map(async (file) => {
+			const relativePath = relative(ASSETS_PATH, file);
+			const destPath = join(DIST_PATH, relativePath);
+			await mkdir(dirname(destPath), { recursive: true });
+			await copyFile(file, destPath);
+		})
+	);
 };
 
-const buildScripts = async (minify: boolean) => {
-	const entrypoints = await getEntrypoints(CONFIG.src.path);
+const buildOptions = (minify: boolean): BuildOptions => ({
+	entryPoints: ENTRYPOINTS.map((entry) => join(SRC_PATH, entry)),
+	bundle: true,
+	minify,
+	target: 'chrome120',
+	format: 'esm',
+	outdir: DIST_PATH,
+	outbase: SRC_DIR_NAME,
+	platform: 'browser',
+});
 
-	await esbuild({
-		entryPoints: entrypoints,
-		bundle: true,
-		minify,
-		target: 'chrome120',
-		format: 'esm',
-		outdir: CONFIG.dist.path,
-		outbase: CONFIG.src.dirName,
-		platform: 'browser',
-	});
-};
-
-const run = async (minify: boolean) => {
+const run = async (minify: boolean, watch: boolean) => {
 	process.stdout.write('Clearing dist directory...\n');
 	await clearDist();
 
 	process.stdout.write('Copying static files...\n');
 	await copyStaticFiles();
 
+	if (watch) {
+		process.stdout.write('Starting watch build...\n');
+		const ctx = await esbuildContext(buildOptions(minify));
+		await ctx.watch();
+		process.stdout.write('Watching for changes. Press Ctrl+C to stop.\n');
+		return;
+	}
+
 	process.stdout.write('Building...\n');
-	await buildScripts(minify);
+	await esbuild(buildOptions(minify));
 };
 
 const args = process.argv.slice(2);
 const minify = args.includes('--minify');
+const watch = args.includes('--watch');
 
-run(minify);
+try {
+	await run(minify, watch);
+} catch (error) {
+	console.error(error);
+	process.exitCode = 1;
+}
