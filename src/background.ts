@@ -2,7 +2,7 @@ import { createChromeTabAdapter } from './adapters/chrome/tab';
 import { createChromeTabGroupAdapter } from './adapters/chrome/tab-group';
 import { createChromeWindowAdapter } from './adapters/chrome/window';
 import { mergeWindows } from './app/merge-windows';
-import { ContextMenuIds, ContextMenuTitles } from './constants/context-menu';
+import { ContextMenuIds, ContextMenuTitles } from './context-menu';
 
 /**
  * Creates a merge handler with injected dependencies.
