@@ -9,11 +9,11 @@ import type {
 	WindowId,
 	WindowSnapshot,
 } from '../core/window-merge.types';
-import type { Result } from '../shared/result';
-import { success } from '../shared/result';
 import type { TabPort } from '../ports/tab';
 import type { TabGroupPort } from '../ports/tab-group';
 import type { WindowPort } from '../ports/window';
+import type { Result } from '../shared/result';
+import { success } from '../shared/result';
 
 const APPEND_TO_END_INDEX = -1;
 

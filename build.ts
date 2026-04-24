@@ -3,9 +3,9 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
 	type BuildOptions,
-	type Platform,
 	build as esbuild,
 	context as esbuildContext,
+	type Platform,
 } from 'esbuild';
 
 const __filename = fileURLToPath(import.meta.url);
