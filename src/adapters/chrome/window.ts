@@ -10,7 +10,7 @@ import {
 	type TabSnapshot,
 	type WindowSnapshot,
 	type WindowType,
-} from '../../core/types/window-merge';
+} from '../../core/window-merge.types';
 import type { WindowPort } from '../../ports/window';
 
 /**

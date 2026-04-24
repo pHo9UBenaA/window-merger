@@ -3,7 +3,7 @@
  * Defines what the application layer needs from window management.
  */
 
-import type { WindowSnapshot } from '../core/types/window-merge';
+import type { WindowSnapshot } from '../core/window-merge.types';
 
 /**
  * Capability interface for window operations.

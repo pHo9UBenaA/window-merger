@@ -3,14 +3,14 @@
  * Contains domain rules, validation, and decision-making without side effects.
  */
 
-import type { Result } from '../../shared/result';
-import { failure, success } from '../../shared/result';
+import type { Result } from '../shared/result';
+import { failure, success } from '../shared/result';
 import {
 	type MergeError,
 	type MergeResult,
 	TARGET_WINDOW_TYPE,
 	type WindowSnapshot,
-} from '../types/window-merge';
+} from './window-merge.types';
 
 /**
  * Sorts windows by merge target priority.

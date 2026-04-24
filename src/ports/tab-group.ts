@@ -3,7 +3,7 @@
  * Defines what the application layer needs from tab group management.
  */
 
-import type { GroupId, MoveToWindow } from '../core/types/window-merge';
+import type { GroupId, MoveToWindow } from '../core/window-merge.types';
 
 /**
  * Capability interface for tab group operations.

@@ -14,7 +14,7 @@ import {
 	type TabId,
 	type WindowId,
 	type WindowSnapshot,
-} from '../../../src/core/types/window-merge';
+} from '../../../src/core/window-merge.types';
 
 it('createWindowId returns WindowId or null', () => {
 	expectTypeOf(createWindowId(1)).toEqualTypeOf<WindowId | null>();

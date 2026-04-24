@@ -3,7 +3,7 @@
  * Implements TabGroupPort using Chrome Tab Groups API.
  */
 
-import type { GroupId, MoveToWindow } from '../../core/types/window-merge';
+import type { GroupId, MoveToWindow } from '../../core/window-merge.types';
 import type { TabGroupPort } from '../../ports/tab-group';
 
 /**

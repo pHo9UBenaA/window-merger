@@ -3,7 +3,7 @@
  * Implements TabPort using Chrome Tabs API.
  */
 
-import type { MoveToWindow, TabId, TabUpdate } from '../../core/types/window-merge';
+import type { MoveToWindow, TabId, TabUpdate } from '../../core/window-merge.types';
 import type { TabPort } from '../../ports/tab';
 
 /**

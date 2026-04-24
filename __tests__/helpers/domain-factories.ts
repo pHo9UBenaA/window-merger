@@ -13,7 +13,7 @@ import {
 	type WindowId,
 	type WindowSnapshot,
 	type WindowType,
-} from '../../src/core/types/window-merge';
+} from '../../src/core/window-merge.types';
 
 /**
  * Creates a valid window ID for tests.

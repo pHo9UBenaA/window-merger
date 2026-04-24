@@ -8,7 +8,7 @@ import {
 	filterWindows,
 	hasValidTabs,
 	planMerge,
-} from '../../../src/core/logic/window-merge';
+} from '../../../src/core/window-merge';
 import {
 	createTabId,
 	createWindowId,
@@ -16,7 +16,7 @@ import {
 	type TabSnapshot,
 	type WindowId,
 	type WindowSnapshot,
-} from '../../../src/core/types/window-merge';
+} from '../../../src/core/window-merge.types';
 
 /**
  * Creates a tab snapshot for tests.

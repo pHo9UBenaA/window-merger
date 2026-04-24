@@ -3,7 +3,7 @@
  * Pure orchestration logic that coordinates domain logic and ports.
  */
 
-import { filterWindows, planMerge } from '../core/logic/window-merge';
+import { filterWindows, planMerge } from '../core/window-merge';
 import type {
 	GroupId,
 	MergeError,
@@ -13,7 +13,7 @@ import type {
 	TabSnapshot,
 	WindowId,
 	WindowSnapshot,
-} from '../core/types/window-merge';
+} from '../core/window-merge.types';
 import type { Result } from '../shared/result';
 import { success } from '../shared/result';
 import type { TabPort } from '../ports/tab';

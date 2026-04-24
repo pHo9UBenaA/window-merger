@@ -3,7 +3,7 @@
  * Defines what the application layer needs from tab management.
  */
 
-import type { MoveToWindow, TabId, TabUpdate } from '../core/types/window-merge';
+import type { MoveToWindow, TabId, TabUpdate } from '../core/window-merge.types';
 
 /**
  * Capability interface for tab operations.
