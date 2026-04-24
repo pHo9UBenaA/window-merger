@@ -3,8 +3,8 @@
  * Contains domain rules, validation, and decision-making without side effects.
  */
 
-import type { Result } from '../../foundation/result';
-import { failure, success } from '../../foundation/result';
+import type { Result } from '../../shared/result';
+import { failure, success } from '../../shared/result';
 import {
 	type MergeError,
 	type MergeResult,

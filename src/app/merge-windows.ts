@@ -14,8 +14,8 @@ import type {
 	WindowId,
 	WindowSnapshot,
 } from '../core/types/window-merge';
-import type { Result } from '../foundation/result';
-import { success } from '../foundation/result';
+import type { Result } from '../shared/result';
+import { success } from '../shared/result';
 import type { TabPort } from '../ports/tab';
 import type { TabGroupPort } from '../ports/tab-group';
 import type { WindowPort } from '../ports/window';
