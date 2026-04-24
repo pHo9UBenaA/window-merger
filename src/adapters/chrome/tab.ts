@@ -1,15 +1,6 @@
-/**
- * Chrome adapter for tab operations.
- * Implements TabPort using Chrome Tabs API.
- */
-
 import type { MoveToWindow, TabId, TabUpdate } from '../../core/window-merge.types';
 import type { TabPort } from '../../ports/tab';
 
-/**
- * Creates a Chrome Tabs API adapter.
- * @returns TabPort implementation using chrome.tabs API.
- */
 export const createChromeTabAdapter = (): TabPort => ({
 	moveTabs: async (tabIds: readonly TabId[], moveProperties: MoveToWindow): Promise<void> => {
 		if (tabIds.length === 0) {

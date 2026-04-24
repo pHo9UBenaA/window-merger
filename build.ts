@@ -1,23 +1,28 @@
 import { copyFile, mkdir, readdir, rm } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type BuildOptions, build as esbuild, context as esbuildContext } from 'esbuild';
+import {
+	type BuildOptions,
+	type Platform,
+	build as esbuild,
+	context as esbuildContext,
+} from 'esbuild';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const SRC_DIR_NAME = 'src';
+const DIST_DIR_NAME = 'dist';
+const ASSETS_DIR_NAME = 'assets';
+// Must stay in sync with manifest.json.
+const ENTRYPOINTS: readonly string[] = ['background.ts'];
+const BUILD_TARGET = 'chrome120';
+const BUILD_PLATFORM: Platform = 'browser';
+
 const SRC_PATH = join(__dirname, SRC_DIR_NAME);
-const DIST_PATH = join(__dirname, 'dist');
-const ASSETS_PATH = join(SRC_PATH, 'assets');
+const DIST_PATH = join(__dirname, DIST_DIR_NAME);
+const ASSETS_PATH = join(SRC_PATH, ASSETS_DIR_NAME);
 
-// Chrome extension entry points. Add popup/content/options scripts here
-// as they're introduced; files only referenced by these stay internal.
-const ENTRYPOINTS = ['background.ts'];
-
-/**
- * Recursively collect all file paths under the given directory
- */
 const collectFiles = async (dir: string): Promise<string[]> => {
 	const entries = await readdir(dir, { withFileTypes: true });
 	const files = await Promise.all(
@@ -49,11 +54,11 @@ const buildOptions = (minify: boolean): BuildOptions => ({
 	entryPoints: ENTRYPOINTS.map((entry) => join(SRC_PATH, entry)),
 	bundle: true,
 	minify,
-	target: 'chrome120',
+	target: BUILD_TARGET,
 	format: 'esm',
 	outdir: DIST_PATH,
 	outbase: SRC_DIR_NAME,
-	platform: 'browser',
+	platform: BUILD_PLATFORM,
 });
 
 const run = async (minify: boolean, watch: boolean) => {

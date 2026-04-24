@@ -1,14 +1,3 @@
-/**
- * Test helpers for creating Chrome API mock data.
- * Provides type-safe factories for windows and tabs.
- */
-
-/**
- * Creates a mock Chrome tab for testing.
- * @param id - Tab ID.
- * @param options - Overridable tab fields.
- * @returns Chrome tab object.
- */
 export const createMockChromeTab = (
 	id: number,
 	options: Partial<chrome.tabs.Tab> = {}
@@ -38,13 +27,6 @@ export const createMockChromeTab = (
 	return { ...tabBase, ...options, id };
 };
 
-/**
- * Creates a mock Chrome window for testing.
- * @param id - Window ID.
- * @param tabs - Tab overrides.
- * @param options - Overridable window fields.
- * @returns Chrome window object.
- */
 export const createMockChromeWindow = (
 	id: number,
 	tabs: Array<Partial<chrome.tabs.Tab> & { id: number }> = [],

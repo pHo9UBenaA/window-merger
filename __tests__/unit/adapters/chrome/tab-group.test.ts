@@ -1,17 +1,8 @@
-/**
- * Tests for Chrome TabGroup Adapter.
- */
-
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createChromeTabGroupAdapter } from '../../../../src/adapters/chrome/tab-group';
 import { createTestGroupId, createTestWindowId } from '../../../helpers/domain-factories';
 import { resetChromeMocks, VitestChrome } from '../../../mocks/chrome';
 
-/**
- * Creates a required group ID for tests.
- * @param value - Raw group ID.
- * @returns Group ID.
- */
 const createRequiredGroupId = (value: number) => {
 	const groupId = createTestGroupId(value);
 	if (groupId === null) {

@@ -45,10 +45,6 @@ export const VitestChrome: VitestChrome = {
 	},
 };
 
-/**
- * Helper to reset all Chrome API mocks.
- * Call this in beforeEach to ensure clean state between tests.
- */
 export const resetChromeMocks = (): void => {
 	VitestChrome.windows.getAll.mockReset();
 	VitestChrome.tabs.move.mockReset();

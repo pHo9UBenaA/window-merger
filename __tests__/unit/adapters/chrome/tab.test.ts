@@ -1,7 +1,3 @@
-/**
- * Tests for Chrome Tab Adapter.
- */
-
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createChromeTabAdapter } from '../../../../src/adapters/chrome/tab';
 import { createTestTabId, createTestWindowId } from '../../../helpers/domain-factories';

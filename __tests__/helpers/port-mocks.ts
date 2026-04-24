@@ -1,19 +1,9 @@
-/**
- * Test helpers for creating type-safe mocks for port dependencies.
- */
-
 import { vi } from 'vitest';
 import type { MergeWindowsDeps } from '../../src/app/merge-windows';
 import type { TabPort } from '../../src/ports/tab';
 import type { TabGroupPort } from '../../src/ports/tab-group';
 import type { WindowPort } from '../../src/ports/window';
 
-/**
- * Creates type-safe mock dependencies for testing merge windows use case.
- * Ensures mocks satisfy the MergeWindowsDeps interface at compile time.
- *
- * @returns Mock dependencies with exposed mock functions for testing
- */
 export const createMockMergeWindowsDeps = (): MergeWindowsDeps & {
 	mocks: {
 		getAllWindows: ReturnType<typeof vi.fn<WindowPort['getAllWindows']>>;

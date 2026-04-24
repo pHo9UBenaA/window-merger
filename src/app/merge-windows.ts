@@ -1,8 +1,3 @@
-/**
- * Application use case: Merge Windows.
- * Pure orchestration logic that coordinates domain logic and ports.
- */
-
 import { filterWindows, planMerge } from '../core/window-merge';
 import type {
 	GroupId,
@@ -20,25 +15,14 @@ import type { TabPort } from '../ports/tab';
 import type { TabGroupPort } from '../ports/tab-group';
 import type { WindowPort } from '../ports/window';
 
-/**
- * Move index for appending tabs/groups at the end of the target window.
- */
 const APPEND_TO_END_INDEX = -1;
 
-/**
- * Dependencies required by the merge windows use case.
- */
 export type MergeWindowsDeps = {
 	readonly windowPort: WindowPort;
 	readonly tabPort: TabPort;
 	readonly tabGroupPort: TabGroupPort;
 };
 
-/**
- * Collects unique group IDs from tabs.
- * @param tabs - Source tabs.
- * @returns Unique group IDs.
- */
 const collectGroupIds = (tabs: readonly TabSnapshot[]): readonly GroupId[] => {
 	const groupIds: GroupId[] = [];
 	const seen = new Set<number>();
@@ -59,12 +43,6 @@ const collectGroupIds = (tabs: readonly TabSnapshot[]): readonly GroupId[] => {
 	return groupIds;
 };
 
-/**
- * Collects tab IDs from tabs matched by predicate.
- * @param tabs - Source tabs.
- * @param predicate - Selection predicate.
- * @returns Selected tab IDs.
- */
 const collectTabIds = (
 	tabs: readonly TabSnapshot[],
 	predicate: (tab: TabSnapshot) => boolean
@@ -72,13 +50,6 @@ const collectTabIds = (
 	return tabs.filter(predicate).map((tab) => tab.id);
 };
 
-/**
- * Moves tabs from a source window to the target window.
- * Preserves tab groups, pinning, and muting.
- * @param tabs - Tabs from source window.
- * @param targetWindowId - Destination window ID.
- * @param deps - Port dependencies.
- */
 const moveTabsToTarget = async (
 	tabs: readonly TabSnapshot[],
 	targetWindowId: WindowId,
@@ -109,12 +80,6 @@ const moveTabsToTarget = async (
 	}
 };
 
-/**
- * Executes the merge operation.
- * @param windows - Windows to merge.
- * @param deps - Port dependencies.
- * @returns Merge result or error.
- */
 const executeMerge = async (
 	windows: readonly WindowSnapshot[],
 	deps: MergeWindowsDeps
@@ -137,12 +102,6 @@ const executeMerge = async (
 	return success(mergeResult);
 };
 
-/**
- * Merges all windows with the specified incognito mode.
- * @param incognito - Whether to merge incognito or regular windows.
- * @param deps - Injected port dependencies.
- * @returns Result containing MergeResult (or null if skipped) or error.
- */
 export const mergeWindows = async (
 	incognito: boolean,
 	deps: MergeWindowsDeps

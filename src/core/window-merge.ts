@@ -1,7 +1,5 @@
-/**
- * Pure business logic for window merging.
- * Contains domain rules, validation, and decision-making without side effects.
- */
+// Pure business logic. No side effects, no platform imports — keep this module
+// independent of chrome.* and other I/O so it stays trivially testable.
 
 import type { Result } from '../shared/result';
 import { failure, success } from '../shared/result';
@@ -12,15 +10,7 @@ import {
 	type WindowSnapshot,
 } from './window-merge.types';
 
-/**
- * Sorts windows by merge target priority.
- * Priority order:
- * 1. Focused window (user's current active window)
- * 2. Older windows by creation order (window ID ascending: older → newer)
- * @param a - First window to compare.
- * @param b - Second window to compare.
- * @returns Sort order (-1, 0, or 1).
- */
+// Priority: focused window first, then older windows (smaller ID = created earlier).
 export const compareWindowsByTargetPriority = (a: WindowSnapshot, b: WindowSnapshot): number => {
 	if (a.focused && !b.focused) {
 		return -1;
@@ -33,12 +23,6 @@ export const compareWindowsByTargetPriority = (a: WindowSnapshot, b: WindowSnaps
 	return a.id.value - b.id.value;
 };
 
-/**
- * Plans a merge operation from multiple windows.
- * Pure function that determines the merge strategy without executing it.
- * @param windows - Windows to merge (at least 2 required).
- * @returns Result containing merge plan (or null if skipped) or error.
- */
 export const planMerge = (
 	windows: readonly WindowSnapshot[]
 ): Result<MergeResult | null, MergeError> => {
@@ -83,21 +67,10 @@ export const planMerge = (
 	});
 };
 
-/**
- * Checks if a window has any tabs.
- * @param window - Window to check.
- * @returns True if window has at least one tab.
- */
 export const hasValidTabs = (window: WindowSnapshot): boolean => {
 	return window.tabs.length > 0;
 };
 
-/**
- * Filters windows by incognito status and target type.
- * @param windows - Chrome windows.
- * @param incognito - Incognito mode to filter by.
- * @returns Array of valid windows matching the criteria.
- */
 export const filterWindows = (
 	windows: readonly WindowSnapshot[],
 	incognito: boolean

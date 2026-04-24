@@ -1,7 +1,3 @@
-/**
- * Tests for core domain logic (pure functions).
- */
-
 import { describe, expect, it } from 'vitest';
 import {
 	compareWindowsByTargetPriority,
@@ -18,12 +14,6 @@ import {
 	type WindowSnapshot,
 } from '../../../src/core/window-merge.types';
 
-/**
- * Creates a tab snapshot for tests.
- * @param id - Numeric tab ID.
- * @param options - Optional overrides.
- * @returns Tab snapshot.
- */
 const createTabSnapshot = (
 	id: number,
 	options: Partial<Omit<TabSnapshot, 'id'>> = {}
@@ -43,11 +33,6 @@ const createTabSnapshot = (
 	};
 };
 
-/**
- * Creates a valid window ID for tests.
- * @param id - Numeric window ID.
- * @returns Window ID.
- */
 const createValidWindowId = (id: number): WindowId => {
 	const windowId = createWindowId(id);
 	if (windowId === null) {
@@ -57,13 +42,6 @@ const createValidWindowId = (id: number): WindowId => {
 	return windowId;
 };
 
-/**
- * Creates a window snapshot for tests.
- * @param id - Numeric window ID.
- * @param tabs - Tab list.
- * @param options - Optional overrides.
- * @returns Window snapshot.
- */
 const createWindowSnapshot = (
 	id: number,
 	tabs: readonly TabSnapshot[] = [],

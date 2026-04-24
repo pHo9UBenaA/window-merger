@@ -1,7 +1,3 @@
-/**
- * Integration tests for merge windows use case.
- */
-
 import { describe, expect, it } from 'vitest';
 import { mergeWindows } from '../../../src/app/merge-windows';
 import {

@@ -1,7 +1,3 @@
-/**
- * Tests for Chrome Window Adapter.
- */
-
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createChromeWindowAdapter } from '../../../../src/adapters/chrome/window';
 import { createMockChromeTab, createMockChromeWindow } from '../../../helpers/chrome-factories';
