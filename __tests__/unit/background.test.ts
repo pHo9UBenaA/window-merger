@@ -84,7 +84,7 @@ describe('background: context menu click handler', () => {
 });
 
 describe('background: merge handler error handling', () => {
-	it('logs an error when mergeWindows returns a failure', async () => {
+	it('logs an error when the error type is not insufficient-windows', async () => {
 		mockedMergeWindows.mockResolvedValue({
 			ok: false,
 			error: {
@@ -103,7 +103,7 @@ describe('background: merge handler error handling', () => {
 		consoleSpy.mockRestore();
 	});
 
-	it('does not log an error when mergeWindows succeeds', async () => {
+	it('does not log an error when the error type is insufficient-windows', async () => {
 		mockedMergeWindows.mockResolvedValue({
 			ok: false,
 			error: {

@@ -57,7 +57,7 @@ describe('App Layer - Merge Windows', () => {
 		});
 	});
 
-	it('does nothing when only one window exists', async () => {
+	it('returns insufficient-windows error when only one window is available', async () => {
 		const deps = createMockMergeWindowsDeps();
 		deps.mocks.getAllWindows.mockResolvedValue([
 			createMockWindowSnapshot(1, [createMockTabSnapshot(1, { active: true })]),
@@ -92,7 +92,7 @@ describe('App Layer - Merge Windows', () => {
 		expect(deps.mocks.moveTabs).not.toHaveBeenCalled();
 	});
 
-	it('safely skips windows with no tabs', async () => {
+	it('returns insufficient-windows error when windows have no valid tabs', async () => {
 		const deps = createMockMergeWindowsDeps();
 		deps.mocks.getAllWindows.mockResolvedValue([
 			createMockWindowSnapshot(1, []),
