@@ -178,5 +178,3 @@ dist/
 *.zip
 
 .pnpm-store/
-__snapshot__
-*.md
