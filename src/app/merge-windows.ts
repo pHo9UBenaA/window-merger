@@ -13,7 +13,7 @@ import type { TabPort } from '../ports/tab';
 import type { TabGroupPort } from '../ports/tab-group';
 import type { WindowPort } from '../ports/window';
 import type { Result } from '../shared/result';
-import { success } from '../shared/result';
+import { failure, success } from '../shared/result';
 
 const APPEND_TO_END_INDEX = -1;
 
@@ -83,9 +83,9 @@ const moveTabsToTarget = async (
 const executeMerge = async (
 	windows: readonly WindowSnapshot[],
 	deps: MergeWindowsDeps
-): Promise<Result<MergeResult | null, MergeError>> => {
+): Promise<Result<MergeResult, MergeError>> => {
 	const mergePlan = planMerge(windows);
-	if (!mergePlan.ok || mergePlan.data === null) {
+	if (!mergePlan.ok) {
 		return mergePlan;
 	}
 
@@ -105,10 +105,14 @@ const executeMerge = async (
 export const mergeWindows = async (
 	incognito: boolean,
 	deps: MergeWindowsDeps
-): Promise<Result<MergeResult | null, MergeError>> => {
+): Promise<Result<MergeResult, MergeError>> => {
 	const windows = filterWindows(await deps.windowPort.getAllWindows(true), incognito);
 	if (windows.length <= 1) {
-		return success(null);
+		return failure({
+			type: 'insufficient-windows',
+			message: 'Not enough windows to merge',
+			context: { windowCount: windows.length },
+		});
 	}
 
 	return executeMerge(windows, deps);

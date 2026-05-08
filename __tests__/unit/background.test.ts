@@ -58,7 +58,14 @@ beforeEach(() => {
 
 describe('background: context menu click handler', () => {
 	it('calls the matching handler when a valid menu ID is clicked', async () => {
-		mockedMergeWindows.mockResolvedValue({ ok: true, data: null });
+		mockedMergeWindows.mockResolvedValue({
+			ok: false,
+			error: {
+				type: 'insufficient-windows',
+				message: 'Not enough windows to merge',
+				context: { windowCount: 1 },
+			},
+		});
 
 		chromeMock.triggerClicked('mergeWindowId');
 
@@ -97,7 +104,14 @@ describe('background: merge handler error handling', () => {
 	});
 
 	it('does not log an error when mergeWindows succeeds', async () => {
-		mockedMergeWindows.mockResolvedValue({ ok: true, data: null });
+		mockedMergeWindows.mockResolvedValue({
+			ok: false,
+			error: {
+				type: 'insufficient-windows',
+				message: 'Not enough windows to merge',
+				context: { windowCount: 1 },
+			},
+		});
 		const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
 		chromeMock.triggerClicked('mergeWindowId');

@@ -154,12 +154,13 @@ describe('Core Logic - Window Merge', () => {
 		}
 	});
 
-	it('planMerge: returns null for empty window list', () => {
+	it('planMerge: returns insufficient-windows error for empty window list', () => {
 		const result = planMerge([]);
 
-		expect(result.ok).toBe(true);
-		if (result.ok) {
-			expect(result.data).toBeNull();
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.type).toBe('insufficient-windows');
+			expect(result.error.context.windowCount).toBe(0);
 		}
 	});
 
@@ -173,7 +174,7 @@ describe('Core Logic - Window Merge', () => {
 		const result = planMerge([target, source1, source2]);
 
 		expect(result.ok).toBe(true);
-		if (result.ok && result.data) {
+		if (result.ok) {
 			expect(result.data.activeTabId).toEqual(createTabSnapshot(3).id);
 		}
 	});

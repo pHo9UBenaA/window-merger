@@ -13,7 +13,7 @@ const createMergeHandler = (incognito: boolean) => async (): Promise<void> => {
 
 	const result = await mergeWindows(incognito, deps);
 
-	if (!result.ok) {
+	if (!result.ok && result.error.type !== 'insufficient-windows') {
 		console.error('Failed to merge windows:', result.error);
 	}
 };
