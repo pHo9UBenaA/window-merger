@@ -18,5 +18,10 @@ export default defineConfig({
 		include: ['./__tests__/**/*.{spec,test}.{ts,tsx}'],
 		mockReset: true,
 		clearMocks: true,
+		coverage: {
+			provider: 'v8',
+			include: ['src/**/*.ts'],
+			reporter: ['text', 'lcov'],
+		},
 	},
 });

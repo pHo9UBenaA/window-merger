@@ -23,6 +23,7 @@
 		"build": "node --experimental-strip-types ./build.ts",
 		"zip": "pnpm run build --minify; zip -vr dist.zip dist -x \"*.DS_Store\"",
 		"test": "vitest run",
+		"coverage": "vitest run --coverage",
 		"ci": "biome ci . --error-on-warnings",
 		"format": "biome format --write .",
 		"lint": "biome lint --write . --error-on-warnings",
