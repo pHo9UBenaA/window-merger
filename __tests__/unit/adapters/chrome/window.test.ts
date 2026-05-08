@@ -163,4 +163,57 @@ describe('Chrome Window Adapter', () => {
 
 		await expect(adapter.getAllWindows(true)).rejects.toThrow('Chrome API error');
 	});
+
+	it('filters out tabs where id property is absent', async () => {
+		const tabWithoutId: chrome.tabs.Tab = { ...createMockChromeTab(1), id: undefined };
+		VitestChrome.windows.getAll.mockResolvedValue([
+			{ ...createMockChromeWindow(1), tabs: [tabWithoutId] },
+		]);
+
+		const result = await createChromeWindowAdapter().getAllWindows(true);
+
+		expect(result[0]?.tabs).toHaveLength(0);
+	});
+
+	it('maps tab with undefined groupId to null groupId', async () => {
+		const tabWithoutGroupId: chrome.tabs.Tab = {
+			...createMockChromeTab(1),
+			groupId: undefined,
+		};
+		VitestChrome.windows.getAll.mockResolvedValue([
+			{ ...createMockChromeWindow(1), tabs: [tabWithoutGroupId] },
+		]);
+
+		const result = await createChromeWindowAdapter().getAllWindows(true);
+
+		expect(result[0]?.tabs[0]?.groupId).toBeNull();
+	});
+
+	it('filters out windows where id property is absent', async () => {
+		const windowWithoutId: chrome.windows.Window = {
+			...createMockChromeWindow(2, [{ id: 2 }]),
+			id: undefined,
+		};
+		VitestChrome.windows.getAll.mockResolvedValue([
+			createMockChromeWindow(1, [{ id: 1 }]),
+			windowWithoutId,
+		]);
+
+		const result = await createChromeWindowAdapter().getAllWindows(true);
+
+		expect(result).toHaveLength(1);
+		expect(result[0]?.id).toEqual(createTestWindowId(1));
+	});
+
+	it('returns empty tabs array when window has no tabs property', async () => {
+		const windowWithoutTabs: chrome.windows.Window = {
+			...createMockChromeWindow(1),
+			tabs: undefined,
+		};
+		VitestChrome.windows.getAll.mockResolvedValue([windowWithoutTabs]);
+
+		const result = await createChromeWindowAdapter().getAllWindows(true);
+
+		expect(result[0]?.tabs).toEqual([]);
+	});
 });

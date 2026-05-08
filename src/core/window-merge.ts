@@ -23,11 +23,13 @@ export const compareWindowsByTargetPriority = (a: WindowSnapshot, b: WindowSnaps
 	return a.id.value - b.id.value;
 };
 
-export const planMerge = (
-	windows: readonly WindowSnapshot[]
-): Result<MergeResult | null, MergeError> => {
+export const planMerge = (windows: readonly WindowSnapshot[]): Result<MergeResult, MergeError> => {
 	if (windows.length <= 1) {
-		return success(null);
+		return failure({
+			type: 'insufficient-windows',
+			message: 'Not enough windows to merge',
+			context: { windowCount: windows.length },
+		});
 	}
 
 	const [targetWindow, ...sourceWindows] = [...windows].sort(compareWindowsByTargetPriority);

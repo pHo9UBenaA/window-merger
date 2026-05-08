@@ -81,6 +81,13 @@ export type MergeResult = {
 
 export type MergeError =
 	| {
+			readonly type: 'insufficient-windows';
+			readonly message: string;
+			readonly context: {
+				readonly windowCount: number;
+			};
+	  }
+	| {
 			readonly type: 'no-valid-target';
 			readonly message: string;
 			readonly context: {
