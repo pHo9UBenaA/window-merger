@@ -1,18 +1,18 @@
 # Window Merger
 
-A Chrome extension that lets you efficiently manage your browser windows by merging them into one.
+A Chrome extension that merges multiple browser windows into one.
 
 ## Features
 
-- Merge all windows of the same profile.
-- Merge all incognito windows (if permission is granted for incognito mode).
+- Merge all normal windows within the same profile.
+- Merge all incognito windows (requires incognito access).
 - Preserve pinned tabs, tab groups, and tab mute states when merging.
-- Activate easily by clicking the extension icon or pressing `Alt + Shift + M`.
+- Click the extension icon or press `Alt + Shift + M` to merge windows.
 
-## Important Information
+## Notes
 
-1. For instructions on enabling the extension in incognito mode, see: [Google Support](https://support.google.com/chrome/a/answer/13130396)
-2. If the shortcut keys do not work, go to `chrome://extensions/shortcuts` and reassign the keys.
+1. To enable incognito access, see: [Google Support](https://support.google.com/chrome/a/answer/13130396)
+2. If the shortcut does not work, you can reconfigure it at `chrome://extensions/shortcuts`.
 
 ## Installation
 
@@ -32,11 +32,9 @@ pnpm i --frozen-lockfile
 pnpm build
 ```
 
-### With Containers
+### Using Docker Compose
 
-<details>
-
-1. Build the docker image
+1. Build the Docker image
 
 ```bash
 docker compose up -d --build
@@ -54,8 +52,6 @@ docker compose exec node pnpm i --frozen-lockfile
 docker compose exec node pnpm build
 ```
 
-</details>
-
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE)
