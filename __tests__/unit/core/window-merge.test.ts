@@ -153,4 +153,40 @@ describe('Core Logic - Window Merge', () => {
 			expect(result.error.context.windowCount).toBe(2);
 		}
 	});
+
+	it('planMerge: returns null for empty window list', () => {
+		const result = planMerge([]);
+
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.data).toBeNull();
+		}
+	});
+
+	it('planMerge: finds active tab in later source window when earlier ones have none', () => {
+		const target = createWindowSnapshot(1, [createTabSnapshot(1, { active: false })], {
+			focused: true,
+		});
+		const source1 = createWindowSnapshot(2, [createTabSnapshot(2, { active: false })]);
+		const source2 = createWindowSnapshot(3, [createTabSnapshot(3, { active: true })]);
+
+		const result = planMerge([target, source1, source2]);
+
+		expect(result.ok).toBe(true);
+		if (result.ok && result.data) {
+			expect(result.data.activeTabId).toEqual(createTabSnapshot(3).id);
+		}
+	});
+
+	it('filterWindows: excludes windows whose id value is less than 1', () => {
+		const invalidWindow: WindowSnapshot = {
+			...createWindowSnapshot(1, [createTabSnapshot(1)]),
+			id: { kind: 'WindowId', value: 0 } as const,
+		};
+		const validWindow = createWindowSnapshot(2, [createTabSnapshot(2)]);
+
+		const result = filterWindows([invalidWindow, validWindow], false);
+
+		expect(result).toEqual([validWindow]);
+	});
 });
