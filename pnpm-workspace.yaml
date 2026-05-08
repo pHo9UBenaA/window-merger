@@ -2,14 +2,14 @@ packages:
   - .
 
 catalog:
-  '@biomejs/biome': 2.4.4
-  '@types/chrome': 0.1.37
-  '@types/node': 25.3.2
-  '@typescript/native-preview': 7.0.0-dev.20260306.1
-  '@vitest/coverage-v8': 4.0.18
-  esbuild: 0.27.3
-  typescript: 5.9.3
-  vitest: 4.0.18
+  '@biomejs/biome': 2.4.12
+  '@types/chrome': 0.1.40
+  '@types/node': 25.6.0
+  '@typescript/native-preview': 7.0.0-dev.20260423.1
+  '@vitest/coverage-v8': 4.1.4
+  esbuild: 0.28.0
+  typescript: 6.0.3
+  vitest: 4.1.4
 
 catalogMode: strict
 

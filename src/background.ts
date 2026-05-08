@@ -2,13 +2,8 @@ import { createChromeTabAdapter } from './adapters/chrome/tab';
 import { createChromeTabGroupAdapter } from './adapters/chrome/tab-group';
 import { createChromeWindowAdapter } from './adapters/chrome/window';
 import { mergeWindows } from './app/merge-windows';
-import { ContextMenuIds, ContextMenuTitles } from './constants/context-menu';
+import { ContextMenuIds, ContextMenuTitles } from './context-menu';
 
-/**
- * Creates a merge handler with injected dependencies.
- * @param incognito - Whether to merge incognito or regular windows.
- * @returns Handler function that executes the merge.
- */
 const createMergeHandler = (incognito: boolean) => async (): Promise<void> => {
 	const deps = {
 		windowPort: createChromeWindowAdapter(),
@@ -30,6 +25,12 @@ const handleMapper = {
 	[ContextMenuIds.mergeWindow]: handleMergeWindowEvent,
 	[ContextMenuIds.mergeIncognitoWindow]: handleMergeIncognitoWindowEvent,
 } as const satisfies { [key in ContextMenuIds]: () => void };
+
+const contextMenuIdSet: ReadonlySet<string> = new Set(Object.values(ContextMenuIds));
+
+const isContextMenuId = (menuItemId: string): menuItemId is ContextMenuIds => {
+	return contextMenuIdSet.has(menuItemId);
+};
 
 chrome.runtime.onInstalled.addListener(() => {
 	const removeAllContextMenus = () => {
@@ -56,22 +57,19 @@ chrome.runtime.onInstalled.addListener(() => {
 	createContextMenu(ContextMenuIds.mergeWindow, ContextMenuTitles.mergeWindow);
 	createContextMenu(ContextMenuIds.mergeIncognitoWindow, ContextMenuTitles.mergeIncognitoWindow);
 
-	syncMenuStateWithIncognitoPermission();
+	void syncMenuStateWithIncognitoPermission();
 });
 
 chrome.contextMenus.onClicked.addListener((info) => {
-	const isContextMenuId = (title: string): title is ContextMenuIds =>
-		Object.values(ContextMenuIds).includes(title as ContextMenuIds);
-
 	const menuItemId = info.menuItemId.toString();
 	if (isContextMenuId(menuItemId)) {
-		handleMapper[menuItemId]();
+		void handleMapper[menuItemId]();
 	}
 });
 
 chrome.action.onClicked.addListener(() => {
 	const handles = Object.values(handleMapper);
 	for (const handle of handles) {
-		handle();
+		void handle();
 	}
 });

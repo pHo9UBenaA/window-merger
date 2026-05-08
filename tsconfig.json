@@ -10,6 +10,7 @@
 
 		// Bundler mode
 		"moduleResolution": "bundler",
+		"types": ["chrome"],
 		"allowImportingTsExtensions": true,
 		"verbatimModuleSyntax": true,
 		"noEmit": true,

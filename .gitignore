@@ -176,3 +176,5 @@ dist
 
 dist/
 *.zip
+
+.pnpm-store/
