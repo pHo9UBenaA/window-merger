@@ -1,4 +1,4 @@
-import type { MoveToWindow, TabId, TabUpdate } from '../core/window-merge.types';
+import type { MoveToWindow, TabId, TabUpdate } from '../domain/window-merge.types';
 
 export type TabPort = {
 	readonly updateTab: (tabId: TabId, properties: TabUpdate) => Promise<void>;

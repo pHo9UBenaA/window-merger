@@ -5,7 +5,7 @@ import {
 	type TabSnapshot,
 	type WindowSnapshot,
 	type WindowType,
-} from '../../core/window-merge.types';
+} from '../../domain/window-merge.types';
 import type { WindowPort } from '../../ports/window';
 
 const toDomainWindowType = (type: chrome.windows.Window['type'] | undefined): WindowType => {

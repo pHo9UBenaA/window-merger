@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeWindows } from '../../../src/app/merge-windows';
+import { mergeWindows } from '../../../src/application/merge-windows';
 import {
 	createMockTabSnapshot,
 	createMockWindowSnapshot,

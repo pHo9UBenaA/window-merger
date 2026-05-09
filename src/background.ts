@@ -2,7 +2,7 @@ import { ContextMenuIds, ContextMenuTitles } from './adapters/chrome/context-men
 import { createChromeTabAdapter } from './adapters/chrome/tab';
 import { createChromeTabGroupAdapter } from './adapters/chrome/tab-group';
 import { createChromeWindowAdapter } from './adapters/chrome/window';
-import { mergeWindows } from './app/merge-windows';
+import { mergeWindows } from './application/merge-windows';
 
 const createMergeHandler = (incognito: boolean) => async (): Promise<void> => {
 	const deps = {

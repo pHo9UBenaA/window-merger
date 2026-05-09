@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mergeWindows } from '../../src/app/merge-windows';
+import { mergeWindows } from '../../src/application/merge-windows';
 
-vi.mock('../../src/app/merge-windows', () => ({
+vi.mock('../../src/application/merge-windows', () => ({
 	mergeWindows: vi.fn(),
 }));
 

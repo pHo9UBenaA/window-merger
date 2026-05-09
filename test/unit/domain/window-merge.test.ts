@@ -4,7 +4,7 @@ import {
 	filterWindows,
 	hasValidTabs,
 	planMerge,
-} from '../../../src/core/window-merge';
+} from '../../../src/domain/window-merge';
 import {
 	createTabId,
 	createWindowId,
@@ -12,7 +12,7 @@ import {
 	type TabSnapshot,
 	type WindowId,
 	type WindowSnapshot,
-} from '../../../src/core/window-merge.types';
+} from '../../../src/domain/window-merge.types';
 
 const createTabSnapshot = (
 	id: number,

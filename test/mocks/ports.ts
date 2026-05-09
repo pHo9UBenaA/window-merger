@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { MergeWindowsDeps } from '../../src/app/merge-windows';
+import type { MergeWindowsDeps } from '../../src/application/merge-windows';
 import type { TabPort } from '../../src/ports/tab';
 import type { TabGroupPort } from '../../src/ports/tab-group';
 import type { WindowPort } from '../../src/ports/window';
