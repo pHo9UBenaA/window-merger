@@ -176,10 +176,10 @@ describe('Chrome Window Adapter', () => {
 	});
 
 	it('maps tab with undefined groupId to null groupId', async () => {
-		const tabWithoutGroupId: chrome.tabs.Tab = {
+		const tabWithoutGroupId = {
 			...createMockChromeTab(1),
 			groupId: undefined,
-		};
+		} as unknown as chrome.tabs.Tab;
 		VitestChrome.windows.getAll.mockResolvedValue([
 			{ ...createMockChromeWindow(1), tabs: [tabWithoutGroupId] },
 		]);

@@ -14,15 +14,15 @@ const getSetupFiles = (dir: string): string[] => {
 
 export default defineConfig({
 	test: {
-		setupFiles: getSetupFiles('./__tests__/setup-files'),
-		include: ['./__tests__/**/*.{spec,test}.{ts,tsx}'],
+		setupFiles: getSetupFiles('./test/setup-files'),
+		include: ['./test/**/*.{spec,test}.{ts,tsx}'],
 		mockReset: true,
 		clearMocks: true,
+		reporters: ['minimal'],
 		coverage: {
 			provider: 'v8',
-			all: true,
 			include: ['src/**/*.ts'],
-			reporter: ['text', 'lcov'],
+			reporter: ['text-summary', 'lcov'],
 			thresholds: {
 				branches: 90,
 			},
