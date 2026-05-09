@@ -1,3 +1,5 @@
 #!/bin/sh
 set -e
-pnpm run coverage
+pnpm run ci
+pnpm run typecheck
+pnpm run test:coverage

@@ -2,3 +2,4 @@
 set -e
 pnpm run ci
 pnpm run typecheck
+pnpm run test:coverage
