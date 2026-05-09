@@ -8,8 +8,8 @@
 // elsewhere; this file asserts types only via expectTypeOf.
 
 import { expectTypeOf, it } from 'vitest';
-import { createChromeTabAdapter } from '../../../src/adapters/chrome/tab';
-import { createChromeWindowAdapter } from '../../../src/adapters/chrome/window';
+import { createChromeTabAdapter } from '../../src/adapters/chrome/tab';
+import { createChromeWindowAdapter } from '../../src/adapters/chrome/window';
 import {
 	createGroupId,
 	createTabId,
@@ -18,7 +18,7 @@ import {
 	type TabId,
 	type WindowId,
 	type WindowSnapshot,
-} from '../../../src/core/window-merge.types';
+} from '../../src/core/window-merge.types';
 
 it('createWindowId returns WindowId or null', () => {
 	expectTypeOf(createWindowId(1)).toEqualTypeOf<WindowId | null>();
