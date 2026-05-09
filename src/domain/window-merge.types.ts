@@ -1,5 +1,5 @@
 // Domain types. Must stay platform-agnostic — no chrome.* imports, so the
-// app and core layers can depend on this without pulling in Chrome APIs.
+// application and adapter layers can depend on this without pulling in Chrome APIs.
 
 // IDs must be positive integers; 0 and negative values are invalid.
 const MIN_VALID_ID = 1;
