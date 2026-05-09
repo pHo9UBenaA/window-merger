@@ -6,8 +6,8 @@ import {
 	createTestGroupId,
 	createTestTabId,
 	createTestWindowId,
-} from '../../helpers/domain-factories';
-import { createMockMergeWindowsDeps } from '../../helpers/port-mocks';
+} from '../../factories/domain';
+import { createMockMergeWindowsDeps } from '../../mocks/ports';
 
 describe('App Layer - Merge Windows', () => {
 	it('merges multiple windows together', async () => {

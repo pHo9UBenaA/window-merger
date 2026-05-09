@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createChromeWindowAdapter } from '../../../../src/adapters/chrome/window';
-import { createMockChromeTab, createMockChromeWindow } from '../../../helpers/chrome-factories';
-import {
-	createTestGroupId,
-	createTestTabId,
-	createTestWindowId,
-} from '../../../helpers/domain-factories';
+import { createMockChromeTab, createMockChromeWindow } from '../../../factories/chrome';
+import { createTestGroupId, createTestTabId, createTestWindowId } from '../../../factories/domain';
 import { resetChromeMocks, VitestChrome } from '../../../mocks/chrome';
 
 describe('Chrome Window Adapter', () => {
