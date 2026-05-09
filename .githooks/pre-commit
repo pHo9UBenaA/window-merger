@@ -1,3 +1,4 @@
 #!/bin/sh
 set -e
 pnpm run ci
+pnpm run typecheck

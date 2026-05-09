@@ -20,7 +20,6 @@ export default defineConfig({
 		clearMocks: true,
 		coverage: {
 			provider: 'v8',
-			all: true,
 			include: ['src/**/*.ts'],
 			reporter: ['text', 'lcov'],
 			thresholds: {
