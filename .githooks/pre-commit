@@ -2,11 +2,11 @@
 set -e
 
 if [ -n "$(git diff --cached --name-only --diff-filter=ACMR -- '*.ts' '*.json')" ]; then
-  git diff --cached --name-only -z --diff-filter=ACMR -- '*.ts' '*.json' | xargs -0 pnpm biome ci --error-on-warnings
+  git diff --cached --name-only -z --diff-filter=ACMR -- '*.ts' '*.json' | xargs -0 pnpm exec biome ci --error-on-warnings
 fi
 
 pnpm run typecheck
 
 if [ -n "$(git diff --cached --name-only --diff-filter=ACMR -- '*.ts')" ]; then
-  git diff --cached --name-only -z --diff-filter=ACMR -- '*.ts' | xargs -0 pnpm vitest related --run --
+  git diff --cached --name-only -z --diff-filter=ACMR -- '*.ts' | xargs -0 pnpm exec vitest related --run --
 fi
