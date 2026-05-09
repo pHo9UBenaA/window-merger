@@ -20,7 +20,7 @@ describe('App Layer - Merge Windows', () => {
 		const result = await mergeWindows(false, deps);
 
 		expect(result.ok).toBe(true);
-		expect(deps.mocks.getAllWindows).toHaveBeenCalledWith(true);
+		expect(deps.mocks.getAllWindows).toHaveBeenCalledWith();
 		expect(deps.mocks.moveTabs).toHaveBeenCalled();
 	});
 

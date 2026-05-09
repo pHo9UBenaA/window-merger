@@ -9,21 +9,11 @@ describe('Chrome Window Adapter', () => {
 		resetChromeMocks();
 	});
 
-	it('returns windows when populate=true', async () => {
+	it('returns window snapshots', async () => {
 		VitestChrome.windows.getAll.mockResolvedValue([createMockChromeWindow(1, [{ id: 1 }])]);
 
 		const adapter = createChromeWindowAdapter();
-		const result = await adapter.getAllWindows(true);
-
-		expect(Array.isArray(result)).toBe(true);
-		expect(result).toHaveLength(1);
-	});
-
-	it('returns windows when populate=false', async () => {
-		VitestChrome.windows.getAll.mockResolvedValue([createMockChromeWindow(1)]);
-
-		const adapter = createChromeWindowAdapter();
-		const result = await adapter.getAllWindows(false);
+		const result = await adapter.getAllWindows();
 
 		expect(Array.isArray(result)).toBe(true);
 		expect(result).toHaveLength(1);
@@ -33,27 +23,18 @@ describe('Chrome Window Adapter', () => {
 		VitestChrome.windows.getAll.mockResolvedValue([]);
 
 		const adapter = createChromeWindowAdapter();
-		const result = await adapter.getAllWindows(true);
+		const result = await adapter.getAllWindows();
 
 		expect(result).toEqual([]);
 	});
 
-	it('calls chrome.windows.getAll with populate=true', async () => {
+	it('always calls chrome.windows.getAll with populate=true', async () => {
 		VitestChrome.windows.getAll.mockResolvedValue([]);
 
 		const adapter = createChromeWindowAdapter();
-		await adapter.getAllWindows(true);
+		await adapter.getAllWindows();
 
 		expect(VitestChrome.windows.getAll).toHaveBeenCalledWith({ populate: true });
-	});
-
-	it('calls chrome.windows.getAll with populate=false', async () => {
-		VitestChrome.windows.getAll.mockResolvedValue([]);
-
-		const adapter = createChromeWindowAdapter();
-		await adapter.getAllWindows(false);
-
-		expect(VitestChrome.windows.getAll).toHaveBeenCalledWith({ populate: false });
 	});
 
 	it('maps Chrome window and tab properties to snapshots', async () => {
@@ -75,7 +56,7 @@ describe('Chrome Window Adapter', () => {
 		]);
 
 		const adapter = createChromeWindowAdapter();
-		const result = await adapter.getAllWindows(true);
+		const result = await adapter.getAllWindows();
 
 		expect(result).toEqual([
 			{
@@ -111,7 +92,7 @@ describe('Chrome Window Adapter', () => {
 		VitestChrome.windows.getAll.mockResolvedValue([unsupportedTypeWindow]);
 
 		const adapter = createChromeWindowAdapter();
-		const result = await adapter.getAllWindows(true);
+		const result = await adapter.getAllWindows();
 
 		expect(result[0]?.type).toBe('unknown');
 	});
@@ -127,7 +108,7 @@ describe('Chrome Window Adapter', () => {
 		]);
 
 		const adapter = createChromeWindowAdapter();
-		const result = await adapter.getAllWindows(true);
+		const result = await adapter.getAllWindows();
 
 		expect(result).toHaveLength(1);
 		expect(result[0]?.id).toEqual(createTestWindowId(1));
@@ -146,7 +127,7 @@ describe('Chrome Window Adapter', () => {
 		]);
 
 		const adapter = createChromeWindowAdapter();
-		const result = await adapter.getAllWindows(true);
+		const result = await adapter.getAllWindows();
 
 		expect(result[0]?.tabs).toHaveLength(1);
 		expect(result[0]?.tabs[0]?.id).toEqual(createTestTabId(11));
@@ -157,7 +138,7 @@ describe('Chrome Window Adapter', () => {
 
 		const adapter = createChromeWindowAdapter();
 
-		await expect(adapter.getAllWindows(true)).rejects.toThrow('Chrome API error');
+		await expect(adapter.getAllWindows()).rejects.toThrow('Chrome API error');
 	});
 
 	it('filters out tabs where id property is absent', async () => {
@@ -166,7 +147,7 @@ describe('Chrome Window Adapter', () => {
 			{ ...createMockChromeWindow(1), tabs: [tabWithoutId] },
 		]);
 
-		const result = await createChromeWindowAdapter().getAllWindows(true);
+		const result = await createChromeWindowAdapter().getAllWindows();
 
 		expect(result[0]?.tabs).toHaveLength(0);
 	});
@@ -180,7 +161,7 @@ describe('Chrome Window Adapter', () => {
 			{ ...createMockChromeWindow(1), tabs: [tabWithoutGroupId] },
 		]);
 
-		const result = await createChromeWindowAdapter().getAllWindows(true);
+		const result = await createChromeWindowAdapter().getAllWindows();
 
 		expect(result[0]?.tabs[0]?.groupId).toBeNull();
 	});
@@ -195,7 +176,7 @@ describe('Chrome Window Adapter', () => {
 			windowWithoutId,
 		]);
 
-		const result = await createChromeWindowAdapter().getAllWindows(true);
+		const result = await createChromeWindowAdapter().getAllWindows();
 
 		expect(result).toHaveLength(1);
 		expect(result[0]?.id).toEqual(createTestWindowId(1));
@@ -208,7 +189,7 @@ describe('Chrome Window Adapter', () => {
 		};
 		VitestChrome.windows.getAll.mockResolvedValue([windowWithoutTabs]);
 
-		const result = await createChromeWindowAdapter().getAllWindows(true);
+		const result = await createChromeWindowAdapter().getAllWindows();
 
 		expect(result[0]?.tabs).toEqual([]);
 	});

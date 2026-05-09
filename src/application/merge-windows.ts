@@ -106,7 +106,7 @@ export const mergeWindows = async (
 	incognito: boolean,
 	deps: MergeWindowsDeps
 ): Promise<Result<MergeResult, MergeError>> => {
-	const windows = filterWindows(await deps.windowPort.getAllWindows(true), incognito);
+	const windows = filterWindows(await deps.windowPort.getAllWindows(), incognito);
 	if (windows.length <= 1) {
 		return failure({
 			type: 'insufficient-windows',

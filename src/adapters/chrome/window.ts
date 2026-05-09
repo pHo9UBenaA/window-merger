@@ -66,8 +66,8 @@ const toWindowSnapshot = (window: chrome.windows.Window): WindowSnapshot | null 
 };
 
 export const createChromeWindowAdapter = (): WindowPort => ({
-	getAllWindows: async (populate: boolean): Promise<readonly WindowSnapshot[]> => {
-		const windows = await chrome.windows.getAll({ populate });
+	getAllWindows: async (): Promise<readonly WindowSnapshot[]> => {
+		const windows = await chrome.windows.getAll({ populate: true });
 		return windows.map(toWindowSnapshot).filter(isNotNull);
 	},
 });
