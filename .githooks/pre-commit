@@ -1,12 +1,12 @@
 #!/bin/sh
 set -e
 
-if git diff --cached --name-only --diff-filter=ACMR | grep -q -E '\.(ts|json)$'; then
-  git diff --cached --name-only -z --diff-filter=ACMR | grep -z -E '\.(ts|json)$' | xargs -0 pnpm biome ci
+if [ -n "$(git diff --cached --name-only --diff-filter=ACMR -- '*.ts' '*.json')" ]; then
+  git diff --cached --name-only -z --diff-filter=ACMR -- '*.ts' '*.json' | xargs -0 pnpm biome ci --error-on-warnings
 fi
 
 pnpm run typecheck
 
-if git diff --cached --name-only --diff-filter=ACMR | grep -q '\.ts$'; then
-  git diff --cached --name-only -z --diff-filter=ACMR | grep -z '\.ts$' | xargs -0 pnpm vitest related --run
+if [ -n "$(git diff --cached --name-only --diff-filter=ACMR -- '*.ts')" ]; then
+  git diff --cached --name-only -z --diff-filter=ACMR -- '*.ts' | xargs -0 pnpm vitest related --run --
 fi
