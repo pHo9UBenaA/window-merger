@@ -1,15 +1,12 @@
 #!/bin/sh
 set -e
 
-STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|json)$' | tr '\n' ' ')
-STAGED_TS=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.ts$' | tr '\n' ' ')
-
-if [ -n "$STAGED" ]; then
-  pnpm biome ci $STAGED
+if git diff --cached --name-only --diff-filter=ACMR | grep -q -E '\.(ts|json)$'; then
+  git diff --cached --name-only -z --diff-filter=ACMR | grep -z -E '\.(ts|json)$' | xargs -0 pnpm biome ci
 fi
 
 pnpm run typecheck
 
-if [ -n "$STAGED_TS" ]; then
-  pnpm vitest related --run $STAGED_TS
+if git diff --cached --name-only --diff-filter=ACMR | grep -q '\.ts$'; then
+  git diff --cached --name-only -z --diff-filter=ACMR | grep -z '\.ts$' | xargs -0 pnpm vitest related --run
 fi
