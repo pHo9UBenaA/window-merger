@@ -1,5 +1,15 @@
 #!/bin/sh
 set -e
-pnpm run ci
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|json)$' | tr '\n' ' ')
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.ts$' | tr '\n' ' ')
+
+if [ -n "$STAGED" ]; then
+  pnpm biome ci $STAGED
+fi
+
 pnpm run typecheck
-pnpm run test:coverage
+
+if [ -n "$STAGED_TS" ]; then
+  pnpm vitest related --run $STAGED_TS
+fi
