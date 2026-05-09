@@ -15,17 +15,18 @@ export type ContextMenuTitles = (typeof ContextMenuTitles)[keyof typeof ContextM
 export const setupContextMenus = async (): Promise<void> => {
 	await chrome.contextMenus.removeAll();
 
-	await chrome.contextMenus.create({
-		id: ContextMenuIds.mergeWindow,
-		title: chrome.i18n.getMessage(ContextMenuTitles.mergeWindow),
-		contexts: ['all'],
-	});
-
-	await chrome.contextMenus.create({
-		id: ContextMenuIds.mergeIncognitoWindow,
-		title: chrome.i18n.getMessage(ContextMenuTitles.mergeIncognitoWindow),
-		contexts: ['all'],
-	});
+	await Promise.all([
+		chrome.contextMenus.create({
+			id: ContextMenuIds.mergeWindow,
+			title: chrome.i18n.getMessage(ContextMenuTitles.mergeWindow),
+			contexts: ['all'],
+		}),
+		chrome.contextMenus.create({
+			id: ContextMenuIds.mergeIncognitoWindow,
+			title: chrome.i18n.getMessage(ContextMenuTitles.mergeIncognitoWindow),
+			contexts: ['all'],
+		}),
+	]);
 
 	const isAllowedIncognitoAccess = await chrome.extension.isAllowedIncognitoAccess();
 	await chrome.contextMenus.update(ContextMenuIds.mergeIncognitoWindow, {
