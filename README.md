@@ -1,18 +1,18 @@
 # Window Merger
 
-A Chrome extension that merges multiple browser windows into one.
+A Chrome extension that merges multiple browser windows into one, preserving tab groups and pinned tabs.
 
 ## Features
 
-- Merge all normal windows within the same profile.
-- Merge all incognito windows (requires incognito access).
-- Preserve pinned tabs, tab groups, and tab mute states when merging.
-- Click the extension icon or press `Alt + Shift + M` to merge windows.
+- Merge all normal windows within the same profile
+- Merge all incognito windows (requires incognito access)
+- Preserve pinned tabs, tab groups, and tab mute states when merging
+- Click the extension icon or press `Alt + Shift + M` to merge windows
 
 ## Notes
 
 1. To enable incognito access, see: [Google Support](https://support.google.com/chrome/a/answer/13130396)
-2. If the shortcut does not work, you can reconfigure it at `chrome://extensions/shortcuts`.
+2. If the shortcut does not work, you can reconfigure it at `chrome://extensions/shortcuts`
 
 ## Installation
 
