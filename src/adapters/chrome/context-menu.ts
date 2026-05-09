@@ -13,7 +13,7 @@ export type ContextMenuIds = (typeof ContextMenuIds)[keyof typeof ContextMenuIds
 export type ContextMenuTitles = (typeof ContextMenuTitles)[keyof typeof ContextMenuTitles];
 
 export const setupContextMenus = async (): Promise<void> => {
-	chrome.contextMenus.removeAll();
+	await new Promise<void>((resolve) => chrome.contextMenus.removeAll(resolve));
 
 	chrome.contextMenus.create({
 		id: ContextMenuIds.mergeWindow,
