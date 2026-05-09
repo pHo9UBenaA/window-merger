@@ -22,7 +22,7 @@ export default defineConfig({
 		coverage: {
 			provider: 'v8',
 			include: ['src/**/*.ts'],
-			reporter: [],
+			reporter: ['text-summary', 'lcov'],
 			thresholds: {
 				branches: 90,
 			},
