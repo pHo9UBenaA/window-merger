@@ -33,7 +33,9 @@ const isContextMenuId = (menuItemId: string): menuItemId is ContextMenuIds => {
 };
 
 chrome.runtime.onInstalled.addListener(() => {
-	void setupContextMenus();
+	setupContextMenus().catch((error) => {
+		console.error('Failed to set up context menus:', error);
+	});
 });
 
 chrome.contextMenus.onClicked.addListener((info) => {
