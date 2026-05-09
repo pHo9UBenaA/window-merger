@@ -11,3 +11,24 @@ export const ContextMenuTitles = {
 export type ContextMenuIds = (typeof ContextMenuIds)[keyof typeof ContextMenuIds];
 
 export type ContextMenuTitles = (typeof ContextMenuTitles)[keyof typeof ContextMenuTitles];
+
+export const setupContextMenus = async (): Promise<void> => {
+	chrome.contextMenus.removeAll();
+
+	chrome.contextMenus.create({
+		id: ContextMenuIds.mergeWindow,
+		title: chrome.i18n.getMessage(ContextMenuTitles.mergeWindow),
+		contexts: ['all'],
+	});
+
+	chrome.contextMenus.create({
+		id: ContextMenuIds.mergeIncognitoWindow,
+		title: chrome.i18n.getMessage(ContextMenuTitles.mergeIncognitoWindow),
+		contexts: ['all'],
+	});
+
+	const isAllowedIncognitoAccess = await chrome.extension.isAllowedIncognitoAccess();
+	chrome.contextMenus.update(ContextMenuIds.mergeIncognitoWindow, {
+		enabled: isAllowedIncognitoAccess,
+	});
+};
