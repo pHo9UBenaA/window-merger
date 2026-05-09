@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createChromeTabAdapter } from '../../../../src/adapters/chrome/tab';
-import { createTestTabId, createTestWindowId } from '../../../helpers/domain-factories';
+import { createTestTabId, createTestWindowId } from '../../../factories/domain';
 import { resetChromeMocks, VitestChrome } from '../../../mocks/chrome';
 
 describe('Chrome Tab Adapter', () => {

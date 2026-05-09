@@ -9,7 +9,7 @@ import {
 	type WindowId,
 	type WindowSnapshot,
 	type WindowType,
-} from '../../src/core/window-merge.types';
+} from '../../src/domain/window-merge.types';
 
 export const createTestWindowId = (value: number): WindowId => {
 	const windowId = createWindowId(value);

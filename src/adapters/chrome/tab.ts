@@ -1,4 +1,4 @@
-import type { MoveToWindow, TabId, TabUpdate } from '../../core/window-merge.types';
+import type { MoveToWindow, TabId, TabUpdate } from '../../domain/window-merge.types';
 import type { TabPort } from '../../ports/tab';
 
 export const createChromeTabAdapter = (): TabPort => ({

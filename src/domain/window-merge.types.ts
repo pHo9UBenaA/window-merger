@@ -1,7 +1,7 @@
 // Domain types. Must stay platform-agnostic — no chrome.* imports, so the
-// app and core layers can depend on this without pulling in Chrome APIs.
+// application and adapter layers can depend on this without pulling in Chrome APIs.
 
-// Chrome uses 0 / -1 as sentinels for unspecified or missing IDs, so anything < 1 is invalid.
+// IDs must be positive integers; 0 and negative values are invalid.
 const MIN_VALID_ID = 1;
 
 export type WindowId = {

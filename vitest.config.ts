@@ -14,7 +14,7 @@ const getSetupFiles = (dir: string): string[] => {
 
 export default defineConfig({
 	test: {
-		setupFiles: getSetupFiles('./test/setup-files'),
+		setupFiles: getSetupFiles('./test/setup'),
 		include: ['./test/**/*.{spec,test}.{ts,tsx}'],
 		mockReset: true,
 		clearMocks: true,

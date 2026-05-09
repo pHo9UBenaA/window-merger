@@ -1,11 +1,11 @@
-import { beforeAll, beforeEach, describe, expect, it, type MockedFunction, vi } from 'vitest';
-import { mergeWindows } from '../../src/app/merge-windows';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mergeWindows } from '../../src/application/merge-windows';
 
-vi.mock('../../src/app/merge-windows', () => ({
+vi.mock('../../src/application/merge-windows', () => ({
 	mergeWindows: vi.fn(),
 }));
 
-const mockedMergeWindows = mergeWindows as MockedFunction<typeof mergeWindows>;
+const mockedMergeWindows = vi.mocked(mergeWindows);
 
 const createBackgroundChromeMock = () => {
 	const clickedFns: ((info: chrome.contextMenus.OnClickData) => void)[] = [];
@@ -38,7 +38,7 @@ const createBackgroundChromeMock = () => {
 		windows: { getAll: vi.fn() },
 		triggerClicked: (menuItemId: string) => {
 			for (const fn of clickedFns) {
-				fn({ menuItemId } as chrome.contextMenus.OnClickData);
+				fn({ menuItemId, editable: false, pageUrl: '' });
 			}
 		},
 	};

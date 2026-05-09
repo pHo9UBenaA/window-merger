@@ -1,5 +1,5 @@
-import type { WindowSnapshot } from '../core/window-merge.types';
+import type { WindowSnapshot } from '../domain/window-merge.types';
 
 export type WindowPort = {
-	readonly getAllWindows: (populate: boolean) => Promise<readonly WindowSnapshot[]>;
+	readonly getAllWindows: () => Promise<readonly WindowSnapshot[]>;
 };

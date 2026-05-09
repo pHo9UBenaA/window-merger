@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { mergeWindows } from '../../../src/app/merge-windows';
+import { mergeWindows } from '../../../src/application/merge-windows';
 import {
 	createMockTabSnapshot,
 	createMockWindowSnapshot,
 	createTestGroupId,
 	createTestTabId,
 	createTestWindowId,
-} from '../../helpers/domain-factories';
-import { createMockMergeWindowsDeps } from '../../helpers/port-mocks';
+} from '../../factories/domain';
+import { createMockMergeWindowsDeps } from '../../mocks/ports';
 
 describe('App Layer - Merge Windows', () => {
 	it('merges multiple windows together', async () => {
@@ -20,7 +20,7 @@ describe('App Layer - Merge Windows', () => {
 		const result = await mergeWindows(false, deps);
 
 		expect(result.ok).toBe(true);
-		expect(deps.mocks.getAllWindows).toHaveBeenCalledWith(true);
+		expect(deps.mocks.getAllWindows).toHaveBeenCalledWith();
 		expect(deps.mocks.moveTabs).toHaveBeenCalled();
 	});
 

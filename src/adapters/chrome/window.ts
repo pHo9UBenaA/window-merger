@@ -5,7 +5,7 @@ import {
 	type TabSnapshot,
 	type WindowSnapshot,
 	type WindowType,
-} from '../../core/window-merge.types';
+} from '../../domain/window-merge.types';
 import type { WindowPort } from '../../ports/window';
 
 const toDomainWindowType = (type: chrome.windows.Window['type'] | undefined): WindowType => {
@@ -66,8 +66,8 @@ const toWindowSnapshot = (window: chrome.windows.Window): WindowSnapshot | null 
 };
 
 export const createChromeWindowAdapter = (): WindowPort => ({
-	getAllWindows: async (populate: boolean): Promise<readonly WindowSnapshot[]> => {
-		const windows = await chrome.windows.getAll({ populate });
+	getAllWindows: async (): Promise<readonly WindowSnapshot[]> => {
+		const windows = await chrome.windows.getAll({ populate: true });
 		return windows.map(toWindowSnapshot).filter(isNotNull);
 	},
 });

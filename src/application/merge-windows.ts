@@ -1,4 +1,4 @@
-import { filterWindows, planMerge } from '../core/window-merge';
+import { filterWindows, planMerge } from '../domain/window-merge';
 import type {
 	GroupId,
 	MergeError,
@@ -8,7 +8,7 @@ import type {
 	TabSnapshot,
 	WindowId,
 	WindowSnapshot,
-} from '../core/window-merge.types';
+} from '../domain/window-merge.types';
 import type { TabPort } from '../ports/tab';
 import type { TabGroupPort } from '../ports/tab-group';
 import type { WindowPort } from '../ports/window';
@@ -106,7 +106,7 @@ export const mergeWindows = async (
 	incognito: boolean,
 	deps: MergeWindowsDeps
 ): Promise<Result<MergeResult, MergeError>> => {
-	const windows = filterWindows(await deps.windowPort.getAllWindows(true), incognito);
+	const windows = filterWindows(await deps.windowPort.getAllWindows(), incognito);
 	if (windows.length <= 1) {
 		return failure({
 			type: 'insufficient-windows',

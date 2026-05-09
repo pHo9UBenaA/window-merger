@@ -1,8 +1,8 @@
+import { ContextMenuIds, setupContextMenus } from './adapters/chrome/context-menu';
 import { createChromeTabAdapter } from './adapters/chrome/tab';
 import { createChromeTabGroupAdapter } from './adapters/chrome/tab-group';
 import { createChromeWindowAdapter } from './adapters/chrome/window';
-import { mergeWindows } from './app/merge-windows';
-import { ContextMenuIds, ContextMenuTitles } from './context-menu';
+import { mergeWindows } from './application/merge-windows';
 
 const createMergeHandler = (incognito: boolean) => async (): Promise<void> => {
 	const deps = {
@@ -33,31 +33,9 @@ const isContextMenuId = (menuItemId: string): menuItemId is ContextMenuIds => {
 };
 
 chrome.runtime.onInstalled.addListener(() => {
-	const removeAllContextMenus = () => {
-		chrome.contextMenus.removeAll();
-	};
-
-	const createContextMenu = (id: ContextMenuIds, message: ContextMenuTitles) => {
-		chrome.contextMenus.create({
-			id,
-			title: chrome.i18n.getMessage(message),
-			contexts: ['all'],
-		});
-	};
-
-	const syncMenuStateWithIncognitoPermission = async () => {
-		const isAllowedIncognitoAccess = await chrome.extension.isAllowedIncognitoAccess();
-		chrome.contextMenus.update(ContextMenuIds.mergeIncognitoWindow, {
-			enabled: isAllowedIncognitoAccess,
-		});
-	};
-
-	removeAllContextMenus();
-
-	createContextMenu(ContextMenuIds.mergeWindow, ContextMenuTitles.mergeWindow);
-	createContextMenu(ContextMenuIds.mergeIncognitoWindow, ContextMenuTitles.mergeIncognitoWindow);
-
-	void syncMenuStateWithIncognitoPermission();
+	setupContextMenus().catch((error) => {
+		console.error('Failed to set up context menus:', error);
+	});
 });
 
 chrome.contextMenus.onClicked.addListener((info) => {

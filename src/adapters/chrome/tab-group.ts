@@ -1,4 +1,4 @@
-import type { GroupId, MoveToWindow } from '../../core/window-merge.types';
+import type { GroupId, MoveToWindow } from '../../domain/window-merge.types';
 import type { TabGroupPort } from '../../ports/tab-group';
 
 export const createChromeTabGroupAdapter = (): TabGroupPort => ({

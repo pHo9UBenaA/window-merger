@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createChromeTabGroupAdapter } from '../../../../src/adapters/chrome/tab-group';
-import { createTestGroupId, createTestWindowId } from '../../../helpers/domain-factories';
+import { createTestGroupId, createTestWindowId } from '../../../factories/domain';
 import { resetChromeMocks, VitestChrome } from '../../../mocks/chrome';
 
 const createRequiredGroupId = (value: number) => {
