@@ -18,7 +18,11 @@ while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
     continue
   fi
 
-  manifest_version=$(git show "$local_sha:src/assets/manifest.json" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).version))")
+  if ! git show "$local_sha:src/assets/manifest.json" > /dev/null 2>&1; then
+    echo "Error: src/assets/manifest.json not found in commit $local_sha"
+    exit 1
+  fi
+  manifest_version=$(git show "$local_sha:src/assets/manifest.json" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{process.stdout.write(JSON.parse(d).version)}catch(e){process.stderr.write('Error: invalid JSON or missing version field in src/assets/manifest.json\n');process.exit(1)}})")
   branch_version="${version_ref#v}"
   if [ "$branch_version" != "$manifest_version" ]; then
     echo "Error: branch is '$version_ref' but manifest version is '$manifest_version'"
