@@ -2,8 +2,8 @@
 set -e
 
 while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
-  local_branch=$(echo "$local_ref" | sed 's|refs/heads/||')
-  remote_branch=$(echo "$remote_ref" | sed 's|refs/heads/||')
+  local_branch="${local_ref#refs/heads/}"
+  remote_branch="${remote_ref#refs/heads/}"
 
   if echo "$local_branch" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
     version_ref="$local_branch"
