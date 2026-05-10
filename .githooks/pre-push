@@ -1,8 +1,6 @@
 #!/bin/sh
 set -e
 
-manifest_version=""
-
 while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
   local_branch=$(echo "$local_ref" | sed 's|refs/heads/||')
   remote_branch=$(echo "$remote_ref" | sed 's|refs/heads/||')
@@ -15,10 +13,12 @@ while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
     continue
   fi
 
-  if [ -z "$manifest_version" ]; then
-    REPO_ROOT=$(git rev-parse --show-toplevel)
-    manifest_version=$(node -p "require('$REPO_ROOT/src/assets/manifest.json').version")
+  zero_sha="0000000000000000000000000000000000000000"
+  if [ "$local_sha" = "$zero_sha" ]; then
+    continue
   fi
+
+  manifest_version=$(git show "$local_sha:src/assets/manifest.json" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).version))")
   branch_version="${version_ref#v}"
   if [ "$branch_version" != "$manifest_version" ]; then
     echo "Error: branch is '$version_ref' but manifest version is '$manifest_version'"
