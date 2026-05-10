@@ -1,5 +1,21 @@
 #!/bin/sh
 set -e
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+if ! echo "$BRANCH" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+  exit 0
+fi
+
+BRANCH_VERSION="${BRANCH#v}"
+MANIFEST_VERSION=$(grep -o '"version": "[^"]*"' src/assets/manifest.json | grep -o '[0-9][^"]*')
+
+if [ "$BRANCH_VERSION" != "$MANIFEST_VERSION" ]; then
+  echo "Error: branch '$BRANCH' but manifest version is '$MANIFEST_VERSION'"
+  echo "Update src/assets/manifest.json to '$BRANCH_VERSION' before pushing."
+  exit 1
+fi
+
 pnpm run ci
 pnpm run typecheck
 pnpm run test:coverage
