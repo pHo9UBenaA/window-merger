@@ -1,20 +1,18 @@
 #!/bin/sh
 set -e
 
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-if ! echo "$BRANCH" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-  exit 0
-fi
-
-BRANCH_VERSION="${BRANCH#v}"
-MANIFEST_VERSION=$(grep -o '"version": "[^"]*"' src/assets/manifest.json | grep -o '[0-9][^"]*')
-
-if [ "$BRANCH_VERSION" != "$MANIFEST_VERSION" ]; then
-  echo "Error: branch '$BRANCH' but manifest version is '$MANIFEST_VERSION'"
-  echo "Update src/assets/manifest.json to '$BRANCH_VERSION' before pushing."
-  exit 1
-fi
+while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+  branch=$(echo "$local_ref" | sed 's|refs/heads/||')
+  if echo "$branch" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+    branch_version="${branch#v}"
+    manifest_version=$(grep -o '"version": "[^"]*"' src/assets/manifest.json | grep -o '[0-9][^"]*')
+    if [ "$branch_version" != "$manifest_version" ]; then
+      echo "Error: branch '$branch' but manifest version is '$manifest_version'"
+      echo "Update src/assets/manifest.json to '$branch_version' before pushing."
+      exit 1
+    fi
+  fi
+done
 
 pnpm run ci
 pnpm run typecheck
