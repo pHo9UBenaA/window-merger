@@ -4,14 +4,22 @@ set -e
 manifest_version=$(node -p "require('./src/assets/manifest.json').version")
 
 while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+  local_branch=$(echo "$local_ref" | sed 's|refs/heads/||')
   remote_branch=$(echo "$remote_ref" | sed 's|refs/heads/||')
-  if echo "$remote_branch" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-    branch_version="${remote_branch#v}"
-    if [ "$branch_version" != "$manifest_version" ]; then
-      echo "Error: pushing to '$remote_branch' but manifest version is '$manifest_version'"
-      echo "Update src/assets/manifest.json to '$branch_version' before pushing."
-      exit 1
-    fi
+
+  if echo "$local_branch" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+    version_ref="$local_branch"
+  elif echo "$remote_branch" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+    version_ref="$remote_branch"
+  else
+    continue
+  fi
+
+  branch_version="${version_ref#v}"
+  if [ "$branch_version" != "$manifest_version" ]; then
+    echo "Error: branch '$version_ref' but manifest version is '$manifest_version'"
+    echo "Update src/assets/manifest.json to '$branch_version' before pushing."
+    exit 1
   fi
 done
 
