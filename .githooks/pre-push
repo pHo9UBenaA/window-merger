@@ -1,7 +1,8 @@
 #!/bin/sh
 set -e
 
-manifest_version=$(node -p "require('./src/assets/manifest.json').version")
+REPO_ROOT=$(git rev-parse --show-toplevel)
+manifest_version=$(node -p "require('$REPO_ROOT/src/assets/manifest.json').version")
 
 while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
   local_branch=$(echo "$local_ref" | sed 's|refs/heads/||')
