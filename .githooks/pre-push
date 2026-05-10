@@ -17,7 +17,7 @@ while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
 
   branch_version="${version_ref#v}"
   if [ "$branch_version" != "$manifest_version" ]; then
-    echo "Error: branch '$version_ref' but manifest version is '$manifest_version'"
+    echo "Error: branch is '$version_ref' but manifest version is '$manifest_version'"
     echo "Update src/assets/manifest.json to '$branch_version' before pushing."
     exit 1
   fi
