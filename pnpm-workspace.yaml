@@ -5,11 +5,13 @@ catalog:
   '@biomejs/biome': 2.4.14
   '@commitlint/cli': 21.0.1
   '@commitlint/config-conventional': 21.0.1
+  '@secretlint/secretlint-rule-preset-recommend': 13.0.2
   '@types/chrome': 0.1.40
   '@types/node': 25.6.0
   '@typescript/native-preview': 7.0.0-dev.20260508.1
   '@vitest/coverage-v8': 4.1.5
   esbuild: 0.28.0
+  secretlint: 13.0.2
   typescript: 6.0.3
   vitest: 4.1.5
 
