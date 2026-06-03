@@ -11,6 +11,8 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",
+		"@commitlint/cli": "catalog:",
+		"@commitlint/config-conventional": "catalog:",
 		"@types/chrome": "catalog:",
 		"@types/node": "catalog:",
 		"@typescript/native-preview": "catalog:",
