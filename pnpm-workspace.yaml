@@ -1,6 +1,9 @@
 packages:
   - .
 
+allowBuilds:
+  esbuild: true
+
 catalog:
   '@biomejs/biome': 2.4.14
   '@commitlint/cli': 21.0.1
