@@ -9,7 +9,7 @@ catalog:
   '@commitlint/cli': 21.0.1
   '@commitlint/config-conventional': 21.0.1
   '@secretlint/secretlint-rule-preset-recommend': 13.0.2
-  '@types/chrome': 0.1.42
+  '@types/chrome': 0.2.2
   '@types/node': 25.9.1
   '@typescript/native-preview': 7.0.0-dev.20260603.1
   '@vitest/coverage-v8': 4.1.7
