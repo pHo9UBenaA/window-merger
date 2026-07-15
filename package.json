@@ -11,11 +11,15 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",
+		"@commitlint/cli": "catalog:",
+		"@commitlint/config-conventional": "catalog:",
+		"@secretlint/secretlint-rule-preset-recommend": "catalog:",
 		"@types/chrome": "catalog:",
 		"@types/node": "catalog:",
 		"@typescript/native-preview": "catalog:",
 		"@vitest/coverage-v8": "catalog:",
 		"esbuild": "catalog:",
+		"secretlint": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:"
 	},
@@ -32,5 +36,5 @@
 		"typecheck:tsc": "tsc --noEmit"
 	},
 	"license": "MIT",
-	"packageManager": "pnpm@10.30.3+sha512.c961d1e0a2d8e354ecaa5166b822516668b7f44cb5bd95122d590dd81922f606f5473b6d23ec4a5be05e7fcd18e8488d47d978bbe981872f1145d06e9a740017"
+	"packageManager": "pnpm@11.3.0+sha512.2c403d6594527287672b1f7056343a1f7c3634036a67ffabfcc2b3d7595d843768f8787148d1b57cf7956c90606bbd192857c363af19e96d2d0ec9ec5741d215"
 }

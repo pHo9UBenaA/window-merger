@@ -1,0 +1,4 @@
+#!/bin/sh
+set -e
+
+pnpm exec commitlint --edit "$1" --extends @commitlint/config-conventional
