@@ -12,4 +12,4 @@ jobs:
     name: CI
     permissions:
       contents: read # needed for reusable workflow
-    uses: pHo9UBenaA/gh-action-templates/.github/workflows/pnpm-biome-ci.yml@19edb5410545784a60afe55689770f09407c704f # master
+    uses: pHo9UBenaA/gh-action-templates/.github/workflows/pnpm-biome-ci.yml@d102bbd46f2dc4e0aa6822b4ec91216d0dea448b # master
