@@ -6,7 +6,7 @@ allowBuilds:
 
 catalog:
   '@biomejs/biome': 2.4.15
-  '@commitlint/cli': 21.0.1
+  '@commitlint/cli': 21.2.1
   '@commitlint/config-conventional': 21.0.1
   '@secretlint/secretlint-rule-preset-recommend': 13.0.2
   '@types/chrome': 0.1.42
