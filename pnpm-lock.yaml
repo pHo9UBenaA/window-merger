@@ -19,8 +19,8 @@ catalogs:
       specifier: 13.0.2
       version: 13.0.2
     '@types/chrome':
-      specifier: 0.1.42
-      version: 0.1.42
+      specifier: 0.2.2
+      version: 0.2.2
     '@types/node':
       specifier: 25.9.1
       version: 25.9.1
@@ -61,7 +61,7 @@ importers:
         version: 13.0.2
       '@types/chrome':
         specifier: 'catalog:'
-        version: 0.1.42
+        version: 0.2.2
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.1
@@ -786,8 +786,8 @@ packages:
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
 
-  '@types/chrome@0.1.42':
-    resolution: {integrity: sha512-tdT2roFqGecZZDjA9fUEAINb2STxSPifHMDvY6EfRjNRCjdrs/0FwKt5RCIA9MKMd1arAYZZL3nwEkp6ZLZu2w==}
+  '@types/chrome@0.2.2':
+    resolution: {integrity: sha512-8rSMZ4cvo2xmaSyQg0sN5yRL7oiDkntLoiHxUhfwQnv1mvnkrdoZ25SlNrKWmYKaeP50WvrfWj1pmc02+U9KKw==}
 
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
@@ -1100,6 +1100,7 @@ packages:
   git-raw-commits@5.0.1:
     resolution: {integrity: sha512-Y+csSm2GD/PCSh6Isd/WiMjNAydu0VBiG9J7EdQsNA5P9uXvLayqjmTsNlK5Gs9IhblFZqOU0yid5Il5JPoLiQ==}
     engines: {node: '>=18'}
+    deprecated: Deprecated and no longer maintained. Use @conventional-changelog/git-client instead.
     hasBin: true
 
   global-directory@5.0.0:
@@ -2062,7 +2063,7 @@ snapshots:
       '@types/deep-eql': 4.0.2
       assertion-error: 2.0.1
 
-  '@types/chrome@0.1.42':
+  '@types/chrome@0.2.2':
     dependencies:
       '@types/filesystem': 0.0.36
       '@types/har-format': 1.2.16
@@ -2782,7 +2783,7 @@ time:
   '@commitlint/cli@21.0.1': '2026-05-12T14:26:45.725Z'
   '@commitlint/config-conventional@21.0.1': '2026-05-12T14:26:45.839Z'
   '@secretlint/secretlint-rule-preset-recommend@13.0.2': '2026-05-15T14:43:38.207Z'
-  '@types/chrome@0.1.42': '2026-05-07T07:28:01.401Z'
+  '@types/chrome@0.2.2': '2026-07-01T21:01:34.359Z'
   '@types/node@25.9.1': '2026-05-19T17:49:12.417Z'
   '@typescript/native-preview@7.0.0-dev.20260603.1': '2026-06-03T08:02:33.866Z'
   '@vitest/coverage-v8@4.1.7': '2026-05-20T07:19:59.911Z'
