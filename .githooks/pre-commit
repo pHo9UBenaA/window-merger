@@ -1,16 +1,5 @@
 #!/bin/sh
 set -e
 
-if [ -n "$(git diff --cached --name-only --diff-filter=ACMR)" ]; then
-  git diff --cached --name-only -z --diff-filter=ACMR | xargs -0 pnpm exec secretlint --secretlintrcJSON '{"rules":[{"id":"@secretlint/secretlint-rule-preset-recommend"}]}'
-fi
-
-if [ -n "$(git diff --cached --name-only --diff-filter=ACMR -- '*.ts' '*.json')" ]; then
-  git diff --cached --name-only -z --diff-filter=ACMR -- '*.ts' '*.json' | xargs -0 pnpm exec biome ci --error-on-warnings
-fi
-
-pnpm run typecheck
-
-if [ -n "$(git diff --cached --name-only --diff-filter=ACMR -- '*.ts')" ]; then
-  git diff --cached --name-only -z --diff-filter=ACMR -- '*.ts' | xargs -0 pnpm exec vitest related --run --
-fi
+# Verify the index without stashing, staging, or modifying working-tree changes.
+node --experimental-strip-types scripts/pre-commit.ts
