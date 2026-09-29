@@ -1,0 +1,181 @@
+import { expect, test } from './fixtures';
+
+test('merges real windows while preserving IDs, groups, pinned and muted states', async ({
+	extension: { worker },
+}) => {
+	const before = await worker.evaluate(async () => {
+		const source = await chrome.windows.create({
+			url: ['about:blank', 'about:blank', 'about:blank', 'about:blank'],
+		});
+		if (!source?.tabs?.every((tab) => tab.id !== undefined))
+			throw new Error('Missing test tabs');
+		const ids = source.tabs.map((tab) => tab.id as number);
+		await chrome.tabs.update(ids[0], { pinned: true });
+		await chrome.tabs.update(ids[1], { muted: true });
+		const group = await chrome.tabs.group({ tabIds: [ids[2], ids[3]] });
+		await chrome.tabGroups.update(group, {
+			title: 'Test group',
+			color: 'blue',
+			collapsed: true,
+		});
+		await chrome.windows.create({ url: 'about:blank', focused: true });
+		const all = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
+		// Headless Chromium may report no focused window. Follow the documented tie-breaker.
+		const target =
+			all.find((window) => window.focused) ??
+			all.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0))[0];
+		return {
+			ids,
+			group,
+			target: target?.id,
+			active: target?.tabs?.find((tab) => tab.active)?.id,
+			allIds: all.flatMap((window) => window.tabs?.map((tab) => tab.id) ?? []),
+		};
+	});
+	await worker.evaluate(() => {
+		mergerTest.action();
+		mergerTest.menu('mergeWindowId'); // Duplicates must not start another merge.
+	});
+	await expect
+		.poll(() =>
+			worker.evaluate(
+				async () => (await chrome.windows.getAll({ windowTypes: ['normal'] })).length
+			)
+		)
+		.toBe(1);
+	await expect
+		.poll(() =>
+			worker.evaluate(async ({ ids, active }) => {
+				const [pinned, muted, selected] = await Promise.all([
+					chrome.tabs.get(ids[0]),
+					chrome.tabs.get(ids[1]),
+					chrome.tabs.get(active as number),
+				]);
+				return [pinned.pinned, muted.mutedInfo?.muted, selected.active];
+			}, before)
+		)
+		.toEqual([true, true, true]);
+	const after = await worker.evaluate(
+		async (group) => ({
+			windows: await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] }),
+			group: await chrome.tabGroups.get(group),
+			errors: mergerTest.errors,
+		}),
+		before.group
+	);
+	expect(after.windows[0].id).toBe(before.target);
+	expect(after.windows[0].tabs?.map((tab) => tab.id).sort()).toEqual(before.allIds.sort());
+	expect(after.group).toMatchObject({
+		title: 'Test group',
+		color: 'blue',
+		collapsed: true,
+		windowId: before.target,
+	});
+	expect(after.errors).toEqual([]);
+});
+
+test('keeps popups separate and ignores an unavailable incognito merge', async ({
+	extension: { worker },
+}) => {
+	const popupId = await worker.evaluate(
+		async () => (await chrome.windows.create({ type: 'popup', url: 'about:blank' }))?.id
+	);
+	await worker.evaluate(() => mergerTest.menu('mergeIncognitoWindowId'));
+	await worker.evaluate(() => mergerTest.menu('mergeWindowId'));
+	const popup = await worker.evaluate(async (id) => chrome.windows.get(id as number), popupId);
+	expect(popup.type).toBe('popup');
+	expect(await worker.evaluate(() => mergerTest.errors)).toEqual([]);
+});
+
+test('reinitializes existing menus after browser restart', async ({ extension: { restart } }) => {
+	const reloaded = await restart();
+	await expect.poll(() => reloaded.evaluate(() => typeof mergerTest)).toBe('object');
+	await reloaded.evaluate(
+		() =>
+			new Promise<void>((resolve, reject) => {
+				chrome.contextMenus.update('mergeWindowId', { enabled: true }, () => {
+					if (chrome.runtime.lastError)
+						reject(new Error(chrome.runtime.lastError.message));
+					else resolve();
+				});
+			})
+	);
+	expect(await reloaded.evaluate(() => mergerTest.errors)).toEqual([]);
+});
+
+test('respects incognito permission changes and never mixes normal and incognito tabs', async ({
+	extension: { restart },
+}) => {
+	const worker = await restart(true);
+	expect(await worker.evaluate(() => chrome.extension.isAllowedIncognitoAccess())).toBe(true);
+	const before = await worker.evaluate(async () => {
+		await chrome.windows.create({ incognito: true, url: ['about:blank', 'about:blank'] });
+		await chrome.windows.create({ incognito: true, url: 'about:blank' });
+		await chrome.windows.create({ url: 'about:blank' });
+		return (await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] })).flatMap(
+			(window) => (window.tabs ?? []).map((tab) => ({ id: tab.id, incognito: tab.incognito }))
+		);
+	});
+	await worker.evaluate(() => mergerTest.action());
+	await expect
+		.poll(() =>
+			worker.evaluate(async () => {
+				const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+				return [
+					windows.filter((window) => !window.incognito).length,
+					windows.filter((window) => window.incognito).length,
+				];
+			})
+		)
+		.toEqual([1, 1]);
+	const after = await worker.evaluate(async () =>
+		(await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] })).flatMap(
+			(window) => (window.tabs ?? []).map((tab) => ({ id: tab.id, incognito: tab.incognito }))
+		)
+	);
+	expect(after.sort((a, b) => (a.id ?? 0) - (b.id ?? 0))).toEqual(
+		before.sort((a, b) => (a.id ?? 0) - (b.id ?? 0))
+	);
+	expect(await worker.evaluate(() => mergerTest.errors)).toEqual([]);
+	const denied = await restart(false);
+	expect(await denied.evaluate(() => chrome.extension.isAllowedIncognitoAccess())).toBe(false);
+	expect(await denied.evaluate(() => mergerTest.errors)).toEqual([]);
+});
+
+test('merges a larger snapshot without losing tabs @stress', async ({
+	extension: { worker },
+}, testInfo) => {
+	const count = Number(process.env.STRESS_TABS ?? 200);
+	if (!Number.isInteger(count) || count < 2 || count > 2000)
+		throw new Error('STRESS_TABS must be 2..2000');
+	const ids = await worker.evaluate(async (count) => {
+		const source = await chrome.windows.create({
+			url: Array.from({ length: count }, () => 'about:blank'),
+		});
+		for (const tab of (source?.tabs ?? []).slice(0, 10))
+			await chrome.tabs.update(tab.id as number, { muted: true });
+		const all = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
+		return all.flatMap((window) => window.tabs?.map((tab) => tab.id) ?? []);
+	}, count);
+	const start = Date.now();
+	await worker.evaluate(() => mergerTest.action());
+	await expect
+		.poll(
+			() =>
+				worker.evaluate(
+					async () => (await chrome.windows.getAll({ windowTypes: ['normal'] })).length
+				),
+			{ timeout: 120000 }
+		)
+		.toBe(1);
+	const after = await worker.evaluate(async () => ({
+		ids: (await chrome.tabs.query({ windowType: 'normal' })).map((tab) => tab.id),
+		errors: mergerTest.errors,
+	}));
+	expect(after.ids.sort()).toEqual(ids.sort());
+	expect(after.errors).toEqual([]);
+	await testInfo.attach('merge-duration', {
+		body: JSON.stringify({ tabs: ids.length, milliseconds: Date.now() - start }),
+		contentType: 'application/json',
+	});
+});
