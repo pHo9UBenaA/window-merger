@@ -41,7 +41,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 					env,
 					stdio: 'inherit',
 				});
-			run('secretlint', ['--no-glob', '--', ...files]);
+			run('secretlint', ['--no-gitignore', '--no-glob', '--', ...files]);
 			run('biome', ['ci', '--vcs-enabled=false', '.', '--error-on-warnings']);
 			run('tsgo', []);
 			run('vitest', ['run']);
