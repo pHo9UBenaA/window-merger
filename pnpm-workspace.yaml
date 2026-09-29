@@ -12,11 +12,20 @@ catalog:
   '@types/chrome': 0.1.42
   '@types/node': 25.9.1
   '@typescript/native-preview': 7.0.0-dev.20260603.1
-  '@vitest/coverage-v8': 4.1.7
-  esbuild: 0.28.0
+  '@vitest/coverage-v8': 4.1.11
+  esbuild: 0.28.1
   secretlint: 13.0.2
   typescript: 6.0.3
-  vitest: 4.1.7
+  vitest: 4.1.11
+
+# Patched transitive dependencies; keep audit clean with time-based resolution.
+overrides:
+  'vite>esbuild': 0.28.1
+  vite: 7.3.5
+  postcss: 8.5.23
+  nanoid: 3.3.18
+  js-yaml: 4.3.2
+  fast-uri: 3.1.7
 
 catalogMode: strict
 
@@ -29,6 +38,9 @@ linkWorkspacePackages: true
 minimumReleaseAge: 10080
 
 minimumReleaseAgeExclude:
+  # Security patches newer than the time-based transitive resolution cutoff.
+  - 'fast-uri@3.1.7'
+  - 'js-yaml@4.3.2'
   - typescript
   - '@typescript/native-preview'
   - '@typescript/native-preview-*'
