@@ -36,6 +36,7 @@
 		"test:browser": "pnpm build && playwright test --project=chromium",
 		"test:stress": "pnpm build && playwright test --project=stress",
 		"ci": "biome ci . --error-on-warnings",
+		"check:secrets": "secretlint \"**/*\"",
 		"format": "biome format --write .",
 		"lint": "biome lint --write . --error-on-warnings",
 		"check": "biome check --write .",
