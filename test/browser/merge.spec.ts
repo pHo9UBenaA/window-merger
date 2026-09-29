@@ -148,14 +148,30 @@ test('merges a larger snapshot without losing tabs @stress', async ({
 	const count = Number(process.env.STRESS_TABS ?? 200);
 	if (!Number.isInteger(count) || count < 2 || count > 2000)
 		throw new Error('STRESS_TABS must be 2..2000');
-	const ids = await worker.evaluate(async (count) => {
+	const before = await worker.evaluate(async (count) => {
 		const source = await chrome.windows.create({
 			url: Array.from({ length: count }, () => 'about:blank'),
 		});
-		for (const tab of (source?.tabs ?? []).slice(0, 10))
-			await chrome.tabs.update(tab.id as number, { muted: true });
+		const ids = (source?.tabs ?? []).map((tab) => tab.id as number);
+		const pinned = ids.slice(0, 5);
+		const muted = ids.slice(0, 10);
+		for (const id of pinned) await chrome.tabs.update(id, { pinned: true });
+		for (const id of muted) await chrome.tabs.update(id, { muted: true });
+		const groups: number[] = [];
+		for (let index = 10; index < ids.length; index += 10) {
+			groups.push(
+				await chrome.tabs.group({
+					tabIds: [ids[index], ...ids.slice(index + 1, index + 10)],
+				})
+			);
+		}
 		const all = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
-		return all.flatMap((window) => window.tabs?.map((tab) => tab.id) ?? []);
+		return {
+			ids: all.flatMap((window) => window.tabs?.map((tab) => tab.id) ?? []),
+			pinned,
+			muted,
+			groups,
+		};
 	}, count);
 	const start = Date.now();
 	await worker.evaluate(() => mergerTest.action());
@@ -168,14 +184,31 @@ test('merges a larger snapshot without losing tabs @stress', async ({
 			{ timeout: 120000 }
 		)
 		.toBe(1);
+	await expect
+		.poll(() =>
+			worker.evaluate(async ({ pinned, muted }) => {
+				const tabs = await chrome.tabs.query({ windowType: 'normal' });
+				return (
+					pinned.every((id) => tabs.some((tab) => tab.id === id && tab.pinned)) &&
+					muted.every((id) => tabs.some((tab) => tab.id === id && tab.mutedInfo?.muted))
+				);
+			}, before)
+		)
+		.toBe(true);
 	const after = await worker.evaluate(async () => ({
 		ids: (await chrome.tabs.query({ windowType: 'normal' })).map((tab) => tab.id),
+		groups: (await chrome.tabGroups.query({})).map((group) => group.id),
 		errors: mergerTest.errors,
 	}));
-	expect(after.ids.sort()).toEqual(ids.sort());
+	expect(after.ids.sort()).toEqual(before.ids.sort());
+	expect(after.groups.sort()).toEqual(before.groups.sort());
 	expect(after.errors).toEqual([]);
 	await testInfo.attach('merge-duration', {
-		body: JSON.stringify({ tabs: ids.length, milliseconds: Date.now() - start }),
+		body: JSON.stringify({
+			tabs: before.ids.length,
+			groups: before.groups.length,
+			milliseconds: Date.now() - start,
+		}),
 		contentType: 'application/json',
 	});
 });
