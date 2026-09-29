@@ -29,8 +29,8 @@ describe('App Layer - Merge Windows', () => {
 		deps.mocks.getAllWindows.mockResolvedValue([
 			createMockWindowSnapshot(1, [createMockTabSnapshot(3, { active: true })]),
 			createMockWindowSnapshot(2, [
-				createMockTabSnapshot(1),
 				createMockTabSnapshot(2, { pinned: true }),
+				createMockTabSnapshot(1),
 			]),
 		]);
 

@@ -4,18 +4,31 @@ import { createChromeTabGroupAdapter } from './adapters/chrome/tab-group';
 import { createChromeWindowAdapter } from './adapters/chrome/window';
 import { mergeWindows } from './application/merge-windows';
 
-const createMergeHandler = (incognito: boolean) => async (): Promise<void> => {
-	const deps = {
-		windowPort: createChromeWindowAdapter(),
-		tabPort: createChromeTabAdapter(),
-		tabGroupPort: createChromeTabGroupAdapter(),
+const createMergeHandler = (incognito: boolean) => {
+	let running = false;
+
+	return async (): Promise<void> => {
+		if (running) {
+			return;
+		}
+
+		running = true;
+		try {
+			const deps = {
+				windowPort: createChromeWindowAdapter(),
+				tabPort: createChromeTabAdapter(),
+				tabGroupPort: createChromeTabGroupAdapter(),
+			};
+			const result = await mergeWindows(incognito, deps);
+			if (!result.ok && result.error.type !== 'insufficient-windows') {
+				console.error('Failed to merge windows:', result.error);
+			}
+		} catch (error) {
+			console.error('Failed to merge windows:', error);
+		} finally {
+			running = false;
+		}
 	};
-
-	const result = await mergeWindows(incognito, deps);
-
-	if (!result.ok && result.error.type !== 'insufficient-windows') {
-		console.error('Failed to merge windows:', result.error);
-	}
 };
 
 const handleMergeWindowEvent = createMergeHandler(false);

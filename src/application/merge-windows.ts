@@ -17,6 +17,20 @@ import { failure, success } from '../shared/result';
 
 const APPEND_TO_END_INDEX = -1;
 
+// Do not release the merge guard while already-started Chrome operations are pending.
+const waitForAll = async (tasks: readonly Promise<void>[]): Promise<void> => {
+	const results = await Promise.allSettled(tasks);
+	const errors = results.flatMap((result) =>
+		result.status === 'rejected' ? [result.reason] : []
+	);
+	if (errors.length > 0) {
+		throw new AggregateError(
+			errors,
+			'Chrome operations failed; some changes may have completed'
+		);
+	}
+};
+
 export type MergeWindowsDeps = {
 	readonly windowPort: WindowPort;
 	readonly tabPort: TabPort;
@@ -59,8 +73,8 @@ const moveTabsToTarget = async (
 
 	const groupIds = collectGroupIds(tabs);
 	if (groupIds.length > 0) {
-		await Promise.all(
-			groupIds.map((groupId) => deps.tabGroupPort.moveGroup(groupId, moveProperties))
+		await waitForAll(
+			groupIds.map(async (groupId) => deps.tabGroupPort.moveGroup(groupId, moveProperties))
 		);
 	}
 
@@ -72,11 +86,15 @@ const moveTabsToTarget = async (
 	const pinnedTabIds = collectTabIds(tabs, (tab) => tab.pinned);
 	const mutedTabIds = collectTabIds(tabs, (tab) => tab.muted);
 
-	const pinTasks = pinnedTabIds.map((tabId) => deps.tabPort.updateTab(tabId, { pinned: true }));
-	const muteTasks = mutedTabIds.map((tabId) => deps.tabPort.updateTab(tabId, { muted: true }));
+	const pinTasks = pinnedTabIds.map(async (tabId) =>
+		deps.tabPort.updateTab(tabId, { pinned: true })
+	);
+	const muteTasks = mutedTabIds.map(async (tabId) =>
+		deps.tabPort.updateTab(tabId, { muted: true })
+	);
 
 	if (pinTasks.length > 0 || muteTasks.length > 0) {
-		await Promise.all([...pinTasks, ...muteTasks]);
+		await waitForAll([...pinTasks, ...muteTasks]);
 	}
 };
 
