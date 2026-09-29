@@ -8,7 +8,7 @@
 		"description": "Name of the extension."
 	},
 	"extensionDescription": {
-		"message": "Merge windows into one, preserving tab groups and pinned tabs.",
+		"message": "タブグループ、固定タブ、ミュート状態を保持してウィンドウを統合します。",
 		"description": "Description of the extension."
 	},
 

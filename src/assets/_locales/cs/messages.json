@@ -8,7 +8,7 @@
 		"description": "Name of the extension."
 	},
 	"extensionDescription": {
-		"message": "Merge windows into one, preserving tab groups and pinned tabs.",
+		"message": "Sloučí okna a zachová skupiny panelů, připnuté panely a ztlumení.",
 		"description": "Description of the extension."
 	},
 

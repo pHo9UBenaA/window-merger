@@ -8,7 +8,7 @@
 		"description": "Name of the extension."
 	},
 	"extensionDescription": {
-		"message": "Merge windows into one, preserving tab groups and pinned tabs.",
+		"message": "Slå samman fönster och behåll flikgrupper, fästa flikar och avstängt ljud.",
 		"description": "Description of the extension."
 	},
 

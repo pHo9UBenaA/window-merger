@@ -28,7 +28,7 @@
 				"default": "Alt+Shift+M",
 				"mac": "Alt+Shift+M"
 			},
-			"description": "Triggering merge"
+			"description": "__MSG_mergeWindowTitle__"
 		}
 	},
 	"permissions": ["contextMenus", "tabGroups"],
