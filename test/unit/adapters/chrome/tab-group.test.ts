@@ -62,16 +62,16 @@ describe('Chrome TabGroup Adapter', () => {
 		});
 	});
 
-	it('accepts positive group IDs only', async () => {
+	it.each([0, 1])('accepts valid group ID %s', async (groupId) => {
 		VitestChrome.tabGroups.move.mockResolvedValue(undefined);
 
 		const adapter = createChromeTabGroupAdapter();
-		await adapter.moveGroup(createRequiredGroupId(1), {
+		await adapter.moveGroup(createRequiredGroupId(groupId), {
 			windowId: createTestWindowId(1),
 			index: 0,
 		});
 
-		expect(VitestChrome.tabGroups.move).toHaveBeenCalledWith(1, {
+		expect(VitestChrome.tabGroups.move).toHaveBeenCalledWith(groupId, {
 			windowId: 1,
 			index: 0,
 		});
