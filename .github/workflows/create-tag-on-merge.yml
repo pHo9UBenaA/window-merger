@@ -3,18 +3,34 @@ name: Auto Tag on Merge
 on:
   pull_request:
     types: [closed]
-    branches:
-      - main
+    branches: [main]
 
 permissions: {}
 
+# Distinct merges must not cancel each other's release work.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: tag-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
 
 jobs:
   tag:
-    name: Auto Tag on Merge
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
-      contents: write # needed for creating and pushing tags
-    uses: pHo9UBenaA/gh-action-templates/.github/workflows/auto-tag-on-merge.yml@19edb5410545784a60afe55689770f09407c704f # master
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version-file: .nvmrc
+      - name: Validate and create the release tag
+        env:
+          RELEASE_BRANCH: ${{ github.event.pull_request.head.ref }}
+          RELEASE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node --experimental-strip-types scripts/release.ts
