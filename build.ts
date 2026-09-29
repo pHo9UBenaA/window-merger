@@ -7,24 +7,30 @@ import { type BuildOptions, build as esbuild, context as esbuildContext } from '
 export const PROJECT_ROOT = dirname(fileURLToPath(import.meta.url));
 type Options = { root?: string; minify?: boolean };
 
-export const collectFiles = async (dir: string): Promise<string[]> => {
-	const entries = await readdir(dir, { withFileTypes: true });
+const isMissing = (error: unknown): boolean =>
+	error instanceof Error && 'code' in error && error.code === 'ENOENT';
+
+export const collectFiles = async (dir: string, ignoreMissing = false): Promise<string[]> => {
+	const entries = await readdir(dir, { withFileTypes: true }).catch((error: unknown) => {
+		if (ignoreMissing && isMissing(error)) return [];
+		throw error;
+	});
 	const files = await Promise.all(
 		entries
 			.filter((entry) => entry.name !== '.DS_Store')
 			.map(async (entry) => {
 				const path = join(dir, entry.name);
-				return entry.isDirectory() ? collectFiles(path) : [path];
+				return entry.isDirectory() ? collectFiles(path, ignoreMissing) : [path];
 			})
 	);
 	return files.flat();
 };
 
-const assetSync = (root: string) => {
+const assetSync = (root: string, watching = false) => {
 	let previous = new Set<string>();
 	return async () => {
 		const assets = join(root, 'src/assets');
-		const files = await collectFiles(assets);
+		const files = await collectFiles(assets, watching);
 		const current = new Set(files.map((file) => relative(assets, file)));
 		for (const name of previous) {
 			if (!current.has(name)) {
@@ -34,7 +40,14 @@ const assetSync = (root: string) => {
 		for (const name of current) {
 			const destination = join(root, 'dist', name);
 			await mkdir(dirname(destination), { recursive: true });
-			await copyFile(join(assets, name), destination);
+			try {
+				await copyFile(join(assets, name), destination);
+			} catch (error) {
+				if (!watching || !isMissing(error)) throw error;
+				// A deletion may race with directory enumeration; remove any stale output too.
+				current.delete(name);
+				await rm(destination, { force: true });
+			}
 		}
 		previous = current;
 	};
@@ -64,7 +77,7 @@ export const watchExtension = async (
 	onError: (error: unknown) => void = console.error
 ): Promise<() => Promise<void>> => {
 	await rm(join(root, 'dist'), { recursive: true, force: true });
-	const sync = assetSync(root);
+	const sync = assetSync(root, true);
 	let pending = Promise.resolve();
 	const refresh = () => {
 		pending = pending.then(sync).catch(onError);

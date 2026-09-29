@@ -1,4 +1,4 @@
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { unzipSync } from 'fflate';
@@ -68,6 +68,24 @@ describe('extension artifacts', () => {
 		await rm(source);
 		await vi.waitFor(
 			async () => expect(readFile(output)).rejects.toMatchObject({ code: 'ENOENT' }),
+			{ timeout: 5000 }
+		);
+		const nested = join(root, 'src/assets/nested');
+		await mkdir(nested);
+		await writeFile(join(nested, 'file.txt'), 'nested asset');
+		await vi.waitFor(
+			async () =>
+				expect(await readFile(join(root, 'dist/nested/file.txt'), 'utf8')).toBe(
+					'nested asset'
+				),
+			{ timeout: 5000 }
+		);
+		await rm(nested, { recursive: true });
+		await vi.waitFor(
+			async () =>
+				expect(readFile(join(root, 'dist/nested/file.txt'))).rejects.toMatchObject({
+					code: 'ENOENT',
+				}),
 			{ timeout: 5000 }
 		);
 		await writeFile(join(root, 'src/background.ts'), 'console.log("watch-test-marker");');
