@@ -137,6 +137,20 @@ describe('background events', () => {
 		expect(merge).toHaveBeenCalledTimes(2);
 	});
 
+	it('does not log successful merges', async () => {
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+		merge.mockResolvedValueOnce({
+			ok: true,
+			data: {
+				targetWindowId: { kind: 'WindowId', value: 1 },
+				activeTabId: { kind: 'TabId', value: 1 },
+			},
+		});
+		action();
+		await flush();
+		expect(log).not.toHaveBeenCalled();
+	});
+
 	it('logs planning failures but not insufficient windows', async () => {
 		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const error = {
