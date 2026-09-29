@@ -45,6 +45,32 @@ beforeEach(async () => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('background events', () => {
+	it('refreshes menus on worker load and browser startup', async () => {
+		expect(setupMenus).toHaveBeenCalledOnce();
+		chromeMock.runtime.onStartup.addListener.mock.calls[0][0]();
+		await flush();
+		expect(setupMenus).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not overlap menu initialization and retries after completion', async () => {
+		let finish!: () => void;
+		setupMenus.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					finish = resolve;
+				})
+		);
+		const installed = chromeMock.runtime.onInstalled.addListener.mock.calls[0][0];
+		installed();
+		chromeMock.runtime.onStartup.addListener.mock.calls[0][0]();
+		expect(setupMenus).toHaveBeenCalledTimes(2);
+		finish();
+		await flush();
+		installed();
+		await flush();
+		expect(setupMenus).toHaveBeenCalledTimes(3);
+	});
+
 	it.each([
 		['mergeWindowId', false],
 		['mergeIncognitoWindowId', true],

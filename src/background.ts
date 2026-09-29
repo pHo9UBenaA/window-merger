@@ -45,10 +45,26 @@ const isContextMenuId = (menuItemId: string): menuItemId is ContextMenuIds => {
 	return contextMenuIdSet.has(menuItemId);
 };
 
-chrome.runtime.onInstalled.addListener(() => {
-	setupContextMenus().catch((error) => {
+let settingUpMenus = false;
+const initializeMenus = async (): Promise<void> => {
+	if (settingUpMenus) {
+		return;
+	}
+	settingUpMenus = true;
+	try {
+		await setupContextMenus();
+	} catch (error) {
 		console.error('Failed to set up context menus:', error);
-	});
+	} finally {
+		settingUpMenus = false;
+	}
+};
+
+chrome.runtime.onInstalled.addListener(() => {
+	void initializeMenus();
+});
+chrome.runtime.onStartup.addListener(() => {
+	void initializeMenus();
 });
 
 chrome.contextMenus.onClicked.addListener((info) => {
@@ -64,3 +80,6 @@ chrome.action.onClicked.addListener(() => {
 		void handle();
 	}
 });
+
+// Also refresh persisted menus after worker restarts and incognito-permission reloads.
+void initializeMenus();
