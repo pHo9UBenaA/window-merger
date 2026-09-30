@@ -62,9 +62,9 @@ docker compose exec node pnpm install --frozen-lockfile
 docker compose exec node pnpm build
 ```
 
-The repository is bind-mounted; dependencies and the pnpm store use container-only named volumes,
+The repository is bind-mounted; dependencies use a container-only named volume,
 not the host's `node_modules`. If changing the UID/GID or architecture, recreate these disposable
-volumes and reinstall dependencies. `docker compose down -v` deletes these dependency/cache volumes,
+volume and reinstall dependencies. `docker compose down -v` deletes this dependency volume,
 not repository files. Browser tests require Playwright's browser and OS libraries; the slim development
 image does not preinstall them. Run browser tests on the host or in CI.
 
