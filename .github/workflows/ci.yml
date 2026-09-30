@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   checks:
+    name: checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
