@@ -77,9 +77,28 @@ describe('extension artifacts', () => {
 		await expect(readFile(join(root, 'dist.zip'))).rejects.toThrow();
 	});
 
-	it('rejects missing translations', async () => {
+	it('allows missing translations to fall back to the default locale', async () => {
 		await writeFile(join(root, 'src/assets/_locales/ja/messages.json'), '{}');
+		await expect(packageExtension(root)).resolves.toBeUndefined();
+	});
+
+	it('rejects missing messages in the default locale', async () => {
+		await writeFile(join(root, 'src/assets/_locales/en/messages.json'), '{}');
 		await expect(packageExtension(root)).rejects.toThrow('Missing message');
+	});
+
+	it.each([
+		'121',
+		'121.0.6167.85',
+	])('takes Chrome %s from the manifest as its build target', async (minimum) => {
+		const path = join(root, 'src/assets/manifest.json');
+		const manifest = JSON.parse(await readFile(path, 'utf8'));
+		manifest.minimum_chrome_version = minimum;
+		await writeFile(path, JSON.stringify(manifest));
+		await expect(packageExtension(root)).resolves.toBeUndefined();
+		manifest.minimum_chrome_version = 'not-a-version';
+		await writeFile(path, JSON.stringify(manifest));
+		await expect(packageExtension(root)).rejects.toThrow('Invalid version');
 	});
 
 	it('watches asset edits, additions and deletions as well as source changes', async () => {
