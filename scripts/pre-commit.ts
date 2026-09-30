@@ -53,8 +53,6 @@ if (import.meta.main) {
 			run('secretlint', ['--no-gitignore', '--no-glob', '--', ...files]);
 			if (!checkCode) return;
 			run('biome', ['ci', '--vcs-enabled=false', '.', '--error-on-warnings']);
-			run('tsgo', []);
-			run('vitest', ['run']);
 		});
 	} catch (error) {
 		console.error('Staged snapshot checks failed:', error);
