@@ -32,5 +32,7 @@ jobs:
         env:
           RELEASE_BRANCH: ${{ github.event.pull_request.head.ref }}
           RELEASE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node --experimental-strip-types scripts/release.ts
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh auth setup-git
+          node --experimental-strip-types scripts/release.ts
