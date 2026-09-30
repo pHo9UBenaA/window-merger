@@ -32,13 +32,20 @@ describe('extension artifacts', () => {
 		expect(archive['dist/manifest.json']).toBeUndefined();
 		expect(archive['obsolete.txt']).toBeUndefined();
 		await expect(validateExtension(join(root, 'dist'))).resolves.toBeUndefined();
+		await expect(readFile(join(root, 'dist.zip.tmp'))).rejects.toMatchObject({
+			code: 'ENOENT',
+		});
 	});
 
 	it('does not leave an old or partial archive after build failure', async () => {
 		await packageExtension(root);
+		await writeFile(join(root, 'dist.zip.tmp'), 'interrupted output');
 		await writeFile(join(root, 'src/background.ts'), 'invalid { syntax');
 		await expect(packageExtension(root)).rejects.toThrow();
 		await expect(readFile(join(root, 'dist.zip'))).rejects.toMatchObject({ code: 'ENOENT' });
+		await expect(readFile(join(root, 'dist.zip.tmp'))).rejects.toMatchObject({
+			code: 'ENOENT',
+		});
 	});
 
 	it('refuses to package a missing manifest asset', async () => {

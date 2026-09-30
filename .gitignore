@@ -20,7 +20,7 @@ node_modules/
 
 # Build output
 dist/
-.package-tmp/
+dist.zip.tmp
 *.zip
 
 # pnpm
