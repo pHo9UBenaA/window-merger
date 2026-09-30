@@ -2,7 +2,7 @@
 
 ## Automated checks
 
-Artifact tests require the system `zip` and `unzip` commands.
+Set up the [development environment](development.md#environment-and-build) first.
 
 ```sh
 pnpm test:coverage
@@ -46,8 +46,9 @@ performance guarantee. CI runs stress tests only when explicitly requested.
 
 ## Manual release matrix
 
-Run in a disposable profile, on Chrome **120** and the current stable Chrome, on supported desktop
-OSes. Playwright's current Chromium does not establish compatibility with every older Chrome build.
+Run in a disposable profile, on the minimum Chrome version declared in the manifest and the current
+stable Chrome, on supported desktop OSes. Playwright's current Chromium does not establish compatibility
+with every older Chrome build.
 Record browser/OS/version, setup, actual result, and console errors. Never attach private URLs or
 an entire personal profile to a bug report.
 
