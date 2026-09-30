@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PROJECT_ROOT, watchExtension } from '../../build';
 import { packageExtension } from '../../scripts/package';
@@ -25,7 +25,7 @@ describe('extension artifacts', () => {
 		await writeFile(obsolete, 'old');
 		await packageExtension(root);
 		await rm(obsolete);
-		await packageExtension(root);
+		await packageExtension(relative(process.cwd(), root));
 		const archive = join(root, 'dist.zip');
 		execFileSync('unzip', ['-tq', archive]);
 		const entries = execFileSync('unzip', ['-Z1', archive], { encoding: 'utf8' }).split('\n');

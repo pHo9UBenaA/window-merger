@@ -1,12 +1,12 @@
 import { execFileSync } from 'node:child_process';
 import { rename, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { buildExtension, PROJECT_ROOT } from '../build.ts';
 import { validateExtension } from './validate-extension.ts';
 
 export const packageExtension = async (root = PROJECT_ROOT): Promise<void> => {
-	const archive = join(root, 'dist.zip');
-	const temporary = join(root, 'dist.tmp.zip');
+	const archive = resolve(root, 'dist.zip');
+	const temporary = resolve(root, 'dist.tmp.zip');
 	await rm(archive, { force: true });
 	await rm(temporary, { force: true });
 	try {
