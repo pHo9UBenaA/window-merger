@@ -35,24 +35,32 @@ const menu = (menuItemId: string | number) =>
 const action = () => chromeMock.action.onClicked.addListener.mock.calls[0][0]();
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-beforeEach(async () => {
+const loadBackground = async () => {
 	vi.resetModules();
+	chromeMock.runtime.onInstalled.addListener.mockClear();
+	chromeMock.runtime.onStartup.addListener.mockClear();
+	chromeMock.contextMenus.onClicked.addListener.mockClear();
+	chromeMock.action.onClicked.addListener.mockClear();
+	await import('../../src/background');
+};
+
+beforeEach(async () => {
 	vi.stubGlobal('chrome', chromeMock);
 	merge.mockResolvedValue(noMerge);
 	setupMenus.mockResolvedValue();
-	await import('../../src/background');
+	await loadBackground();
 });
 afterEach(() => vi.restoreAllMocks());
 
 describe('background events', () => {
-	it('refreshes menus on worker load and browser startup', async () => {
-		expect(setupMenus).toHaveBeenCalledOnce();
+	it('initializes once even when installation and startup follow worker load', async () => {
+		chromeMock.runtime.onInstalled.addListener.mock.calls[0][0]();
 		chromeMock.runtime.onStartup.addListener.mock.calls[0][0]();
 		await flush();
-		expect(setupMenus).toHaveBeenCalledTimes(2);
+		expect(setupMenus).toHaveBeenCalledOnce();
 	});
 
-	it('does not overlap menu initialization and retries after completion', async () => {
+	it('does not overlap pending initialization or repeat a successful setup', async () => {
 		let finish!: () => void;
 		setupMenus.mockImplementationOnce(
 			() =>
@@ -60,6 +68,7 @@ describe('background events', () => {
 					finish = resolve;
 				})
 		);
+		await loadBackground();
 		const installed = chromeMock.runtime.onInstalled.addListener.mock.calls[0][0];
 		installed();
 		chromeMock.runtime.onStartup.addListener.mock.calls[0][0]();
@@ -68,7 +77,7 @@ describe('background events', () => {
 		await flush();
 		installed();
 		await flush();
-		expect(setupMenus).toHaveBeenCalledTimes(3);
+		expect(setupMenus).toHaveBeenCalledTimes(2);
 	});
 
 	it.each([
@@ -175,12 +184,24 @@ describe('background events', () => {
 		expect(log).toHaveBeenCalledExactlyOnceWith('Failed to merge windows:', error);
 	});
 
-	it('initializes menus on installation and logs setup failure', async () => {
+	it.each([
+		'reject',
+		'throw',
+	])('logs a menu %s and retries on the next lifecycle event', async (failure) => {
 		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const error = new Error('Menu failed');
-		setupMenus.mockRejectedValueOnce(error);
+		setupMenus.mockImplementationOnce(() => {
+			if (failure === 'throw') throw error;
+			return Promise.reject(error);
+		});
+		await loadBackground();
+		await flush();
+		expect(log).toHaveBeenCalledExactlyOnceWith('Failed to set up context menus:', error);
 		chromeMock.runtime.onInstalled.addListener.mock.calls[0][0]();
 		await flush();
-		expect(log).toHaveBeenCalledWith('Failed to set up context menus:', error);
+		expect(setupMenus).toHaveBeenCalledTimes(3);
+		chromeMock.runtime.onStartup.addListener.mock.calls[0][0]();
+		await flush();
+		expect(setupMenus).toHaveBeenCalledTimes(3);
 	});
 });

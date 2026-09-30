@@ -35,27 +35,20 @@ const createMergeHandler = (incognito: boolean) => {
 const handleMergeWindowEvent = createMergeHandler(false);
 const handleMergeIncognitoWindowEvent = createMergeHandler(true);
 
-let settingUpMenus = false;
-const initializeMenus = async (): Promise<void> => {
-	if (settingUpMenus) {
-		return;
-	}
-	settingUpMenus = true;
-	try {
-		await setupContextMenus();
-	} catch (error) {
-		console.error('Failed to set up context menus:', error);
-	} finally {
-		settingUpMenus = false;
-	}
+// One successful setup per worker lifetime; a later lifecycle event can retry a failure.
+let menuSetup: Promise<void> | undefined;
+const initializeMenus = (): void => {
+	if (menuSetup) return;
+	menuSetup = Promise.resolve()
+		.then(setupContextMenus)
+		.catch((error) => {
+			menuSetup = undefined;
+			console.error('Failed to set up context menus:', error);
+		});
 };
 
-chrome.runtime.onInstalled.addListener(() => {
-	void initializeMenus();
-});
-chrome.runtime.onStartup.addListener(() => {
-	void initializeMenus();
-});
+chrome.runtime.onInstalled.addListener(initializeMenus);
+chrome.runtime.onStartup.addListener(initializeMenus);
 
 chrome.contextMenus.onClicked.addListener(({ menuItemId }) => {
 	switch (menuItemId) {
@@ -74,4 +67,4 @@ chrome.action.onClicked.addListener(() => {
 });
 
 // Also refresh persisted menus after worker restarts and incognito-permission reloads.
-void initializeMenus();
+initializeMenus();
