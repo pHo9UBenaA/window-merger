@@ -1,13 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createChromeTabAdapter } from '../../../../src/adapters/chrome/tab';
 import { createTestTabId, createTestWindowId } from '../../../factories/domain';
-import { resetChromeMocks, VitestChrome } from '../../../mocks/chrome';
+import { VitestChrome } from '../../../mocks/chrome';
 
 describe('Chrome Tab Adapter', () => {
-	beforeEach(() => {
-		resetChromeMocks();
-	});
-
 	it('moves a single tab by ID', async () => {
 		VitestChrome.tabs.move.mockResolvedValue(undefined);
 
@@ -51,10 +47,13 @@ describe('Chrome Tab Adapter', () => {
 		VitestChrome.tabs.move.mockResolvedValue(undefined);
 
 		const adapter = createChromeTabAdapter();
-		await adapter.moveTabs([createTestTabId(1)], { windowId: createTestWindowId(1), index: 5 });
+		await adapter.moveTabs([createTestTabId(1)], {
+			windowId: createTestWindowId(22),
+			index: 5,
+		});
 
 		expect(VitestChrome.tabs.move).toHaveBeenCalledWith([1], {
-			windowId: 1,
+			windowId: 22,
 			index: 5,
 		});
 	});
@@ -115,19 +114,6 @@ describe('Chrome Tab Adapter', () => {
 		});
 	});
 
-	it('converts readonly tab ID arrays for Chrome API', async () => {
-		VitestChrome.tabs.move.mockResolvedValue(undefined);
-
-		const adapter = createChromeTabAdapter();
-		const tabIds = [createTestTabId(1), createTestTabId(2), createTestTabId(3)] as const;
-		await adapter.moveTabs(tabIds, { windowId: createTestWindowId(1), index: 0 });
-
-		expect(VitestChrome.tabs.move).toHaveBeenCalledWith([1, 2, 3], {
-			windowId: 1,
-			index: 0,
-		});
-	});
-
 	it('handles chrome.tabs.move rejection', async () => {
 		VitestChrome.tabs.move.mockRejectedValue(new Error('Chrome API error'));
 
@@ -146,20 +132,5 @@ describe('Chrome Tab Adapter', () => {
 		await expect(adapter.updateTab(createTestTabId(999), { pinned: true })).rejects.toThrow(
 			'Tab not found'
 		);
-	});
-
-	it('keeps destination window ID from domain object', async () => {
-		VitestChrome.tabs.move.mockResolvedValue(undefined);
-
-		const adapter = createChromeTabAdapter();
-		await adapter.moveTabs([createTestTabId(7)], {
-			windowId: createTestWindowId(22),
-			index: 1,
-		});
-
-		expect(VitestChrome.tabs.move).toHaveBeenCalledWith([7], {
-			windowId: 22,
-			index: 1,
-		});
 	});
 });

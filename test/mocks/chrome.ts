@@ -44,10 +44,3 @@ export const VitestChrome: VitestChrome = {
 		move: vi.fn<TabGroupsMove>(),
 	},
 };
-
-export const resetChromeMocks = (): void => {
-	VitestChrome.windows.getAll.mockReset();
-	VitestChrome.tabs.move.mockReset();
-	VitestChrome.tabs.update.mockReset();
-	VitestChrome.tabGroups.move.mockReset();
-};

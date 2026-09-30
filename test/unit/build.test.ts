@@ -2,24 +2,30 @@ import { execFileSync } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
+import { build as esbuild } from 'esbuild';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PROJECT_ROOT, watchExtension } from '../../build';
 import { packageExtension } from '../../scripts/package';
 import { validateExtension, validateVersion } from '../../scripts/validate-extension';
 
-let root: string;
-let stop: (() => Promise<void>) | undefined;
-beforeEach(async () => {
-	root = await mkdtemp(join(tmpdir(), 'window-merger-build-'));
-	await cp(join(PROJECT_ROOT, 'src'), join(root, 'src'), { recursive: true });
-});
-afterEach(async () => {
-	await stop?.();
-	stop = undefined;
-	await rm(root, { recursive: true, force: true });
+// Observe the real compiler boundary without replacing compilation or packaging.
+vi.mock('esbuild', async (importOriginal) => {
+	const original = await importOriginal<typeof import('esbuild')>();
+	return { ...original, build: vi.fn(original.build) };
 });
 
 describe('extension artifacts', () => {
+	let root: string;
+	let stop: (() => Promise<void>) | undefined;
+	beforeEach(async () => {
+		root = await mkdtemp(join(tmpdir(), 'window-merger-build-'));
+		await cp(join(PROJECT_ROOT, 'src'), join(root, 'src'), { recursive: true });
+	});
+	afterEach(async () => {
+		await stop?.();
+		stop = undefined;
+		await rm(root, { recursive: true, force: true });
+	});
 	it('packages the manifest at the root and never retains deleted files', async () => {
 		const obsolete = join(root, 'src/assets/obsolete.txt');
 		await writeFile(obsolete, 'old');
@@ -73,8 +79,11 @@ describe('extension artifacts', () => {
 
 	it('refuses to package a missing manifest asset', async () => {
 		await rm(join(root, 'src/assets/icon-16.png'));
-		await expect(packageExtension(root)).rejects.toThrow();
-		await expect(readFile(join(root, 'dist.zip'))).rejects.toThrow();
+		await expect(packageExtension(root)).rejects.toMatchObject({
+			code: 'ENOENT',
+			path: join(root, 'dist/icon-16.png'),
+		});
+		await expect(readFile(join(root, 'dist.zip'))).rejects.toMatchObject({ code: 'ENOENT' });
 	});
 
 	it('allows missing translations to fall back to the default locale', async () => {
@@ -96,6 +105,12 @@ describe('extension artifacts', () => {
 		manifest.minimum_chrome_version = minimum;
 		await writeFile(path, JSON.stringify(manifest));
 		await expect(packageExtension(root)).resolves.toBeUndefined();
+		expect(esbuild).toHaveBeenCalledWith(expect.objectContaining({ target: 'chrome121' }));
+	});
+
+	it('rejects a malformed minimum Chrome version', async () => {
+		const path = join(root, 'src/assets/manifest.json');
+		const manifest = JSON.parse(await readFile(path, 'utf8'));
 		manifest.minimum_chrome_version = 'not-a-version';
 		await writeFile(path, JSON.stringify(manifest));
 		await expect(packageExtension(root)).rejects.toThrow('Invalid version');

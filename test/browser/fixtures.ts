@@ -1,12 +1,16 @@
 import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type BrowserContext, test as base, chromium, type Worker } from '@playwright/test';
+import { type BrowserContext, test as base, chromium, expect, type Worker } from '@playwright/test';
 import { build } from 'esbuild';
 import { PROJECT_ROOT } from '../../build';
 
 export const test = base.extend<{
-	extension: { worker: Worker; restart: (incognito?: boolean) => Promise<Worker> };
+	extension: {
+		worker: Worker;
+		restart: (incognito?: boolean) => Promise<Worker>;
+		restartWorker: (worker: Worker) => Promise<void>;
+	};
 }>({
 	extension: async ({ browserName }, use) => {
 		if (browserName !== 'chromium') throw new Error('Extension tests require Chromium');
@@ -41,6 +45,44 @@ export const test = base.extend<{
 			const worker = await launch();
 			await use({
 				worker,
+				restartWorker: async (worker) => {
+					if (!context) throw new Error('Browser context is closed');
+					const page = await context.newPage();
+					const session = await context.newCDPSession(page);
+					let runningStatus: string | undefined;
+					session.on(
+						'ServiceWorker.workerVersionUpdated',
+						({
+							versions,
+						}: {
+							versions: {
+								scriptURL: string;
+								status: string;
+								runningStatus: string;
+							}[];
+						}) => {
+							const version = versions.find(
+								(version) => version.scriptURL === worker.url()
+							);
+							if (version?.status === 'activated')
+								runningStatus = version.runningStatus;
+						}
+					);
+					try {
+						await session.send('ServiceWorker.enable');
+						await expect.poll(() => runningStatus).toBe('running');
+						// Keep the extension loaded and its menus intact; only restart its worker.
+						await session.send('ServiceWorker.stopAllWorkers');
+						await expect.poll(() => runningStatus).toBe('stopped');
+						await session.send('ServiceWorker.startWorker', {
+							scopeURL: new URL('/', worker.url()).href,
+						});
+						await expect.poll(() => runningStatus).toBe('running');
+					} finally {
+						await session.detach();
+						await page.close();
+					}
+				},
 				restart: async (incognito) => {
 					if (incognito !== undefined && context) {
 						// Use Chrome's management-page API, only in this test's temporary profile.

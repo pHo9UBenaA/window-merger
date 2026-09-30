@@ -1,4 +1,24 @@
+import type { Worker } from '@playwright/test';
 import { expect, test } from './fixtures';
+
+const expectMenus = async (worker: Worker, incognito: boolean, operation?: 'create' | 'update') => {
+	await expect
+		.poll(() =>
+			worker.evaluate(
+				(operation) =>
+					mergerTest.menuOperations
+						.filter((entry) => operation === undefined || entry.operation === operation)
+						.map(({ id, enabled }) => ({ id, enabled })),
+				operation
+			)
+		)
+		.toEqual(
+			expect.arrayContaining([
+				{ id: 'mergeWindowId', enabled: true },
+				{ id: 'mergeIncognitoWindowId', enabled: incognito },
+			])
+		);
+};
 
 test('merges real windows while preserving IDs, groups, pinned and muted states', async ({
 	extension: { worker },
@@ -18,6 +38,8 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 			color: 'blue',
 			collapsed: true,
 		});
+		const popup = await chrome.windows.create({ type: 'popup', url: 'about:blank' });
+		if (popup?.id === undefined || !popup.tabs?.length) throw new Error('Missing test popup');
 		await chrome.windows.create({ url: 'about:blank', focused: true });
 		const all = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
 		// Headless Chromium may report no focused window. Follow the documented tie-breaker.
@@ -27,6 +49,8 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 		return {
 			ids,
 			group,
+			popupId: popup.id,
+			popupTabIds: popup.tabs.map((tab) => tab.id),
 			target: target?.id,
 			active: target?.tabs?.find((tab) => tab.active)?.id,
 			allIds: all.flatMap((window) => window.tabs?.map((tab) => tab.id) ?? []),
@@ -35,6 +59,7 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 	await worker.evaluate(() => {
 		mergerTest.action();
 		mergerTest.menu('mergeWindowId'); // Duplicates must not start another merge.
+		mergerTest.menu('mergeIncognitoWindowId'); // Unavailable mode must be harmless.
 	});
 	await expect
 		.poll(() =>
@@ -56,12 +81,13 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 		)
 		.toEqual([true, true, true]);
 	const after = await worker.evaluate(
-		async (group) => ({
+		async ({ group, popupId }) => ({
 			windows: await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] }),
 			group: await chrome.tabGroups.get(group),
+			popup: await chrome.windows.get(popupId, { populate: true }),
 			errors: mergerTest.errors,
 		}),
-		before.group
+		before
 	);
 	expect(after.windows[0].id).toBe(before.target);
 	expect(after.windows[0].tabs?.map((tab) => tab.id).sort()).toEqual(before.allIds.sort());
@@ -71,43 +97,19 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 		collapsed: true,
 		windowId: before.target,
 	});
+	expect(after.popup).toMatchObject({ id: before.popupId, type: 'popup' });
+	expect(after.popup.tabs?.map((tab) => tab.id)).toEqual(before.popupTabIds);
 	expect(after.errors).toEqual([]);
 });
 
-test('keeps popups separate and ignores an unavailable incognito merge', async ({
-	extension: { worker },
-}) => {
-	const popupId = await worker.evaluate(
-		async () => (await chrome.windows.create({ type: 'popup', url: 'about:blank' }))?.id
-	);
-	await worker.evaluate(() => mergerTest.menu('mergeIncognitoWindowId'));
-	await worker.evaluate(() => mergerTest.menu('mergeWindowId'));
-	const popup = await worker.evaluate(async (id) => chrome.windows.get(id as number), popupId);
-	expect(popup.type).toBe('popup');
-	expect(await worker.evaluate(() => mergerTest.errors)).toEqual([]);
-});
-
-test('reinitializes existing menus after browser restart', async ({ extension: { restart } }) => {
-	const reloaded = await restart();
-	await expect
-		.poll(() =>
-			reloaded.evaluate(
-				() =>
-					new Promise<string | undefined>((resolve) => {
-						chrome.contextMenus.update('mergeWindowId', { enabled: true }, () => {
-							resolve(chrome.runtime.lastError?.message);
-						});
-					})
-			)
-		)
-		.toBeUndefined();
-	expect(await reloaded.evaluate(() => mergerTest.errors)).toEqual([]);
-});
-
 test('respects incognito permission changes and never mixes normal and incognito tabs', async ({
-	extension: { restart },
+	extension: { worker: initial, restart, restartWorker },
 }) => {
+	await expectMenus(initial, false, 'create');
 	const worker = await restart(true);
+	await expectMenus(worker, true);
+	await restartWorker(worker);
+	await expectMenus(worker, true, 'update');
 	expect(await worker.evaluate(() => chrome.extension.isAllowedIncognitoAccess())).toBe(true);
 	const before = await worker.evaluate(async () => {
 		await chrome.windows.create({ incognito: true, url: ['about:blank', 'about:blank'] });
@@ -139,6 +141,7 @@ test('respects incognito permission changes and never mixes normal and incognito
 	);
 	expect(await worker.evaluate(() => mergerTest.errors)).toEqual([]);
 	const denied = await restart(false);
+	await expectMenus(denied, false);
 	expect(await denied.evaluate(() => chrome.extension.isAllowedIncognitoAccess())).toBe(false);
 	expect(await denied.evaluate(() => mergerTest.errors)).toEqual([]);
 });

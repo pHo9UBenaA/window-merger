@@ -22,17 +22,14 @@ import {
 
 it('createWindowId returns WindowId or null', () => {
 	expectTypeOf(createWindowId(1)).toEqualTypeOf<WindowId | null>();
-	expectTypeOf(createWindowId(0)).toEqualTypeOf<WindowId | null>();
 });
 
 it('createTabId returns TabId or null', () => {
 	expectTypeOf(createTabId(1)).toEqualTypeOf<TabId | null>();
-	expectTypeOf(createTabId(0)).toEqualTypeOf<TabId | null>();
 });
 
 it('createGroupId returns GroupId or null', () => {
 	expectTypeOf(createGroupId(1)).toEqualTypeOf<GroupId | null>();
-	expectTypeOf(createGroupId(0)).toEqualTypeOf<GroupId | null>();
 });
 
 it('adapters expose domain-based method contracts', () => {
