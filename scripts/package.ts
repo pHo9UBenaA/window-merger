@@ -1,6 +1,5 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, relative, sep } from 'node:path';
 import { zipSync } from 'fflate';
 import { buildExtension, collectFiles, PROJECT_ROOT } from '../build.ts';
 import { validateExtension } from './validate-extension.ts';
@@ -27,7 +26,7 @@ export const packageExtension = async (root = PROJECT_ROOT): Promise<void> => {
 	}
 };
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
 	try {
 		await packageExtension();
 	} catch (error) {

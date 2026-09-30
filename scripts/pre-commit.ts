@@ -1,8 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, sep } from 'node:path';
 
 export const hasCodeChanges = (root: string): boolean => {
 	// Include both sides of renames, including code renamed to a Markdown file.
@@ -38,7 +37,7 @@ export const withIndexSnapshot = async (
 	}
 };
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
 	try {
 		const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
 			encoding: 'utf8',

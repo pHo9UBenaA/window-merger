@@ -1,6 +1,6 @@
 import { type FSWatcher, watch as watchDirectory } from 'node:fs';
 import { copyFile, mkdir, readdir, rm } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type BuildOptions, build as esbuild, context as esbuildContext } from 'esbuild';
 
@@ -102,7 +102,7 @@ export const watchExtension = async (
 	};
 };
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
 	try {
 		const minify = process.argv.includes('--minify');
 		if (process.argv.includes('--watch')) {

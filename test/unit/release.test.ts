@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { checkPush, checkRelease, createReleaseTag, releaseVersion } from '../../scripts/release';
 
@@ -43,6 +44,19 @@ it.each([
 ])('recognizes %s', (ref) => {
 	expect(releaseVersion(ref)).toBe('1.4.10');
 });
+it('runs CLI validation through a symlink instead of silently skipping it', async () => {
+	const sha = await commit('1.4.10');
+	const alias = join(directory, 'release-alias.ts');
+	await symlink(fileURLToPath(new URL('../../scripts/release.ts', import.meta.url)), alias);
+	expect(() =>
+		execFileSync(process.execPath, ['--experimental-strip-types', alias, '--check'], {
+			cwd: repository,
+			env: { ...process.env, RELEASE_BRANCH: 'release/v1.4.9', RELEASE_COMMIT: sha },
+			stdio: ['ignore', 'pipe', 'pipe'],
+		})
+	).toThrow('does not match');
+});
+
 it('skips non-release branches', () => {
 	expect(createReleaseTag('feature/example', 'HEAD', repository)).toBe('skipped');
 });

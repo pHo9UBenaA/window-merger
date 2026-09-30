@@ -1,7 +1,5 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { validateVersion } from './validate-extension.ts';
 
 export const releaseVersion = (ref: string): string | null => {
@@ -92,7 +90,7 @@ export const createReleaseTag = (
 	return 'created';
 };
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
 	try {
 		if (process.argv.includes('--check-push')) {
 			checkPush(readFileSync(0, 'utf8'));
