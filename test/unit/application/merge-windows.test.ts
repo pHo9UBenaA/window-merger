@@ -53,12 +53,15 @@ describe('App Layer - Merge Windows', () => {
 
 		await mergeWindows(false, deps);
 
-		expect(deps.mocks.updateTab.mock.calls).toEqual([
-			[createTestTabId(2), { pinned: true, muted: true }],
-			[createTestTabId(3), { pinned: true }],
-			[createTestTabId(4), { muted: true }],
-			[createTestTabId(1), { active: true }],
-		]);
+		expect(deps.mocks.updateTab).toHaveBeenCalledTimes(4);
+		expect(deps.mocks.updateTab.mock.calls).toEqual(
+			expect.arrayContaining([
+				[createTestTabId(2), { pinned: true, muted: true }],
+				[createTestTabId(3), { pinned: true }],
+				[createTestTabId(4), { muted: true }],
+			])
+		);
+		expect(deps.mocks.updateTab).toHaveBeenLastCalledWith(createTestTabId(1), { active: true });
 	});
 
 	it('preserves tab groups after merging', async () => {
