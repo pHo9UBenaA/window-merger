@@ -48,9 +48,16 @@ docker compose exec node pnpm build
 ```
 
 The repository is bind-mounted; `node_modules` uses a container-only volume to avoid mixing host
-and container binaries. After changing UID/GID or architecture, recreate that disposable volume
-and reinstall dependencies. `docker compose down -v` deletes the dependency volume, not repository files.
-The slim image does not preinstall ZIP tools or browser dependencies; run those checks on the host or in CI.
+and container binaries. Both UID and GID must be greater than zero. The container healthcheck verifies
+that its user can read and write the workspace and dependency directory; incorrect bind-mount
+permissions or an old volume owned by a different UID make it unhealthy.
+After changing UID/GID or architecture, recreate that disposable volume and reinstall dependencies. `docker compose down -v` deletes the dependency volume, not repository files.
+The pinned Debian 13 slim image uses the Node.js and pnpm versions declared above.
+npm is removed after bootstrapping pnpm; use pnpm inside the container.
+Git, ZIP tools and browser dependencies are not preinstalled; run those checks on the host or in CI.
+
+The image still has unresolved Debian vulnerability findings. A successful build or healthy
+container does not imply a vulnerability-free image.
 
 ## Packaging and releases
 

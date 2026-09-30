@@ -46,7 +46,7 @@ minimumReleaseAgeExclude:
   - '@typescript/native-preview'
   - '@typescript/native-preview-*'
 
-packageManagerStrictVersion: true
+pmOnFail: error
 
 preferWorkspacePackages: true
 

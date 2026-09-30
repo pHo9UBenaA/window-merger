@@ -1,19 +1,22 @@
+---
 services:
-    node:
-        build:
-            context: ./docker/node
-            args:
-                LOCAL_UID: ${LOCAL_UID:-1000}
-                LOCAL_GID: ${LOCAL_GID:-1000}
-        tty: true
-        volumes:
-            - .:/workspace
-            - node_modules:/workspace/node_modules
-        security_opt:
-            - no-new-privileges:true
-        cap_drop:
-            - ALL
-        pids_limit: 200
+  node:
+    build:
+      context: ./docker/node
+      args:
+        LOCAL_UID: ${LOCAL_UID:-1000}
+        LOCAL_GID: ${LOCAL_GID:-1000}
+    tty: true
+    volumes:
+      - .:/workspace
+      - node_modules:/workspace/node_modules
+    healthcheck:
+      disable: false  # Inherit the image's healthcheck.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 200
 
 volumes:
-    node_modules:
+  node_modules:
