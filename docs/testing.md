@@ -2,6 +2,8 @@
 
 ## Automated checks
 
+Artifact tests require the system `zip` and `unzip` commands.
+
 ```sh
 pnpm test:coverage
 pnpm typecheck

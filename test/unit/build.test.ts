@@ -1,7 +1,7 @@
+import { execFileSync } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PROJECT_ROOT, watchExtension } from '../../build';
 import { packageExtension } from '../../scripts/package';
@@ -26,24 +26,47 @@ describe('extension artifacts', () => {
 		await packageExtension(root);
 		await rm(obsolete);
 		await packageExtension(root);
-		const archive = unzipSync(await readFile(join(root, 'dist.zip')));
-		expect(archive['manifest.json']).toBeDefined();
-		expect(archive['background.js']).toBeDefined();
-		expect(archive['dist/manifest.json']).toBeUndefined();
-		expect(archive['obsolete.txt']).toBeUndefined();
+		const archive = join(root, 'dist.zip');
+		execFileSync('unzip', ['-tq', archive]);
+		const entries = execFileSync('unzip', ['-Z1', archive], { encoding: 'utf8' }).split('\n');
+		expect(entries).toContain('manifest.json');
+		expect(entries).toContain('background.js');
+		expect(entries).not.toContain('dist/manifest.json');
+		expect(entries).not.toContain('obsolete.txt');
 		await expect(validateExtension(join(root, 'dist'))).resolves.toBeUndefined();
-		await expect(readFile(join(root, 'dist.zip.tmp'))).rejects.toMatchObject({
+		await expect(readFile(join(root, 'dist.tmp.zip'))).rejects.toMatchObject({
 			code: 'ENOENT',
 		});
 	});
 
 	it('does not leave an old or partial archive after build failure', async () => {
 		await packageExtension(root);
-		await writeFile(join(root, 'dist.zip.tmp'), 'interrupted output');
+		await writeFile(join(root, 'dist.tmp.zip'), 'interrupted output');
 		await writeFile(join(root, 'src/background.ts'), 'invalid { syntax');
 		await expect(packageExtension(root)).rejects.toThrow();
 		await expect(readFile(join(root, 'dist.zip'))).rejects.toMatchObject({ code: 'ENOENT' });
-		await expect(readFile(join(root, 'dist.zip.tmp'))).rejects.toMatchObject({
+		await expect(readFile(join(root, 'dist.tmp.zip'))).rejects.toMatchObject({
+			code: 'ENOENT',
+		});
+	});
+
+	it('removes a partial archive when the zip command fails', async () => {
+		await packageExtension(root);
+		const bin = join(root, 'bin');
+		await mkdir(bin);
+		await writeFile(
+			join(bin, 'zip'),
+			'#!/bin/sh\nfor arg do\n  case "$arg" in *.tmp.zip) printf partial > "$arg";; esac\ndone\nexit 1\n',
+			{ mode: 0o755 }
+		);
+		vi.stubEnv('PATH', bin);
+		try {
+			await expect(packageExtension(root)).rejects.toThrow();
+		} finally {
+			vi.unstubAllEnvs();
+		}
+		await expect(readFile(join(root, 'dist.zip'))).rejects.toMatchObject({ code: 'ENOENT' });
+		await expect(readFile(join(root, 'dist.tmp.zip'))).rejects.toMatchObject({
 			code: 'ENOENT',
 		});
 	});

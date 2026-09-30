@@ -36,9 +36,6 @@ catalogs:
     esbuild:
       specifier: 0.28.1
       version: 0.28.1
-    fflate:
-      specifier: 0.8.3
-      version: 0.8.3
     secretlint:
       specifier: 13.0.2
       version: 13.0.2
@@ -91,9 +88,6 @@ importers:
       esbuild:
         specifier: 'catalog:'
         version: 0.28.1
-      fflate:
-        specifier: 'catalog:'
-        version: 0.8.3
       secretlint:
         specifier: 'catalog:'
         version: 13.0.2
@@ -947,9 +941,6 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
-
-  fflate@0.8.3:
-    resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
 
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
@@ -2150,8 +2141,6 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.4
 
-  fflate@0.8.3: {}
-
   fsevents@2.3.3:
     optional: true
 
@@ -2571,7 +2560,6 @@ time:
   '@typescript/native-preview@7.0.0-dev.20260603.1': '2026-06-03T08:02:33.866Z'
   '@vitest/coverage-v8@4.1.11': '2026-08-18T14:22:18.896Z'
   esbuild@0.28.1: '2026-06-11T22:47:05.085Z'
-  fflate@0.8.3: '2026-05-16T00:14:03.449Z'
   secretlint@13.0.2: '2026-05-15T14:43:43.715Z'
   typescript@6.0.3: '2026-04-16T23:38:27.905Z'
   vitest@4.1.11: '2026-08-18T14:27:07.240Z'

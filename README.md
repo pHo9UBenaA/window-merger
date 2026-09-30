@@ -75,7 +75,7 @@ pnpm zip
 ```
 
 This builds a fresh minified extension, validates its manifest/assets/locales, and writes `dist.zip`
-with `manifest.json` at its root. No system `zip` utility is required. Failed builds do not produce a
+with `manifest.json` at its root. The system `zip` command is required. Failed builds do not produce a
 replacement archive; deleted source assets do not survive from an older archive.
 
 Create a `release/vX.Y.Z` branch, update `src/assets/manifest.json` to `X.Y.Z`, and make Conventional
