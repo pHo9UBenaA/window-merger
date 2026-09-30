@@ -46,20 +46,8 @@ Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**,
 button; a source rebuild does not reload Chrome automatically. Click its service-worker inspector
 link to see failures. `pnpm build --watch` watches both TypeScript and static assets.
 
-```sh
-pnpm run ci
-pnpm check:secrets
-pnpm typecheck
-pnpm typecheck:tsc
-pnpm test:coverage
-pnpm audit
-PLAYWRIGHT_SKIP_BROWSER_GC=1 pnpm exec playwright install chromium
-pnpm test:browser
-pnpm test:stress # optional, larger workload
-```
-
 See [testing and the manual release matrix](docs/testing.md) and [Git hook setup](.githooks/README.md).
-The same quality gates run in CI. Configure branch protection to require the `checks` job before
+Configure branch protection to require the `checks` job before
 merging; a local hook is optional and is not the server-side enforcement mechanism.
 
 ### Docker

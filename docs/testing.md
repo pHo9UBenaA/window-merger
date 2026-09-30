@@ -7,6 +7,7 @@ pnpm test:coverage
 pnpm typecheck
 pnpm typecheck:tsc
 pnpm run ci
+pnpm check:secrets
 pnpm audit
 pnpm zip
 PLAYWRIGHT_SKIP_BROWSER_GC=1 pnpm exec playwright install chromium
