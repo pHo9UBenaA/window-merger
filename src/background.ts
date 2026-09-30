@@ -39,12 +39,10 @@ const handleMergeIncognitoWindowEvent = createMergeHandler(true);
 let menuSetup: Promise<void> | undefined;
 const initializeMenus = (): void => {
 	if (menuSetup) return;
-	menuSetup = Promise.resolve()
-		.then(setupContextMenus)
-		.catch((error) => {
-			menuSetup = undefined;
-			console.error('Failed to set up context menus:', error);
-		});
+	menuSetup = setupContextMenus().catch((error) => {
+		menuSetup = undefined;
+		console.error('Failed to set up context menus:', error);
+	});
 };
 
 chrome.runtime.onInstalled.addListener(initializeMenus);
