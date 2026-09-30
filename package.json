@@ -1,5 +1,6 @@
 {
 	"name": "window-merger",
+	"private": true,
 	"type": "module",
 	"engines": {
 		"node": ">=24.21.0 <25"

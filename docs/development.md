@@ -12,6 +12,9 @@ pnpm install --frozen-lockfile
 pnpm build
 ```
 
+Installs are frozen by default. When deliberately updating dependency versions, run
+`pnpm install --no-frozen-lockfile` and review the lockfile diff.
+
 In `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select `dist/`.
 Use a disposable profile. After rebuilding, click **Reload**; a build does not reload Chrome.
 The service-worker inspector shows logged failures. `pnpm build --watch` watches source and assets.
