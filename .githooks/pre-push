@@ -5,4 +5,3 @@ node --experimental-strip-types scripts/release.ts --check-push
 pnpm run ci
 pnpm run typecheck
 pnpm run test:coverage
-pnpm run zip

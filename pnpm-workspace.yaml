@@ -15,7 +15,6 @@ catalog:
   '@typescript/native-preview': 7.0.0-dev.20260603.1
   '@vitest/coverage-v8': 4.1.11
   esbuild: 0.28.1
-  fflate: 0.8.3
   secretlint: 13.0.2
   typescript: 6.0.3
   vitest: 4.1.11
@@ -27,7 +26,7 @@ overrides:
   postcss: 8.5.23
   nanoid: 3.3.18
   js-yaml: 4.3.2
-  fast-uri: 3.1.7
+  fast-uri: 3.1.8
 
 catalogMode: strict
 
@@ -41,7 +40,7 @@ minimumReleaseAge: 10080
 
 minimumReleaseAgeExclude:
   # Security patches newer than the time-based transitive resolution cutoff.
-  - 'fast-uri@3.1.7'
+  - 'fast-uri@3.1.8'
   - 'js-yaml@4.3.2'
   - typescript
   - '@typescript/native-preview'

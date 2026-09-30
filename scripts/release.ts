@@ -1,7 +1,5 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { validateVersion } from './validate-extension.ts';
 
 export const releaseVersion = (ref: string): string | null => {
@@ -10,20 +8,12 @@ export const releaseVersion = (ref: string): string | null => {
 	return match ? validateVersion(match[1]) : null;
 };
 
-const git = (args: string[], cwd: string): string => {
-	const env = { ...process.env };
-	if (process.env.GITHUB_TOKEN) {
-		env.GIT_CONFIG_COUNT = '1';
-		env.GIT_CONFIG_KEY_0 = 'http.https://github.com/.extraheader';
-		env.GIT_CONFIG_VALUE_0 = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${process.env.GITHUB_TOKEN}`).toString('base64')}`;
-	}
-	return execFileSync('git', args, {
+const git = (args: string[], cwd: string): string =>
+	execFileSync('git', args, {
 		cwd,
-		env,
 		encoding: 'utf8',
 		stdio: ['ignore', 'pipe', 'pipe'],
 	}).trim();
-};
 
 export const checkRelease = (ref: string, commit: string, cwd = process.cwd()): string | null => {
 	const version = releaseVersion(ref);
@@ -87,13 +77,9 @@ export const createReleaseTag = (
 			throw new Error(`Release ${version} is not newer than published version ${published}`);
 		}
 	}
-	const localTag = git(['tag', '--list', tag], cwd);
-	if (localTag && git(['rev-parse', `${tag}^{commit}`], cwd) !== sha) {
-		throw new Error(`Local tag ${tag} points to a different commit`);
-	}
-	if (!localTag) git(['tag', tag, sha], cwd);
 	try {
-		git(['push', remote, `refs/tags/${tag}:refs/tags/${tag}`], cwd);
+		// Publish the verified commit directly; local tags are neither created nor consulted.
+		git(['push', remote, `${sha}:refs/tags/${tag}`], cwd);
 	} catch (error) {
 		// A concurrent run or a lost response may have published this exact tag already.
 		const latest = remoteTags();
@@ -104,7 +90,7 @@ export const createReleaseTag = (
 	return 'created';
 };
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
 	try {
 		if (process.argv.includes('--check-push')) {
 			checkPush(readFileSync(0, 'utf8'));

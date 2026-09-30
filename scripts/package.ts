@@ -1,33 +1,30 @@
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { zipSync } from 'fflate';
-import { buildExtension, collectFiles, PROJECT_ROOT } from '../build.ts';
+import { execFileSync } from 'node:child_process';
+import { rename, rm } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { buildExtension, PROJECT_ROOT } from '../build.ts';
 import { validateExtension } from './validate-extension.ts';
 
 export const packageExtension = async (root = PROJECT_ROOT): Promise<void> => {
-	const archive = join(root, 'dist.zip');
-	const temporary = join(root, '.package-tmp');
+	const archive = resolve(root, 'dist.zip');
+	const temporary = resolve(root, 'dist.tmp.zip');
 	await rm(archive, { force: true });
-	await rm(temporary, { recursive: true, force: true });
+	await rm(temporary, { force: true });
 	try {
 		await buildExtension({ root, minify: true });
 		const directory = join(root, 'dist');
 		await validateExtension(directory);
-		const contents: Record<string, Uint8Array> = {};
-		for (const file of await collectFiles(directory)) {
-			contents[relative(directory, file).split(sep).join('/')] = await readFile(file);
-		}
-		await mkdir(temporary);
-		const output = join(temporary, 'dist.zip');
-		await writeFile(output, zipSync(contents, { level: 9 }));
-		await rename(output, archive);
+		// Archive files only, without platform-specific metadata.
+		execFileSync('zip', ['-qr9', '-X', '-D', temporary, '.', '-x', '*.DS_Store'], {
+			cwd: directory,
+			stdio: 'inherit',
+		});
+		await rename(temporary, archive);
 	} finally {
-		await rm(temporary, { recursive: true, force: true });
+		await rm(temporary, { force: true });
 	}
 };
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
 	try {
 		await packageExtension();
 	} catch (error) {

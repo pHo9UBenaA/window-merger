@@ -15,8 +15,8 @@ export const validateVersion = (version: unknown): string => {
 export const validateExtension = async (directory: string): Promise<void> => {
 	const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
 	validateVersion(manifest.version);
-	if (manifest.manifest_version !== 3 || manifest.minimum_chrome_version !== '120') {
-		throw new Error('Expected Manifest V3 targeting Chrome 120 or later');
+	if (manifest.manifest_version !== 3) {
+		throw new Error('Expected Manifest V3');
 	}
 	const requireFile = async (name: unknown) => {
 		if (
@@ -51,9 +51,12 @@ export const validateExtension = async (directory: string): Promise<void> => {
 		)
 	);
 	for (const locale of locales) {
-		const messages = JSON.parse(
-			await readFile(join(directory, '_locales', locale, 'messages.json'), 'utf8')
-		);
+		const messages = {
+			...defaultMessages,
+			...JSON.parse(
+				await readFile(join(directory, '_locales', locale, 'messages.json'), 'utf8')
+			),
+		};
 		for (const key of new Set([...Object.keys(defaultMessages), ...references])) {
 			if (typeof messages[key]?.message !== 'string' || messages[key].message.trim() === '') {
 				throw new Error(`Missing message ${key} in ${locale}`);

@@ -7,7 +7,7 @@ ARG LOCAL_GID=1000
 RUN test "$LOCAL_UID" -gt 0 \
     && groupmod -o -g "$LOCAL_GID" node \
     && usermod -o -u "$LOCAL_UID" -g "$LOCAL_GID" node \
-    && mkdir -p /workspace/node_modules /home/node/.local/share/pnpm/store \
+    && mkdir -p /workspace/node_modules \
     && chown -R node:node /workspace /home/node
 
 USER node

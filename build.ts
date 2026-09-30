@@ -1,6 +1,6 @@
 import { type FSWatcher, watch as watchDirectory } from 'node:fs';
-import { copyFile, mkdir, readdir, rm } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { copyFile, mkdir, readdir, readFile, rm } from 'node:fs/promises';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type BuildOptions, build as esbuild, context as esbuildContext } from 'esbuild';
 
@@ -53,15 +53,18 @@ const assetSync = (root: string, watching = false) => {
 	};
 };
 
-const buildOptions = (root: string, minify: boolean): BuildOptions => ({
-	entryPoints: [join(root, 'src/background.ts')],
-	bundle: true,
-	minify,
-	target: 'chrome120',
-	format: 'esm',
-	outdir: join(root, 'dist'),
-	platform: 'browser',
-});
+const buildOptions = async (root: string, minify: boolean): Promise<BuildOptions> => {
+	const manifest = JSON.parse(await readFile(join(root, 'src/assets/manifest.json'), 'utf8'));
+	return {
+		entryPoints: [join(root, 'src/background.ts')],
+		bundle: true,
+		minify,
+		target: `chrome${manifest.minimum_chrome_version.split('.')[0]}`,
+		format: 'esm',
+		outdir: join(root, 'dist'),
+		platform: 'browser',
+	};
+};
 
 export const buildExtension = async ({
 	root = PROJECT_ROOT,
@@ -69,7 +72,7 @@ export const buildExtension = async ({
 }: Options = {}): Promise<void> => {
 	await rm(join(root, 'dist'), { recursive: true, force: true });
 	await assetSync(root)();
-	await esbuild(buildOptions(root, minify));
+	await esbuild(await buildOptions(root, minify));
 };
 
 export const watchExtension = async (
@@ -82,7 +85,7 @@ export const watchExtension = async (
 	const refresh = () => {
 		pending = pending.then(sync).catch(onError);
 	};
-	const context = await esbuildContext(buildOptions(root, minify));
+	const context = await esbuildContext(await buildOptions(root, minify));
 	let watcher: FSWatcher | undefined;
 	try {
 		watcher = watchDirectory(join(root, 'src/assets'), { recursive: true }, refresh);
@@ -102,7 +105,7 @@ export const watchExtension = async (
 	};
 };
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
 	try {
 		const minify = process.argv.includes('--minify');
 		if (process.argv.includes('--watch')) {

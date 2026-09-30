@@ -2,11 +2,14 @@
 
 ## Automated checks
 
+Set up the [development environment](development.md#environment-and-build) first.
+
 ```sh
 pnpm test:coverage
 pnpm typecheck
 pnpm typecheck:tsc
 pnpm run ci
+pnpm check:secrets
 pnpm audit
 pnpm zip
 PLAYWRIGHT_SKIP_BROWSER_GC=1 pnpm exec playwright install chromium
@@ -43,8 +46,9 @@ performance guarantee. CI runs stress tests only when explicitly requested.
 
 ## Manual release matrix
 
-Run in a disposable profile, on Chrome **120** and the current stable Chrome, on supported desktop
-OSes. Playwright's current Chromium does not establish compatibility with every older Chrome build.
+Run in a disposable profile, on the minimum Chrome version declared in the manifest and the current
+stable Chrome, on supported desktop OSes. Playwright's current Chromium does not establish compatibility
+with every older Chrome build.
 Record browser/OS/version, setup, actual result, and console errors. Never attach private URLs or
 an entire personal profile to a bug report.
 

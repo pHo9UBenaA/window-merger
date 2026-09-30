@@ -89,17 +89,18 @@ test('keeps popups separate and ignores an unavailable incognito merge', async (
 
 test('reinitializes existing menus after browser restart', async ({ extension: { restart } }) => {
 	const reloaded = await restart();
-	await expect.poll(() => reloaded.evaluate(() => typeof mergerTest)).toBe('object');
-	await reloaded.evaluate(
-		() =>
-			new Promise<void>((resolve, reject) => {
-				chrome.contextMenus.update('mergeWindowId', { enabled: true }, () => {
-					if (chrome.runtime.lastError)
-						reject(new Error(chrome.runtime.lastError.message));
-					else resolve();
-				});
-			})
-	);
+	await expect
+		.poll(() =>
+			reloaded.evaluate(
+				() =>
+					new Promise<string | undefined>((resolve) => {
+						chrome.contextMenus.update('mergeWindowId', { enabled: true }, () => {
+							resolve(chrome.runtime.lastError?.message);
+						});
+					})
+			)
+		)
+		.toBeUndefined();
 	expect(await reloaded.evaluate(() => mergerTest.errors)).toEqual([]);
 });
 

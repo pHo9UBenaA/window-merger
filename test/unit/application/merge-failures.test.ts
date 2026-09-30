@@ -7,14 +7,6 @@ import {
 } from '../../factories/domain';
 import { createMockMergeWindowsDeps } from '../../mocks/ports';
 
-const deferred = () => {
-	let resolve!: () => void;
-	const promise = new Promise<void>((done) => {
-		resolve = done;
-	});
-	return { promise, resolve };
-};
-
 const createDeps = () => {
 	const deps = createMockMergeWindowsDeps();
 	deps.mocks.getAllWindows.mockResolvedValue([
@@ -32,7 +24,7 @@ const createDeps = () => {
 describe('merge failures', () => {
 	it('waits for started groups and stops unstarted work after failure', async () => {
 		const deps = createDeps();
-		const pending = deferred();
+		const pending = Promise.withResolvers<void>();
 		const error = new Error('Group disappeared');
 		deps.mocks.moveGroup.mockRejectedValueOnce(error).mockReturnValueOnce(pending.promise);
 		const settled = vi.fn();
@@ -62,9 +54,9 @@ describe('merge failures', () => {
 		const deps = createDeps();
 		deps.mocks.getAllWindows.mockResolvedValue([
 			window(1, [tab(1, { active: true })]),
-			window(2, [tab(2, { pinned: true, muted: true })]),
+			window(2, [tab(2, { pinned: true, muted: true }), tab(3, { muted: true })]),
 		]);
-		const pending = deferred();
+		const pending = Promise.withResolvers<void>();
 		deps.mocks.updateTab
 			.mockRejectedValueOnce(new Error('Pin failed'))
 			.mockReturnValueOnce(pending.promise);

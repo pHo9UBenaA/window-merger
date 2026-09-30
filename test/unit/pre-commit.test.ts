@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { withIndexSnapshot } from '../../scripts/pre-commit';
+import { hasCodeChanges, withIndexSnapshot } from '../../scripts/pre-commit';
 
 let root: string;
 const git = (...args: string[]) =>
@@ -15,6 +15,41 @@ beforeEach(async () => {
 });
 afterEach(async () => {
 	await rm(root, { recursive: true, force: true });
+});
+
+it.each([
+	['README.md', false],
+	['example.ts', true],
+	['package.json', true],
+	['compose.yaml', true],
+	['icon.png', true],
+])('selects code checks for staged %s: %s', async (name, expected) => {
+	await writeFile(join(root, name), 'staged');
+	git('add', '--', name);
+	await writeFile(join(root, 'unstaged.ts'), 'not staged');
+	expect(hasCodeChanges(root)).toBe(expected);
+});
+
+it('still runs code checks when code is renamed to Markdown or deleted', async () => {
+	await writeFile(join(root, 'example.ts'), 'export {};');
+	git('add', 'example.ts');
+	git(
+		'-c',
+		'user.name=Hook Test',
+		'-c',
+		'user.email=test@example.invalid',
+		'-c',
+		'commit.gpgsign=false',
+		'commit',
+		'-m',
+		'test: add fixture'
+	);
+	await rename(join(root, 'example.ts'), join(root, 'README.md'));
+	git('add', '-A');
+	expect(hasCodeChanges(root)).toBe(true);
+	await rm(join(root, 'README.md'));
+	git('add', '-A');
+	expect(hasCodeChanges(root)).toBe(true);
 });
 
 it('checks staged content without changing the working tree or index', async () => {
