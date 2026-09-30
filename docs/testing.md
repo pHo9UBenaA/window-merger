@@ -10,7 +10,7 @@ pnpm typecheck
 pnpm typecheck:tsc
 pnpm run ci
 pnpm check:secrets
-pnpm audit
+pnpm check:dependencies
 pnpm zip
 PLAYWRIGHT_SKIP_BROWSER_GC=1 pnpm exec playwright install chromium
 pnpm test:browser
@@ -43,6 +43,25 @@ HEADED=1 pnpm test:browser
 Use a machine with enough memory. The stress test records merge duration and verifies that tab
 IDs are neither lost nor duplicated. It has a generous timeout, not a hardware-independent
 performance guarantee. CI runs stress tests only when explicitly requested.
+
+## Dependency audits
+
+Install the official [OSV Scanner v2](https://google.github.io/osv-scanner/installation/) on `PATH`
+before running `pnpm check:dependencies`. CI downloads a pinned official binary and checks its
+SHA-256; the version and digest are maintained in [the workflow](../.github/workflows/ci.yml).
+
+The command runs pnpm audit and a recursive OSV scan of supported project manifests and lockfiles,
+respecting `.gitignore` and including development dependencies. It requires network access and does
+not change dependencies. Exit codes are **0** when both scans complete without recognized findings,
+**1** for vulnerability entries, and **2** for an incomplete audit (missing tools, timeouts,
+command failures, or invalid reports). Missing OSV is not a successful
+scan; no severity is filtered out. Untrusted report text is escaped to prevent terminal controls
+and GitHub workflow commands from being interpreted.
+
+These results are a snapshot of the scanners' databases, not a guarantee of vulnerability-free code.
+The warning printed by GitHub on push concerns the **default branch**, not necessarily the branch
+being pushed. A clean release-branch audit does not close default-branch alerts; merge and GitHub's
+subsequent dependency analysis are separate steps.
 
 ## Manual release matrix
 

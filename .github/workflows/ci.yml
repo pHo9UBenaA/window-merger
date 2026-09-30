@@ -39,7 +39,16 @@ jobs:
       - run: pnpm run typecheck
       - run: pnpm run typecheck:tsc
       - run: pnpm run test:coverage
-      - run: pnpm audit
+      - name: Install OSV Scanner
+        run: |
+          directory="$(mktemp -d "$RUNNER_TEMP/osv.XXXXXX")"
+          curl --fail --location --silent --show-error \
+            https://github.com/google/osv-scanner/releases/download/v2.6.0/osv-scanner_linux_amd64 \
+            --output "$directory/osv-scanner"
+          printf '%s  %s\n' ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108 "$directory/osv-scanner" | sha256sum --check --strict
+          chmod +x "$directory/osv-scanner"
+          printf '%s\n' "$directory" >> "$GITHUB_PATH"
+      - run: pnpm run check:dependencies
       - run: pnpm run zip
       - name: Validate release branch version
         env:

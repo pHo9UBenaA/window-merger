@@ -37,6 +37,7 @@
 		"test:stress": "pnpm build && playwright test --project=stress",
 		"ci": "biome ci . --error-on-warnings",
 		"check:secrets": "node --experimental-strip-types scripts/check-secrets.ts",
+		"check:dependencies": "node --experimental-strip-types scripts/check-dependencies.ts",
 		"format": "biome format --write .",
 		"lint": "biome lint --write . --error-on-warnings",
 		"check": "biome check --write .",
