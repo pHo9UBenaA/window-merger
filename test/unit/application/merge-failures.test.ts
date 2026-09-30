@@ -62,7 +62,7 @@ describe('merge failures', () => {
 		const deps = createDeps();
 		deps.mocks.getAllWindows.mockResolvedValue([
 			window(1, [tab(1, { active: true })]),
-			window(2, [tab(2, { pinned: true, muted: true })]),
+			window(2, [tab(2, { pinned: true, muted: true }), tab(3, { muted: true })]),
 		]);
 		const pending = deferred();
 		deps.mocks.updateTab

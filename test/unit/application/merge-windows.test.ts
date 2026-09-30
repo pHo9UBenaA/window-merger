@@ -39,6 +39,28 @@ describe('App Layer - Merge Windows', () => {
 		expect(deps.mocks.updateTab).toHaveBeenCalledWith(createTestTabId(2), { pinned: true });
 	});
 
+	it('restores both attributes in one update without resetting false snapshot values', async () => {
+		const deps = createMockMergeWindowsDeps();
+		deps.mocks.getAllWindows.mockResolvedValue([
+			createMockWindowSnapshot(1, [createMockTabSnapshot(1, { active: true })]),
+			createMockWindowSnapshot(2, [
+				createMockTabSnapshot(2, { pinned: true, muted: true }),
+				createMockTabSnapshot(3, { pinned: true }),
+				createMockTabSnapshot(4, { muted: true }),
+				createMockTabSnapshot(5),
+			]),
+		]);
+
+		await mergeWindows(false, deps);
+
+		expect(deps.mocks.updateTab.mock.calls).toEqual([
+			[createTestTabId(2), { pinned: true, muted: true }],
+			[createTestTabId(3), { pinned: true }],
+			[createTestTabId(4), { muted: true }],
+			[createTestTabId(1), { active: true }],
+		]);
+	});
+
 	it('preserves tab groups after merging', async () => {
 		const deps = createMockMergeWindowsDeps();
 		deps.mocks.getAllWindows.mockResolvedValue([

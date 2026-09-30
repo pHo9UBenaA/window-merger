@@ -113,6 +113,15 @@ describe('background events', () => {
 		expect(merge).toHaveBeenCalledTimes(3);
 	});
 
+	it('reuses stateless adapters across modes and requests', async () => {
+		action();
+		await flush();
+		menu('mergeWindowId');
+		await flush();
+		const deps = merge.mock.calls[0][1];
+		expect(merge.mock.calls.every((call) => call[1] === deps)).toBe(true);
+	});
+
 	it('logs rejected operations and releases the guard for retry', async () => {
 		const error = new AggregateError([new Error('Move failed')], 'Merge failed');
 		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
