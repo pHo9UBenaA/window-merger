@@ -7,7 +7,7 @@ allowBuilds:
 blockExoticSubdeps: true
 
 catalog:
-  '@biomejs/biome': 2.4.15
+  '@biomejs/biome': 2.5.5
   '@commitlint/cli': 21.0.1
   '@commitlint/config-conventional': 21.0.1
   '@playwright/test': 1.63.0
