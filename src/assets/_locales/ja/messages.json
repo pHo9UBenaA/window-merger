@@ -3,10 +3,6 @@
 		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
-	"extensionShortName": {
-		"message": "Window Merger",
-		"description": "Name of the extension."
-	},
 	"extensionDescription": {
 		"message": "タブグループ、固定タブ、ミュート状態を保持してウィンドウを統合します。",
 		"description": "Description of the extension."

@@ -14,6 +14,7 @@ export const createMockChromeTab = (
 		id,
 		incognito: options.incognito ?? false,
 		index: options.index ?? 0,
+		lastAccessed: options.lastAccessed ?? 0,
 		mutedInfo: options.mutedInfo ?? { muted: false },
 		pinned: options.pinned ?? false,
 		selected: options.selected ?? false,

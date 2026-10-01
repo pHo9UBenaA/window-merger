@@ -91,12 +91,12 @@ it('reports OSV package versions and vulnerability IDs with optional summaries',
 	expect(console.log).toHaveBeenCalledWith('  - example@1.0.0: OSV-2');
 });
 
-it.each([
-	{ results: null },
-	{ results: [{ packages: null }] },
-])('accepts documented null Go slices: %j', (report) => {
-	expect(check(result(cleanPnpm), result(report))).toBe(0);
-});
+it.each([{ results: null }, { results: [{ packages: null }] }])(
+	'accepts documented null Go slices: %j',
+	(report) => {
+		expect(check(result(cleanPnpm), result(report))).toBe(0);
+	}
+);
 
 it.each([
 	['unsupported npm format', { metadata: { vulnerabilities: counts }, vulnerabilities: {} }],

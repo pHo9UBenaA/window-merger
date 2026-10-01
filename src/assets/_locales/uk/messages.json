@@ -3,10 +3,6 @@
 		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
-	"extensionShortName": {
-		"message": "Window Merger",
-		"description": "Name of the extension."
-	},
 	"extensionDescription": {
 		"message": "Об’єднує вікна, зберігаючи групи вкладок, закріплені вкладки та налаштування вимкнення звуку.",
 		"description": "Description of the extension."

@@ -3,10 +3,6 @@
 		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
-	"extensionShortName": {
-		"message": "Window Merger",
-		"description": "Name of the extension."
-	},
 	"extensionDescription": {
 		"message": "Fusionne les fenêtres en conservant les groupes d’onglets, les onglets épinglés et les paramètres de sourdine.",
 		"description": "Description of the extension."

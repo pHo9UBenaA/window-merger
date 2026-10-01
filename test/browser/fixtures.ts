@@ -1,9 +1,10 @@
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type BrowserContext, test as base, chromium, expect, type Worker } from '@playwright/test';
 import { build } from 'esbuild';
-import { PROJECT_ROOT } from '../../build';
+import { PROJECT_ROOT } from '../../scripts/build';
 
 export const test = base.extend<{
 	extension: {
@@ -18,7 +19,8 @@ export const test = base.extend<{
 		const extension = join(directory, 'extension');
 		let context: BrowserContext | undefined;
 		try {
-			await cp(join(PROJECT_ROOT, 'dist'), extension, { recursive: true });
+			// Exercise the actual release artifact, including compacted locales and manifest.
+			execFileSync('unzip', ['-q', join(PROJECT_ROOT, 'dist.zip'), '-d', extension]);
 			const harness = await build({
 				entryPoints: [join(PROJECT_ROOT, 'test/browser/harness.ts')],
 				bundle: true,

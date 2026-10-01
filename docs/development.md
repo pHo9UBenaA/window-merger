@@ -1,47 +1,80 @@
 # Development
 
-## Environment and build
+## Setup and build
 
-Use the Node.js version in [`.nvmrc`](../.nvmrc) and the pnpm version declared by
-[`package.json`](../package.json). Enable Corepack if available, or install that pnpm version directly.
-Packaging requires the system `zip` command; artifact tests also require `unzip`.
-These commands are checked on macOS and Linux, not Windows.
+Use the Node.js version in [`.nvmrc`](../.nvmrc) and the pnpm version in
+[`package.json`](../package.json). Install `zip` and `unzip` for packaging and artifact tests.
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm build
 ```
 
-Installs are frozen by default. When deliberately updating dependency versions, run
-`pnpm install --no-frozen-lockfile` and review the lockfile diff.
-
 In `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select `dist/`.
-Use a disposable profile. After rebuilding, click **Reload**; a build does not reload Chrome.
-The service-worker inspector shows logged failures. `pnpm build --watch` watches source and assets.
-The build target comes from `minimum_chrome_version` in the manifest; restart the watcher after
-changing that setting.
+Use a disposable profile. Click **Reload** after rebuilding and check the service-worker console.
 
-## Git hooks
+Use `pnpm build --watch` while editing. Restart it after changing `minimum_chrome_version` in
+[`src/assets/manifest.json`](../src/assets/manifest.json). For readable JavaScript when debugging,
+use `pnpm build --no-minify` (also supported with `--watch`).
 
-Enable the optional hooks after installing dependencies:
+## Checks
+
+Install the official [OSV Scanner v2](https://google.github.io/osv-scanner/installation/) on `PATH`
+for dependency audits. Install Chromium for browser tests:
+
+```sh
+pnpm exec playwright install chromium
+```
+
+Before opening a PR, run:
+
+```sh
+pnpm test:coverage
+pnpm typecheck
+pnpm typecheck:tsc
+pnpm run ci
+pnpm check:secrets
+pnpm check:dependencies
+pnpm test:browser
+```
+
+For merge-related changes, also run `pnpm test:stress` (200 tabs by default).
+Use `STRESS_TABS=500 pnpm test:stress` for larger cases or `HEADED=1 pnpm test:browser` to see Chrome.
+
+Before a release, use disposable profiles on the minimum supported Chrome version and current stable
+Chrome. Record browser/OS/version, results and console errors:
+
+- Try the toolbar, shortcut reassignment and both context-menu entries.
+- Toggle incognito access, restart Chrome and disable/re-enable the extension; check normal and
+  incognito merges remain separate.
+- Merge pinned, muted, active and grouped tabs, including collapsed groups and a source's last tab.
+- Change or close tabs during a merge; check errors and whether a subsequent merge works.
+- Inspect the extracted release ZIP's version, icons and localized text, and repeat the UI checks.
+
+Do not attach private URLs or a personal browser profile to bug reports.
+
+## Dependencies and Git hooks
+
+```sh
+pnpm update --latest --config.frozen-lockfile=false
+```
+
+Review catalog, override and lockfile changes against
+[`pnpm-workspace.yaml`](../pnpm-workspace.yaml); keep Node typings on the runtime's major version.
+After manual dependency edits, run `pnpm install --no-frozen-lockfile`, then verify frozen installation
+and rerun the checks above.
+
+Enable the optional Git hooks after installing dependencies:
 
 ```sh
 git config core.hooksPath .githooks
 ```
 
-- `pre-commit` runs Secretlint and Biome on a temporary export of the Git index, without changing
-  working-tree edits. Markdown-only changes run Secretlint only.
-- `commit-msg` checks Conventional Commits.
-- `pre-push` checks release versions against pushed commits, then runs lint, type checks, and coverage.
+Use Conventional Commits. Open PRs against `main` and wait for CI checks to pass.
 
-Hooks reuse installed tooling. Install dependencies from the staged lockfile when changing them.
-CI independently installs from the committed lockfile and also checks packaging and browser behavior.
-Require the CI `checks` job through branch protection; local hooks are not server-side enforcement.
-See [testing](testing.md) for commands and the release checklist.
+## Docker (optional)
 
-## Docker
-
-On a non-root Unix host, match the container's UID/GID to the repository owner:
+On a non-root Unix host:
 
 ```sh
 export LOCAL_UID="$(id -u)" LOCAL_GID="$(id -g)"
@@ -50,49 +83,13 @@ docker compose exec node pnpm install --frozen-lockfile
 docker compose exec node pnpm build
 ```
 
-The repository is bind-mounted; `node_modules` uses a container-only volume to avoid mixing host
-and container binaries. Both UID and GID must be greater than zero. The container healthcheck verifies
-that its user can read and write the workspace and dependency directory; incorrect bind-mount
-permissions or an old volume owned by a different UID make it unhealthy.
-After changing UID/GID or architecture, recreate that disposable volume and reinstall dependencies. `docker compose down -v` deletes the dependency volume, not repository files.
-The pinned Debian 13 slim image uses the Node.js and pnpm versions declared above.
-npm is removed after bootstrapping pnpm; use pnpm inside the container.
-Git, ZIP tools and browser dependencies are not preinstalled; run those checks on the host or in CI.
+After changing UID/GID or architecture, run `docker compose down -v`, recreate the container, and
+reinstall dependencies. This deletes the dependency volume, not repository files.
+Run packaging and browser checks on the host or in CI; their system tools are not installed in the image.
 
-The image still has unresolved Debian vulnerability findings. A successful build or healthy
-container does not imply a vulnerability-free image.
+## Releases
 
-## Packaging and releases
-
-```sh
-pnpm zip
-```
-
-This builds and validates a fresh minified extension, then creates `dist.zip` with the manifest at its
-root. Old output is removed first; failed builds or ZIP commands do not leave a publishable archive.
-Missing translations can fall back to the default locale. The extension version and minimum Chrome
-version are maintained in [`src/assets/manifest.json`](../src/assets/manifest.json).
-
-Create `release/vX.Y.Z`, set the manifest version to `X.Y.Z`, and use Conventional Commits.
-Complete the [release checks](testing.md#manual-release-matrix), then open a PR to `main`.
-CI checks the branch/manifest versions. On merge, the tagging workflow creates `vX.Y.Z` at the exact
-merged commit. An identical existing tag is a no-op; conflicts and version regressions fail without
-overwriting tags. Legacy `vX.Y.Z` release branches remain supported.
-
-Tagging does not publish to the Chrome Web Store. Inspect the extracted ZIP and upload it manually.
-Security overrides in `pnpm-workspace.yaml` are narrowly pinned; revisit them when updating dependencies.
-
-## Merge behavior
-
-Only ordinary windows in the accessible profile participate; normal and incognito modes remain separate.
-The focused eligible window is preferred, otherwise the smallest window ID is used. The selected active
-tab is restored when possible. Windows are not explicitly focused or restored from minimization.
-No tab ordering is guaranteed.
-
-A merge uses its initial snapshot, not continuous reconciliation. Newly opened tabs may remain behind;
-a moved group includes its members at the time it is moved. Duplicate requests for the same mode are
-ignored until started operations settle. Normal and incognito merges can run independently.
-
-On failure, started parallel operations finish and subsequent stages stop. Partial changes are allowed;
-there is no rollback, automatic retry, or persisted resume job. Errors go to the service-worker console,
-without user notifications.
+Create `release/vX.Y.Z` and set that version in
+[`src/assets/manifest.json`](../src/assets/manifest.json). Complete the checks above, then run `pnpm zip`
+to rebuild, validate and archive `dist/` without further transformations. Inspect `dist.zip` before
+uploading it to the Chrome Web Store. Merging the release PR creates the version tag, not a store upload.
