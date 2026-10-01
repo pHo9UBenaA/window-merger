@@ -3,10 +3,6 @@
 		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
-	"extensionShortName": {
-		"message": "Window Merger",
-		"description": "Name of the extension."
-	},
 	"extensionDescription": {
 		"message": "Sujungia langus išlaikant kortelių grupes, prisegtas korteles ir nutildymo nustatymus.",
 		"description": "Description of the extension."

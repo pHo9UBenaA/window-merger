@@ -69,9 +69,40 @@ pnpm zip
 ```
 
 This builds and validates a fresh minified extension, then creates `dist.zip` with the manifest at its
-root. Old output is removed first; failed builds or ZIP commands do not leave a publishable archive.
-Missing translations can fall back to the default locale. The extension version and minimum Chrome
-version are maintained in [`src/assets/manifest.json`](../src/assets/manifest.json).
+root. Minified builds compact JSON and omit the optional translator `description` fields from locale
+messages; source formatting, translator guidance, message text and placeholders are retained in `src/`.
+Normal builds keep assets unchanged. PNG assets omit textual/date metadata without changing pixel data
+or color information; builds need no image-processing tool. Old output is removed first; failed builds
+or ZIP commands do not leave a publishable archive. Missing translations can fall back to the default
+locale. The extension version and minimum Chrome version are maintained in
+[`src/assets/manifest.json`](../src/assets/manifest.json).
+
+### Chrome manifest conventions
+
+The manifest follows the [Chrome manifest reference](https://developer.chrome.com/docs/extensions/reference/manifest):
+
+- MV3 with a module service worker, matching the bundled JavaScript's ESM format
+  ([service workers](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/basics)).
+- PNG icons at 16/32/48/128px, including the required 128px Chrome Web Store icon
+  ([icons](https://developer.chrome.com/docs/extensions/reference/manifest/icons)).
+- Toolbar icons at 16/24/32px for 1x/1.5x/2x scales, and a localized, descriptive tooltip
+  ([action](https://developer.chrome.com/docs/extensions/reference/api/action)). No popup is declared,
+  so toolbar and shortcut clicks continue to invoke the merge handler.
+- No redundant `short_name`: Chrome truncates `name` when necessary. If one is added later, keep it
+  within 12 characters ([short name](https://developer.chrome.com/docs/extensions/reference/manifest/short-name)).
+- A single cross-platform `Alt+Shift+M` suggestion. `_execute_action` descriptions are ignored by Chrome
+  ([commands](https://developer.chrome.com/docs/extensions/reference/api/commands)).
+- Only the existing `contextMenus` and `tabGroups` permissions; no host access or `tabs` permission.
+  `incognito: spanning` remains explicit so both modes use the same worker without mixing tabs.
+- Locale messages keep translator guidance in source; Chrome does not require it in the distribution
+  ([internationalization](https://developer.chrome.com/docs/extensions/reference/api/i18n)).
+
+Packaging checks declared PNG dimensions, the 128px store icon, referenced assets and localized
+name/description/short-name lengths. These checks do not replace Chrome Web Store review or manual
+visual/accessibility checks. Store screenshots, promotional artwork and icon styling/padding must also
+be reviewed against the [Web Store image guidance](https://developer.chrome.com/docs/webstore/images).
+
+### Release workflow
 
 Create `release/vX.Y.Z`, set the manifest version to `X.Y.Z`, and use Conventional Commits.
 Complete the [release checks](testing.md#manual-release-matrix), then open a PR to `main`.

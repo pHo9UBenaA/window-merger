@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { build as esbuild } from 'esbuild';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PROJECT_ROOT, watchExtension } from '../../build';
+import { buildExtension, collectFiles, PROJECT_ROOT, watchExtension } from '../../build';
 import { packageExtension } from '../../scripts/package';
 import { validateExtension, validateVersion } from '../../scripts/validate-extension';
 
@@ -43,6 +43,57 @@ describe('extension artifacts', () => {
 		await expect(readFile(join(root, 'dist.tmp.zip'))).rejects.toMatchObject({
 			code: 'ENOENT',
 		});
+	});
+
+	it('keeps textual and date metadata out of PNG assets', async () => {
+		for (const path of (await collectFiles(join(root, 'src/assets'))).filter((file) =>
+			file.endsWith('.png')
+		)) {
+			const data = await readFile(path);
+			const chunks: string[] = [];
+			for (let offset = 8; offset < data.length; ) {
+				chunks.push(data.toString('ascii', offset + 4, offset + 8));
+				offset += data.readUInt32BE(offset) + 12;
+			}
+			for (const metadata of ['tEXt', 'zTXt', 'iTXt', 'tIME']) {
+				expect(chunks).not.toContain(metadata);
+			}
+		}
+	});
+
+	it('compacts distribution JSON without changing source, messages or placeholders', async () => {
+		const source = join(root, 'src/assets/_locales/en/messages.json');
+		const messages = JSON.parse(await readFile(source, 'utf8'));
+		messages.greeting = {
+			message: 'Hello $NAME$',
+			description: 'Translator guidance',
+			placeholders: { name: { content: '$1', example: 'Alice' } },
+		};
+		const original = `${JSON.stringify(messages, null, '\t')}\n`;
+		await writeFile(source, original);
+		await buildExtension({ root });
+		const output = join(root, 'dist/_locales/en/messages.json');
+		expect(await readFile(output, 'utf8')).toBe(original);
+		await packageExtension(root);
+		const compact = await readFile(output, 'utf8');
+		const distributed = JSON.parse(compact);
+		expect(compact).toBe(JSON.stringify(distributed));
+		for (const [key, message] of Object.entries(messages)) {
+			const { description: _description, ...runtime } = message as Record<string, unknown>;
+			expect(distributed[key]).toEqual(runtime);
+		}
+		expect(await readFile(source, 'utf8')).toBe(original);
+		const sourceManifest = JSON.parse(
+			await readFile(join(root, 'src/assets/manifest.json'), 'utf8')
+		);
+		expect(await readFile(join(root, 'dist/manifest.json'), 'utf8')).toBe(
+			JSON.stringify(sourceManifest)
+		);
+		expect(
+			execFileSync('unzip', ['-p', join(root, 'dist.zip'), '_locales/en/messages.json'], {
+				encoding: 'utf8',
+			})
+		).toBe(compact);
 	});
 
 	it('does not leave an old or partial archive after build failure', async () => {
@@ -86,6 +137,61 @@ describe('extension artifacts', () => {
 		await expect(readFile(join(root, 'dist.zip'))).rejects.toMatchObject({ code: 'ENOENT' });
 	});
 
+	it('rejects an icon whose dimensions do not match its manifest declaration', async () => {
+		const path = join(root, 'src/assets/manifest.json');
+		const manifest = JSON.parse(await readFile(path, 'utf8'));
+		manifest.action.default_icon['24'] = 'icon-16.png';
+		await writeFile(path, JSON.stringify(manifest));
+		await expect(packageExtension(root)).rejects.toThrow('Icon dimensions do not match 24');
+	});
+
+	it('rejects a non-PNG icon', async () => {
+		await writeFile(join(root, 'src/assets/icon-128.png'), 'not a PNG');
+		await expect(packageExtension(root)).rejects.toThrow('Expected PNG icon');
+	});
+
+	it('requires the Chrome Web Store 128px icon', async () => {
+		const path = join(root, 'src/assets/manifest.json');
+		const manifest = JSON.parse(await readFile(path, 'utf8'));
+		delete manifest.icons['128'];
+		await writeFile(path, JSON.stringify(manifest));
+		await expect(packageExtension(root)).rejects.toThrow('Missing 128px');
+	});
+
+	it('supports a single action icon path as well as a size dictionary', async () => {
+		const path = join(root, 'src/assets/manifest.json');
+		const manifest = JSON.parse(await readFile(path, 'utf8'));
+		manifest.action.default_icon = 'icon-32.png';
+		await writeFile(path, JSON.stringify(manifest));
+		await expect(packageExtension(root)).resolves.toBeUndefined();
+	});
+
+	it.each([
+		['name', 75],
+		['description', 132],
+		['short_name', 12],
+	] as const)('validates the actual manifest %s, including literal text', async (key, maximum) => {
+		const path = join(root, 'src/assets/manifest.json');
+		const manifest = JSON.parse(await readFile(path, 'utf8'));
+		manifest[key] = 'x'.repeat(maximum);
+		await writeFile(path, JSON.stringify(manifest));
+		await expect(packageExtension(root)).resolves.toBeUndefined();
+		manifest[key] += 'x';
+		await writeFile(path, JSON.stringify(manifest));
+		await expect(packageExtension(root)).rejects.toThrow(`Localized manifest ${key}`);
+	});
+
+	it('checks localized short names after default-locale fallback', async () => {
+		const path = join(root, 'src/assets/manifest.json');
+		const manifest = JSON.parse(await readFile(path, 'utf8'));
+		manifest.short_name = '__MSG_extensionName__';
+		await writeFile(path, JSON.stringify(manifest));
+		await writeFile(join(root, 'src/assets/_locales/bg/messages.json'), '{}');
+		await expect(packageExtension(root)).rejects.toThrow(
+			'short_name must be 1..12 characters in bg'
+		);
+	});
+
 	it('allows missing translations to fall back to the default locale', async () => {
 		await writeFile(join(root, 'src/assets/_locales/ja/messages.json'), '{}');
 		await expect(packageExtension(root)).resolves.toBeUndefined();
@@ -114,6 +220,14 @@ describe('extension artifacts', () => {
 		manifest.minimum_chrome_version = 'not-a-version';
 		await writeFile(path, JSON.stringify(manifest));
 		await expect(packageExtension(root)).rejects.toThrow('Invalid version');
+	});
+
+	it('rejects invalid Chrome version components beyond the build target major', async () => {
+		const path = join(root, 'src/assets/manifest.json');
+		const manifest = JSON.parse(await readFile(path, 'utf8'));
+		manifest.minimum_chrome_version = '121.invalid';
+		await writeFile(path, JSON.stringify(manifest));
+		await expect(packageExtension(root)).rejects.toThrow('Invalid minimum Chrome version');
 	});
 
 	it('watches asset edits, additions and deletions as well as source changes', async () => {

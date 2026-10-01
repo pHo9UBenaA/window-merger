@@ -20,6 +20,24 @@ const expectMenus = async (worker: Worker, incognito: boolean, operation?: 'crea
 		);
 };
 
+test('loads the packaged module worker, localized tooltip and action shortcut', async ({
+	extension: { worker },
+}) => {
+	const actual = await worker.evaluate(async () => ({
+		manifest: chrome.runtime.getManifest(),
+		title: await chrome.action.getTitle({}),
+		description: chrome.i18n.getMessage('extensionDescription'),
+		commands: await chrome.commands.getAll(),
+		errors: mergerTest.errors,
+	}));
+	expect(actual.manifest.background).toMatchObject({ type: 'module' });
+	expect(actual.manifest.action?.default_icon).toHaveProperty('24', 'icon-24.png');
+	expect(actual.description).not.toBe('');
+	expect(actual.title).toBe(actual.description);
+	expect(actual.commands.map(({ name }) => name)).toContain('_execute_action');
+	expect(actual.errors).toEqual([]);
+});
+
 test('merges real windows while preserving IDs, groups, pinned and muted states', async ({
 	extension: { worker },
 }) => {

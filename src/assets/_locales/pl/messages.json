@@ -3,10 +3,6 @@
 		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
-	"extensionShortName": {
-		"message": "Window Merger",
-		"description": "Name of the extension."
-	},
 	"extensionDescription": {
 		"message": "Łączy okna, zachowując grupy kart, przypięte karty i ustawienia wyciszenia.",
 		"description": "Description of the extension."

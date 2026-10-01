@@ -3,10 +3,6 @@
 		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
-	"extensionShortName": {
-		"message": "Window Merger",
-		"description": "Name of the extension."
-	},
 	"extensionDescription": {
 		"message": "Обединява прозорци, като запазва групите раздели, фиксираните раздели и заглушаването.",
 		"description": "Description of the extension."

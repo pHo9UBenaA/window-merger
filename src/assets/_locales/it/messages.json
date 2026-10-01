@@ -3,10 +3,6 @@
 		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
-	"extensionShortName": {
-		"message": "Window Merger",
-		"description": "Name of the extension."
-	},
 	"extensionDescription": {
 		"message": "Unisce le finestre mantenendo i gruppi di schede, le schede bloccate e le impostazioni audio disattivato.",
 		"description": "Description of the extension."

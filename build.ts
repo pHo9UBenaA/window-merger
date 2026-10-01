@@ -1,6 +1,6 @@
 import { type FSWatcher, watch as watchDirectory } from 'node:fs';
-import { copyFile, mkdir, readdir, readFile, rm } from 'node:fs/promises';
-import { dirname, join, relative } from 'node:path';
+import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type BuildOptions, build as esbuild, context as esbuildContext } from 'esbuild';
 
@@ -26,7 +26,10 @@ export const collectFiles = async (dir: string, ignoreMissing = false): Promise<
 	return files.flat();
 };
 
-const assetSync = (root: string, watching = false) => {
+const assetSync = (
+	root: string,
+	{ minify = false, watching = false }: { minify?: boolean; watching?: boolean } = {}
+) => {
 	let previous = new Set<string>();
 	return async () => {
 		const assets = join(root, 'src/assets');
@@ -41,7 +44,21 @@ const assetSync = (root: string, watching = false) => {
 			const destination = join(root, 'dist', name);
 			await mkdir(dirname(destination), { recursive: true });
 			try {
-				await copyFile(join(assets, name), destination);
+				const source = join(assets, name);
+				if (minify && name.endsWith('.json')) {
+					const data = JSON.parse(await readFile(source, 'utf8'));
+					if (name.startsWith(`_locales${sep}`) && basename(name) === 'messages.json') {
+						// Translator guidance stays in source, not in the distribution.
+						for (const message of Object.values(data)) {
+							if (message && typeof message === 'object') {
+								delete (message as { description?: unknown }).description;
+							}
+						}
+					}
+					await writeFile(destination, JSON.stringify(data));
+				} else {
+					await copyFile(source, destination);
+				}
 			} catch (error) {
 				if (!watching || !isMissing(error)) throw error;
 				// A deletion may race with directory enumeration; remove any stale output too.
@@ -71,7 +88,7 @@ export const buildExtension = async ({
 	minify = false,
 }: Options = {}): Promise<void> => {
 	await rm(join(root, 'dist'), { recursive: true, force: true });
-	await assetSync(root)();
+	await assetSync(root, { minify })();
 	await esbuild(await buildOptions(root, minify));
 };
 
@@ -80,7 +97,7 @@ export const watchExtension = async (
 	onError: (error: unknown) => void = console.error
 ): Promise<() => Promise<void>> => {
 	await rm(join(root, 'dist'), { recursive: true, force: true });
-	const sync = assetSync(root, true);
+	const sync = assetSync(root, { minify, watching: true });
 	let pending = Promise.resolve();
 	const refresh = () => {
 		pending = pending.then(sync).catch(onError);

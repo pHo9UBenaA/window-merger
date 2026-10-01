@@ -3,10 +3,6 @@
 		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
-	"extensionShortName": {
-		"message": "Window Merger",
-		"description": "Name of the extension."
-	},
 	"extensionDescription": {
 		"message": "Fenster zusammenführen und dabei Tabgruppen, angeheftete Tabs und Stummschaltung beibehalten.",
 		"description": "Description of the extension."

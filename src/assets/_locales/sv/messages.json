@@ -3,10 +3,6 @@
 		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
-	"extensionShortName": {
-		"message": "Window Merger",
-		"description": "Name of the extension."
-	},
 	"extensionDescription": {
 		"message": "Slå samman fönster och behåll flikgrupper, fästa flikar och avstängt ljud.",
 		"description": "Description of the extension."

@@ -3,10 +3,6 @@
 		"message": "Window Merger",
 		"description": "Name of the extension."
 	},
-	"extensionShortName": {
-		"message": "Window Merger",
-		"description": "Name of the extension."
-	},
 	"extensionDescription": {
 		"message": "Slå saman vindauge og ta vare på fanegrupper, festa faner og dempa lyd.",
 		"description": "Description of the extension."

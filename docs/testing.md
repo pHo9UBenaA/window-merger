@@ -21,11 +21,13 @@ The unit suite covers planning, all event entry points, callback errors, duplica
 partial failures, menu permission synchronization, packaging, and watched assets. Coverage
 thresholds apply to production `src/` code; build and release tools have separate tests.
 
-Browser tests use Playwright's full Chromium with a fresh temporary persistent profile.
-They never use your normal browser profile. A **test-only prelude** captures the production
-registered action/menu listeners so tests can invoke those listeners; Chrome's tab, group,
-window, and menu APIs remain real. The prelude is only added to a temporary extension copy,
-not `dist/` or the ZIP. These tests do not simulate physical toolbar clicks or keyboard shortcuts.
+Browser and stress commands package the extension first. Tests extract that ZIP and use Playwright's
+full Chromium with a fresh temporary persistent profile, so the minified worker, compacted locales,
+manifest tooltip and action-command registration are checked as shipped. They never use your normal
+browser profile. A **test-only prelude** captures the production registered action/menu listeners so
+tests can invoke those listeners; Chrome's tab, group, window, and menu APIs remain real. The prelude
+is only added to the temporary extracted extension, not `dist/` or the ZIP. These tests do not simulate
+physical toolbar clicks or keyboard shortcuts.
 
 Tests check tab identity (not ordering), pinned/muted state, group metadata, normal/incognito
 separation, permission changes, browser restarts, and exclusion of popups. Incognito permission
