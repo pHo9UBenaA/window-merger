@@ -20,18 +20,44 @@ const expectMenus = async (worker: Worker, incognito: boolean, operation?: 'crea
 		);
 };
 
-test('loads the packaged module worker, localized tooltip and action shortcut', async ({
+test('loads the packaged manifest, tooltip, shortcut and padded store icon', async ({
 	extension: { worker },
 }) => {
-	const actual = await worker.evaluate(async () => ({
-		manifest: chrome.runtime.getManifest(),
-		title: await chrome.action.getTitle({}),
-		description: chrome.i18n.getMessage('extensionDescription'),
-		commands: await chrome.commands.getAll(),
-		errors: mergerTest.errors,
-	}));
+	const actual = await worker.evaluate(async () => {
+		const manifest = chrome.runtime.getManifest();
+		const image = await createImageBitmap(
+			await (await fetch(chrome.runtime.getURL(manifest.icons?.['128'] as string))).blob()
+		);
+		const canvas = new OffscreenCanvas(image.width, image.height);
+		const context = canvas.getContext('2d');
+		if (!context) throw new Error('Missing image context');
+		context.drawImage(image, 0, 0);
+		const pixels = context.getImageData(0, 0, image.width, image.height).data;
+		let opaqueMarginPixels = 0;
+		let opaqueArtworkPixels = 0;
+		for (let y = 0; y < image.height; y++) {
+			for (let x = 0; x < image.width; x++) {
+				if (pixels[(y * image.width + x) * 4 + 3] === 0) continue;
+				if (x < 16 || y < 16 || x >= 112 || y >= 112) opaqueMarginPixels++;
+				else opaqueArtworkPixels++;
+			}
+		}
+		return {
+			manifest,
+			iconSize: [image.width, image.height],
+			opaqueMarginPixels,
+			opaqueArtworkPixels,
+			title: await chrome.action.getTitle({}),
+			description: chrome.i18n.getMessage('extensionDescription'),
+			commands: await chrome.commands.getAll(),
+			errors: mergerTest.errors,
+		};
+	});
 	expect(actual.manifest.background).toMatchObject({ type: 'module' });
 	expect(actual.manifest.action?.default_icon).toHaveProperty('24', 'icon-24.png');
+	expect(actual.iconSize).toEqual([128, 128]);
+	expect(actual.opaqueMarginPixels).toBe(0);
+	expect(actual.opaqueArtworkPixels).toBeGreaterThan(0);
 	expect(actual.description).not.toBe('');
 	expect(actual.title).toBe(actual.description);
 	expect(actual.commands.map(({ name }) => name)).toContain('_execute_action');

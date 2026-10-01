@@ -2,24 +2,22 @@
 
 ## Environment and build
 
-Use the Node.js version in [`.nvmrc`](../.nvmrc) and the pnpm version declared by
-[`package.json`](../package.json). Enable Corepack if available, or install that pnpm version directly.
-Packaging requires the system `zip` command; artifact tests also require `unzip`.
-These commands are checked on macOS and Linux, not Windows.
+Use the Node.js version in [`.nvmrc`](../.nvmrc) and the pnpm version in
+[`package.json`](../package.json). Packaging requires `zip`; artifact and browser tests also require
+`unzip`. Development commands are tested on macOS and Linux.
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm build
 ```
 
-Installs are frozen by default. When deliberately updating dependency versions, run
-`pnpm install --no-frozen-lockfile` and review the lockfile diff.
-
 In `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select `dist/`.
-Use a disposable profile. After rebuilding, click **Reload**; a build does not reload Chrome.
-The service-worker inspector shows logged failures. `pnpm build --watch` watches source and assets.
-The build target comes from `minimum_chrome_version` in the manifest; restart the watcher after
-changing that setting.
+Use a disposable profile. Click **Reload** after rebuilding; the build does not reload Chrome.
+Inspect the service-worker console for errors.
+
+`pnpm build --watch` watches source and assets. The build target comes from
+`minimum_chrome_version` in [`src/assets/manifest.json`](../src/assets/manifest.json); restart the
+watcher after changing it. `--minify` minifies JavaScript; builds copy assets unchanged.
 
 ## Dependency updates
 
@@ -27,34 +25,23 @@ changing that setting.
 pnpm update --latest --config.frozen-lockfile=false
 ```
 
-Review the catalog and lockfile diff before committing. The release-age policy and its exclusions
-are maintained in [`pnpm-workspace.yaml`](../pnpm-workspace.yaml): ordinary packages must be published
-for at least seven days (`minimumReleaseAge: 10080`). Keep the existing TypeScript/preview exclusions;
-do not lower the age or add broad exclusions just to install a newer release. Remove expired
-version-specific security exceptions once the patched version meets the ordinary age requirement.
-
-Keep `@types/node` on the Node major declared in [`.nvmrc`](../.nvmrc), even if `pnpm outdated` offers a
-newer major. Review transitive security overrides against their parents' supported dependency ranges;
-`--latest` does not refresh those pins. Apply reviewed catalog/override edits with
-`pnpm install --no-frozen-lockfile`, then verify frozen installation and the [release checks](testing.md).
+Review the catalog, overrides and lockfile against the policy in
+[`pnpm-workspace.yaml`](../pnpm-workspace.yaml). Keep `@types/node` on the runtime's major version.
+Apply reviewed edits with `pnpm install --no-frozen-lockfile`, then verify frozen installation and
+[run the checks](testing.md#automated-checks).
 
 ## Git hooks
-
-Enable the optional hooks after installing dependencies:
 
 ```sh
 git config core.hooksPath .githooks
 ```
 
-- `pre-commit` runs Secretlint and Biome on a temporary export of the Git index, without changing
-  working-tree edits. Markdown-only changes run Secretlint only.
+- `pre-commit` checks secrets and Biome against an isolated copy of the Git index.
 - `commit-msg` checks Conventional Commits.
-- `pre-push` checks release versions against pushed commits, then runs lint, type checks, and coverage.
+- `pre-push` checks pushed release versions, lint, types and coverage.
 
-Hooks reuse installed tooling. Install dependencies from the staged lockfile when changing them.
-CI independently installs from the committed lockfile and also checks packaging and browser behavior.
-Require the CI `checks` job through branch protection; local hooks are not server-side enforcement.
-See [testing](testing.md) for commands and the release checklist.
+Hooks use installed dependencies. Install from the staged lockfile after dependency changes.
+CI independently runs checks; require its `checks` job through branch protection.
 
 ## Docker
 
@@ -67,17 +54,9 @@ docker compose exec node pnpm install --frozen-lockfile
 docker compose exec node pnpm build
 ```
 
-The repository is bind-mounted; `node_modules` uses a container-only volume to avoid mixing host
-and container binaries. Both UID and GID must be greater than zero. The container healthcheck verifies
-that its user can read and write the workspace and dependency directory; incorrect bind-mount
-permissions or an old volume owned by a different UID make it unhealthy.
-After changing UID/GID or architecture, recreate that disposable volume and reinstall dependencies. `docker compose down -v` deletes the dependency volume, not repository files.
-The pinned Debian 13 slim image uses the Node.js and pnpm versions declared above.
-npm is removed after bootstrapping pnpm; use pnpm inside the container.
-Git, ZIP tools and browser dependencies are not preinstalled; run those checks on the host or in CI.
-
-The image still has unresolved Debian vulnerability findings. A successful build or healthy
-container does not imply a vulnerability-free image.
+The repository is bind-mounted; dependencies use a container-only volume. After changing UID/GID or
+architecture, recreate that volume and reinstall dependencies. `docker compose down -v` deletes the
+volume, not repository files. Git, ZIP tools and browser dependencies are not preinstalled.
 
 ## Packaging and releases
 
@@ -85,62 +64,15 @@ container does not imply a vulnerability-free image.
 pnpm zip
 ```
 
-This builds and validates a fresh minified extension, then creates `dist.zip` with the manifest at its
-root. Minified builds compact JSON and omit the optional translator `description` fields from locale
-messages; source formatting, translator guidance, message text and placeholders are retained in `src/`.
-Normal builds keep assets unchanged. PNG assets omit textual/date metadata without changing pixel data
-or color information; builds need no image-processing tool. Old output is removed first; failed builds
-or ZIP commands do not leave a publishable archive. Missing translations can fall back to the default
-locale. The extension version and minimum Chrome version are maintained in
-[`src/assets/manifest.json`](../src/assets/manifest.json).
+Packaging builds minified JavaScript, compacts distribution JSON, and omits locale messages'
+translator descriptions without changing source files. It includes `LICENSE`, validates the result,
+and creates a fresh `dist.zip` with `manifest.json` at the root. Failed packaging leaves no publishable
+archive.
 
-### Chrome manifest conventions
+Create `release/vX.Y.Z` and set the version in
+[`src/assets/manifest.json`](../src/assets/manifest.json). Use Conventional Commits, complete the
+[release checks](testing.md#manual-release-matrix), and open a PR to `main`.
+On merge, CI creates the version tag at the merged commit. Conflicting tags and version regressions
+are rejected; rerunning an identical tag is a no-op.
 
-The manifest follows the [Chrome manifest reference](https://developer.chrome.com/docs/extensions/reference/manifest):
-
-- MV3 with a module service worker, matching the bundled JavaScript's ESM format
-  ([service workers](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/basics)).
-- PNG icons at 16/32/48/128px, including the required 128px Chrome Web Store icon
-  ([icons](https://developer.chrome.com/docs/extensions/reference/manifest/icons)).
-- Toolbar icons at 16/24/32px for 1x/1.5x/2x scales, and a localized, descriptive tooltip
-  ([action](https://developer.chrome.com/docs/extensions/reference/api/action)). No popup is declared,
-  so toolbar and shortcut clicks continue to invoke the merge handler.
-- No redundant `short_name`: Chrome truncates `name` when necessary. If one is added later, keep it
-  within 12 characters ([short name](https://developer.chrome.com/docs/extensions/reference/manifest/short-name)).
-- A single cross-platform `Alt+Shift+M` suggestion. `_execute_action` descriptions are ignored by Chrome
-  ([commands](https://developer.chrome.com/docs/extensions/reference/api/commands)).
-- Only the existing `contextMenus` and `tabGroups` permissions; no host access or `tabs` permission.
-  `incognito: spanning` remains explicit so both modes use the same worker without mixing tabs.
-- Locale messages keep translator guidance in source; Chrome does not require it in the distribution
-  ([internationalization](https://developer.chrome.com/docs/extensions/reference/api/i18n)).
-
-Packaging checks declared PNG dimensions, the 128px store icon, referenced assets and localized
-name/description/short-name lengths. These checks do not replace Chrome Web Store review or manual
-visual/accessibility checks. Store screenshots, promotional artwork and icon styling/padding must also
-be reviewed against the [Web Store image guidance](https://developer.chrome.com/docs/webstore/images).
-
-### Release workflow
-
-Create `release/vX.Y.Z`, set the manifest version to `X.Y.Z`, and use Conventional Commits.
-Complete the [release checks](testing.md#manual-release-matrix), then open a PR to `main`.
-CI checks the branch/manifest versions. On merge, the tagging workflow creates `vX.Y.Z` at the exact
-merged commit. An identical existing tag is a no-op; conflicts and version regressions fail without
-overwriting tags. Legacy `vX.Y.Z` release branches remain supported.
-
-Tagging does not publish to the Chrome Web Store. Inspect the extracted ZIP and upload it manually.
-Security overrides in `pnpm-workspace.yaml` are narrowly pinned; revisit them when updating dependencies.
-
-## Merge behavior
-
-Only ordinary windows in the accessible profile participate; normal and incognito modes remain separate.
-The focused eligible window is preferred, otherwise the smallest window ID is used. The selected active
-tab is restored when possible. Windows are not explicitly focused or restored from minimization.
-No tab ordering is guaranteed.
-
-A merge uses its initial snapshot, not continuous reconciliation. Newly opened tabs may remain behind;
-a moved group includes its members at the time it is moved. Duplicate requests for the same mode are
-ignored until started operations settle. Normal and incognito merges can run independently.
-
-On failure, started parallel operations finish and subsequent stages stop. Partial changes are allowed;
-there is no rollback, automatic retry, or persisted resume job. Errors go to the service-worker console,
-without user notifications.
+Tagging does not publish to the Chrome Web Store. Inspect the ZIP and upload it manually.

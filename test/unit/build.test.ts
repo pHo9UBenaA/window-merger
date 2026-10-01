@@ -20,6 +20,7 @@ describe('extension artifacts', () => {
 	beforeEach(async () => {
 		root = await mkdtemp(join(tmpdir(), 'window-merger-build-'));
 		await cp(join(PROJECT_ROOT, 'src'), join(root, 'src'), { recursive: true });
+		await cp(join(PROJECT_ROOT, 'LICENSE'), join(root, 'LICENSE'));
 	});
 	afterEach(async () => {
 		await stop?.();
@@ -37,12 +38,23 @@ describe('extension artifacts', () => {
 		const entries = execFileSync('unzip', ['-Z1', archive], { encoding: 'utf8' }).split('\n');
 		expect(entries).toContain('manifest.json');
 		expect(entries).toContain('background.js');
+		expect(entries).toContain('LICENSE');
+		expect(execFileSync('unzip', ['-p', archive, 'LICENSE'], { encoding: 'utf8' })).toBe(
+			await readFile(join(PROJECT_ROOT, 'LICENSE'), 'utf8')
+		);
 		expect(entries).not.toContain('dist/manifest.json');
 		expect(entries).not.toContain('obsolete.txt');
 		await expect(validateExtension(join(root, 'dist'))).resolves.toBeUndefined();
 		await expect(readFile(join(root, 'dist.tmp.zip'))).rejects.toMatchObject({
 			code: 'ENOENT',
 		});
+	});
+
+	it('does not publish an archive without the license notice', async () => {
+		await packageExtension(root);
+		await rm(join(root, 'LICENSE'));
+		await expect(packageExtension(root)).rejects.toMatchObject({ code: 'ENOENT' });
+		await expect(readFile(join(root, 'dist.zip'))).rejects.toMatchObject({ code: 'ENOENT' });
 	});
 
 	it('keeps textual and date metadata out of PNG assets', async () => {
@@ -65,15 +77,21 @@ describe('extension artifacts', () => {
 		const source = join(root, 'src/assets/_locales/en/messages.json');
 		const messages = JSON.parse(await readFile(source, 'utf8'));
 		messages.greeting = {
-			message: 'Hello $NAME$',
+			message: 'Hello $NAME$ $DESCRIPTION$',
 			description: 'Translator guidance',
-			placeholders: { name: { content: '$1', example: 'Alice' } },
+			placeholders: {
+				name: { content: '$1', example: 'Alice' },
+				description: { content: '$2', example: 'world' },
+			},
 		};
+		messages.description = { message: 'Description label', description: 'Translator guidance' };
 		const original = `${JSON.stringify(messages, null, '\t')}\n`;
 		await writeFile(source, original);
-		await buildExtension({ root });
 		const output = join(root, 'dist/_locales/en/messages.json');
-		expect(await readFile(output, 'utf8')).toBe(original);
+		for (const minify of [false, true]) {
+			await buildExtension({ root, minify });
+			expect(await readFile(output, 'utf8')).toBe(original);
+		}
 		await packageExtension(root);
 		const compact = await readFile(output, 'utf8');
 		const distributed = JSON.parse(compact);
@@ -233,9 +251,17 @@ describe('extension artifacts', () => {
 		await expect(packageExtension(root)).rejects.toThrow('Invalid minimum Chrome version');
 	});
 
-	it('watches asset edits, additions and deletions as well as source changes', async () => {
+	it('watches raw assets and source changes even when JavaScript is minified', async () => {
 		const log = vi.fn();
-		stop = await watchExtension({ root }, log);
+		stop = await watchExtension({ root, minify: true }, log);
+		const manifestSource = join(root, 'src/assets/manifest.json');
+		const rawManifest = `\n${await readFile(manifestSource, 'utf8')}`;
+		await writeFile(manifestSource, rawManifest);
+		await vi.waitFor(
+			async () =>
+				expect(await readFile(join(root, 'dist/manifest.json'), 'utf8')).toBe(rawManifest),
+			{ timeout: 5000 }
+		);
 		const source = join(root, 'src/assets/example.txt');
 		const output = join(root, 'dist/example.txt');
 		await writeFile(source, 'added');
