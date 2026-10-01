@@ -1,10 +1,9 @@
 # Development
 
-## Environment and build
+## Setup and build
 
 Use the Node.js version in [`.nvmrc`](../.nvmrc) and the pnpm version in
-[`package.json`](../package.json). Packaging requires `zip`; artifact and browser tests also require
-`unzip`. Development commands are tested on macOS and Linux.
+[`package.json`](../package.json). Install `zip` and `unzip` for packaging and artifact tests.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -12,40 +11,70 @@ pnpm build
 ```
 
 In `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select `dist/`.
-Use a disposable profile. Click **Reload** after rebuilding; the build does not reload Chrome.
-Inspect the service-worker console for errors.
+Use a disposable profile. Click **Reload** after rebuilding and check the service-worker console.
 
-`pnpm build --watch` watches source and assets. The build target comes from
-`minimum_chrome_version` in [`src/assets/manifest.json`](../src/assets/manifest.json); restart the
-watcher after changing it. `--minify` minifies JavaScript; builds copy assets unchanged.
+Use `pnpm build --watch` while editing. Restart it after changing `minimum_chrome_version` in
+[`src/assets/manifest.json`](../src/assets/manifest.json). For readable JavaScript when debugging,
+use `pnpm build --no-minify` (also supported with `--watch`).
 
-## Dependency updates
+## Checks
+
+Install the official [OSV Scanner v2](https://google.github.io/osv-scanner/installation/) on `PATH`
+for dependency audits. Install Chromium for browser tests:
+
+```sh
+pnpm exec playwright install chromium
+```
+
+Before opening a PR, run:
+
+```sh
+pnpm test:coverage
+pnpm typecheck
+pnpm typecheck:tsc
+pnpm run ci
+pnpm check:secrets
+pnpm check:dependencies
+pnpm test:browser
+```
+
+For merge-related changes, also run `pnpm test:stress` (200 tabs by default).
+Use `STRESS_TABS=500 pnpm test:stress` for larger cases or `HEADED=1 pnpm test:browser` to see Chrome.
+
+Before a release, use disposable profiles on the minimum supported Chrome version and current stable
+Chrome. Record browser/OS/version, results and console errors:
+
+- Try the toolbar, shortcut reassignment and both context-menu entries.
+- Toggle incognito access, restart Chrome and disable/re-enable the extension; check normal and
+  incognito merges remain separate.
+- Merge pinned, muted, active and grouped tabs, including collapsed groups and a source's last tab.
+- Change or close tabs during a merge; check errors and whether a subsequent merge works.
+- Inspect the extracted release ZIP's version, icons and localized text, and repeat the UI checks.
+
+Do not attach private URLs or a personal browser profile to bug reports.
+
+## Dependencies and Git hooks
 
 ```sh
 pnpm update --latest --config.frozen-lockfile=false
 ```
 
-Review the catalog, overrides and lockfile against the policy in
-[`pnpm-workspace.yaml`](../pnpm-workspace.yaml). Keep `@types/node` on the runtime's major version.
-Apply reviewed edits with `pnpm install --no-frozen-lockfile`, then verify frozen installation and
-[run the checks](testing.md#automated-checks).
+Review catalog, override and lockfile changes against
+[`pnpm-workspace.yaml`](../pnpm-workspace.yaml); keep Node typings on the runtime's major version.
+After manual dependency edits, run `pnpm install --no-frozen-lockfile`, then verify frozen installation
+and rerun the checks above.
 
-## Git hooks
+Enable the optional Git hooks after installing dependencies:
 
 ```sh
 git config core.hooksPath .githooks
 ```
 
-- `pre-commit` checks secrets and Biome against an isolated copy of the Git index.
-- `commit-msg` checks Conventional Commits.
-- `pre-push` checks pushed release versions, lint, types and coverage.
+Use Conventional Commits. Open PRs against `main` and wait for CI checks to pass.
 
-Hooks use installed dependencies. Install from the staged lockfile after dependency changes.
-CI independently runs checks; require its `checks` job through branch protection.
+## Docker (optional)
 
-## Docker
-
-On a non-root Unix host, match the container's UID/GID to the repository owner:
+On a non-root Unix host:
 
 ```sh
 export LOCAL_UID="$(id -u)" LOCAL_GID="$(id -g)"
@@ -54,25 +83,13 @@ docker compose exec node pnpm install --frozen-lockfile
 docker compose exec node pnpm build
 ```
 
-The repository is bind-mounted; dependencies use a container-only volume. After changing UID/GID or
-architecture, recreate that volume and reinstall dependencies. `docker compose down -v` deletes the
-volume, not repository files. Git, ZIP tools and browser dependencies are not preinstalled.
+After changing UID/GID or architecture, run `docker compose down -v`, recreate the container, and
+reinstall dependencies. This deletes the dependency volume, not repository files.
+Run packaging and browser checks on the host or in CI; their system tools are not installed in the image.
 
-## Packaging and releases
+## Releases
 
-```sh
-pnpm zip
-```
-
-Packaging builds minified JavaScript, compacts distribution JSON, and omits locale messages'
-translator descriptions without changing source files. It includes `LICENSE`, validates the result,
-and creates a fresh `dist.zip` with `manifest.json` at the root. Failed packaging leaves no publishable
-archive.
-
-Create `release/vX.Y.Z` and set the version in
-[`src/assets/manifest.json`](../src/assets/manifest.json). Use Conventional Commits, complete the
-[release checks](testing.md#manual-release-matrix), and open a PR to `main`.
-On merge, CI creates the version tag at the merged commit. Conflicting tags and version regressions
-are rejected; rerunning an identical tag is a no-op.
-
-Tagging does not publish to the Chrome Web Store. Inspect the ZIP and upload it manually.
+Create `release/vX.Y.Z` and set that version in
+[`src/assets/manifest.json`](../src/assets/manifest.json). Complete the checks above, then run `pnpm zip`
+to rebuild, validate and archive `dist/` without further transformations. Inspect `dist.zip` before
+uploading it to the Chrome Web Store. Merging the release PR creates the version tag, not a store upload.

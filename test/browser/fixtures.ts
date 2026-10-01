@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type BrowserContext, test as base, chromium, expect, type Worker } from '@playwright/test';
 import { build } from 'esbuild';
-import { PROJECT_ROOT } from '../../build';
+import { PROJECT_ROOT } from '../../scripts/build';
 
 export const test = base.extend<{
 	extension: {

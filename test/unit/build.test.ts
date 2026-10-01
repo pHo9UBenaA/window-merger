@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { build as esbuild } from 'esbuild';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildExtension, collectFiles, PROJECT_ROOT, watchExtension } from '../../build';
+import { buildExtension, collectFiles, PROJECT_ROOT, watchExtension } from '../../scripts/build';
 import { packageExtension } from '../../scripts/package';
 import { validateExtension, validateVersion } from '../../scripts/validate-extension';
 
@@ -50,6 +50,27 @@ describe('extension artifacts', () => {
 		});
 	});
 
+	it('packages exactly the default build output without additional transformations', async () => {
+		await buildExtension({ root });
+		const directory = join(root, 'dist');
+		const expected = new Map<string, Buffer>();
+		for (const file of await collectFiles(directory)) {
+			expected.set(relative(directory, file), await readFile(file));
+		}
+		await packageExtension(root);
+		const extracted = join(root, 'extracted');
+		execFileSync('unzip', ['-q', join(root, 'dist.zip'), '-d', extracted]);
+		const files = await collectFiles(extracted);
+		expect(files.map((file) => relative(extracted, file)).sort()).toEqual(
+			[...expected.keys()].sort()
+		);
+		for (const [name, data] of expected) {
+			expect(await readFile(join(extracted, name))).toEqual(data);
+			expect(await readFile(join(directory, name))).toEqual(data);
+		}
+		expect(esbuild).toHaveBeenLastCalledWith(expect.objectContaining({ minify: true }));
+	});
+
 	it('does not publish an archive without the license notice', async () => {
 		await packageExtension(root);
 		await rm(join(root, 'LICENSE'));
@@ -90,16 +111,20 @@ describe('extension artifacts', () => {
 		const output = join(root, 'dist/_locales/en/messages.json');
 		for (const minify of [false, true]) {
 			await buildExtension({ root, minify });
-			expect(await readFile(output, 'utf8')).toBe(original);
+			const compact = await readFile(output, 'utf8');
+			const distributed = JSON.parse(compact);
+			expect(compact).toBe(JSON.stringify(distributed));
+			for (const [key, message] of Object.entries(messages)) {
+				const { description: _description, ...runtime } = message as Record<
+					string,
+					unknown
+				>;
+				expect(distributed[key]).toEqual(runtime);
+			}
 		}
-		await packageExtension(root);
 		const compact = await readFile(output, 'utf8');
-		const distributed = JSON.parse(compact);
-		expect(compact).toBe(JSON.stringify(distributed));
-		for (const [key, message] of Object.entries(messages)) {
-			const { description: _description, ...runtime } = message as Record<string, unknown>;
-			expect(distributed[key]).toEqual(runtime);
-		}
+		await packageExtension(root);
+		expect(await readFile(output, 'utf8')).toBe(compact);
 		expect(await readFile(source, 'utf8')).toBe(original);
 		const sourceManifest = JSON.parse(
 			await readFile(join(root, 'src/assets/manifest.json'), 'utf8')
@@ -251,15 +276,19 @@ describe('extension artifacts', () => {
 		await expect(packageExtension(root)).rejects.toThrow('Invalid minimum Chrome version');
 	});
 
-	it('watches raw assets and source changes even when JavaScript is minified', async () => {
+	it('watches optimized assets and source changes using the same build settings', async () => {
 		const log = vi.fn();
-		stop = await watchExtension({ root, minify: true }, log);
+		stop = await watchExtension({ root }, log);
 		const manifestSource = join(root, 'src/assets/manifest.json');
-		const rawManifest = `\n${await readFile(manifestSource, 'utf8')}`;
+		const manifest = JSON.parse(await readFile(manifestSource, 'utf8'));
+		manifest.description = 'Watch test description';
+		const rawManifest = `${JSON.stringify(manifest, null, '\t')}\n`;
 		await writeFile(manifestSource, rawManifest);
 		await vi.waitFor(
 			async () =>
-				expect(await readFile(join(root, 'dist/manifest.json'), 'utf8')).toBe(rawManifest),
+				expect(await readFile(join(root, 'dist/manifest.json'), 'utf8')).toBe(
+					JSON.stringify(manifest)
+				),
 			{ timeout: 5000 }
 		);
 		const source = join(root, 'src/assets/example.txt');
@@ -303,6 +332,22 @@ describe('extension artifacts', () => {
 				),
 			{ timeout: 5000 }
 		);
+		expect(await readFile(manifestSource, 'utf8')).toBe(rawManifest);
+		await expect(validateExtension(join(root, 'dist'))).resolves.toBeUndefined();
+		await stop();
+		stop = undefined;
+		const directory = join(root, 'dist');
+		const watched = new Map<string, Buffer>();
+		for (const file of await collectFiles(directory)) {
+			watched.set(relative(directory, file), await readFile(file));
+		}
+		await buildExtension({ root });
+		expect(
+			(await collectFiles(directory)).map((file) => relative(directory, file)).sort()
+		).toEqual([...watched.keys()].sort());
+		for (const [name, data] of watched) {
+			expect(await readFile(join(directory, name))).toEqual(data);
+		}
 		expect(log).not.toHaveBeenCalled();
 	}, 15000);
 });

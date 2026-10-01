@@ -29,7 +29,7 @@
 		"vitest": "catalog:"
 	},
 	"scripts": {
-		"build": "node --experimental-strip-types ./build.ts",
+		"build": "node --experimental-strip-types ./scripts/build.ts",
 		"zip": "node --experimental-strip-types ./scripts/package.ts",
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
