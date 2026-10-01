@@ -4,13 +4,14 @@
 import type { Result } from '../shared/result';
 import { failure, success } from '../shared/result';
 import {
+	isValidId,
 	type MergeError,
 	type MergeResult,
 	TARGET_WINDOW_TYPE,
 	type WindowSnapshot,
 } from './window-merge.types';
 
-// Priority: focused window first, then older windows (smaller ID = created earlier).
+// Prefer the focused window; use the ID as a stable tie-breaker otherwise.
 export const compareWindowsByTargetPriority = (a: WindowSnapshot, b: WindowSnapshot): number => {
 	if (a.focused && !b.focused) {
 		return -1;
@@ -33,7 +34,7 @@ export const planMerge = (windows: readonly WindowSnapshot[]): Result<MergeResul
 	}
 
 	const [targetWindow, ...sourceWindows] = [...windows].sort(compareWindowsByTargetPriority);
-	if (targetWindow.id.value < 1) {
+	if (!isValidId(targetWindow.id.value)) {
 		return failure({
 			type: 'no-valid-target',
 			message: 'Target window does not have a valid ID',
@@ -86,7 +87,7 @@ export const filterWindows = (
 			return false;
 		}
 
-		if (window.id.value < 1) {
+		if (!isValidId(window.id.value)) {
 			return false;
 		}
 

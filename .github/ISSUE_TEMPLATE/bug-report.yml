@@ -13,12 +13,21 @@ body:
         Place a brief description in the title of this report.
 
         Thank you for taking the time to report this bug.
-  - type: checkboxes
+  - type: dropdown
     attributes:
-      label: Prerequisites
+      label: Reproduction in a fresh profile
+      description: Testing with only Window Merger installed is useful, but is not required to report a state-dependent bug.
       options:
-        - label: I can reproduce this bug in a new, unmodified web browser profile with Window Merger installed as the only extension.
-          required: true
+        - Reproduces in a fresh profile
+        - Only reproduces in my existing profile
+        - Not tested or cannot test safely
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Browser state and trigger
+      description: Include toolbar/shortcut/menu, normal/incognito mode, approximate window/tab counts, pinned tabs, groups, and relevant other extensions. Do not include private URLs or upload your browser profile.
 
   - type: textarea
     attributes:

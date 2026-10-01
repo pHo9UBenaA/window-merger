@@ -1,7 +1,3 @@
 # Git Hooks
 
-To enable these hooks, run once after cloning:
-
-```bash
-git config core.hooksPath .githooks
-```
+See [Git hook setup and checks](../docs/development.md#git-hooks).

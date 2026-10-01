@@ -10,33 +10,34 @@ import {
 import { createMockMergeWindowsDeps } from '../../mocks/ports';
 
 describe('App Layer - Merge Windows', () => {
-	it('merges multiple windows together', async () => {
+	it('restores both attributes in one update without resetting false snapshot values', async () => {
 		const deps = createMockMergeWindowsDeps();
 		deps.mocks.getAllWindows.mockResolvedValue([
-			createMockWindowSnapshot(1, [createMockTabSnapshot(3, { active: true })]),
-			createMockWindowSnapshot(2, [createMockTabSnapshot(1), createMockTabSnapshot(2)]),
+			createMockWindowSnapshot(1, [createMockTabSnapshot(1, { active: true })]),
+			createMockWindowSnapshot(2, [
+				createMockTabSnapshot(2, { pinned: true, muted: true }),
+				createMockTabSnapshot(3, { pinned: true }),
+				createMockTabSnapshot(4, { muted: true }),
+				createMockTabSnapshot(5),
+			]),
 		]);
 
 		const result = await mergeWindows(false, deps);
 
 		expect(result.ok).toBe(true);
-		expect(deps.mocks.getAllWindows).toHaveBeenCalledWith();
-		expect(deps.mocks.moveTabs).toHaveBeenCalled();
-	});
-
-	it('retains pinned tabs after merging', async () => {
-		const deps = createMockMergeWindowsDeps();
-		deps.mocks.getAllWindows.mockResolvedValue([
-			createMockWindowSnapshot(1, [createMockTabSnapshot(3, { active: true })]),
-			createMockWindowSnapshot(2, [
-				createMockTabSnapshot(1),
-				createMockTabSnapshot(2, { pinned: true }),
-			]),
-		]);
-
-		await mergeWindows(false, deps);
-
-		expect(deps.mocks.updateTab).toHaveBeenCalledWith(createTestTabId(2), { pinned: true });
+		expect(deps.mocks.moveTabs).toHaveBeenCalledExactlyOnceWith(
+			[createTestTabId(2), createTestTabId(3), createTestTabId(4), createTestTabId(5)],
+			{ windowId: createTestWindowId(1), index: -1 }
+		);
+		expect(deps.mocks.updateTab).toHaveBeenCalledTimes(4);
+		expect(deps.mocks.updateTab.mock.calls).toEqual(
+			expect.arrayContaining([
+				[createTestTabId(2), { pinned: true, muted: true }],
+				[createTestTabId(3), { pinned: true }],
+				[createTestTabId(4), { muted: true }],
+			])
+		);
+		expect(deps.mocks.updateTab).toHaveBeenLastCalledWith(createTestTabId(1), { active: true });
 	});
 
 	it('preserves tab groups after merging', async () => {
@@ -108,22 +109,6 @@ describe('App Layer - Merge Windows', () => {
 		expect(deps.mocks.moveTabs).not.toHaveBeenCalled();
 	});
 
-	it('retains muted state after merging', async () => {
-		const deps = createMockMergeWindowsDeps();
-		deps.mocks.getAllWindows.mockResolvedValue([
-			createMockWindowSnapshot(1, [createMockTabSnapshot(3, { active: true })]),
-			createMockWindowSnapshot(2, [
-				createMockTabSnapshot(1, { muted: true }),
-				createMockTabSnapshot(2, { muted: false }),
-			]),
-		]);
-
-		await mergeWindows(false, deps);
-
-		expect(deps.mocks.updateTab).toHaveBeenCalledWith(createTestTabId(1), { muted: true });
-		expect(deps.mocks.updateTab).not.toHaveBeenCalledWith(createTestTabId(2), { muted: true });
-	});
-
 	it('prioritizes focused window as merge target', async () => {
 		const deps = createMockMergeWindowsDeps();
 		deps.mocks.getAllWindows.mockResolvedValue([
@@ -138,24 +123,6 @@ describe('App Layer - Merge Windows', () => {
 		const firstCall = deps.mocks.moveTabs.mock.calls[0];
 		expect(firstCall).toBeDefined();
 		expect(firstCall?.[1].windowId).toEqual(createTestWindowId(2));
-	});
-
-	it('restores focus to the active tab after merge', async () => {
-		const deps = createMockMergeWindowsDeps();
-		deps.mocks.getAllWindows.mockResolvedValue([
-			createMockWindowSnapshot(1, [
-				createMockTabSnapshot(1, { active: true }),
-				createMockTabSnapshot(2, { active: false }),
-			]),
-			createMockWindowSnapshot(2, [
-				createMockTabSnapshot(3, { active: false }),
-				createMockTabSnapshot(4, { active: false }),
-			]),
-		]);
-
-		await mergeWindows(false, deps);
-
-		expect(deps.mocks.updateTab).toHaveBeenCalledWith(createTestTabId(1), { active: true });
 	});
 
 	it('preserves focus on focused window active tab', async () => {

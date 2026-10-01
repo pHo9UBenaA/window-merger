@@ -3,33 +3,51 @@ export const ContextMenuIds = {
 	mergeIncognitoWindow: 'mergeIncognitoWindowId',
 } as const;
 
-export const ContextMenuTitles = {
-	mergeWindow: 'mergeWindowTitle',
-	mergeIncognitoWindow: 'mergeIncognitoWindowTitle',
-} as const;
+// Callback APIs work on Chrome 120 too. lastError is only valid inside the callback.
+const menuOperation = (start: (done: () => void) => void): Promise<void> =>
+	new Promise((resolve, reject) => {
+		start(() => {
+			const error = chrome.runtime.lastError;
+			if (error) {
+				reject(new Error(error.message));
+				return;
+			}
+			resolve();
+		});
+	});
 
-export type ContextMenuIds = (typeof ContextMenuIds)[keyof typeof ContextMenuIds];
+const ensureMenu = async (
+	properties: chrome.contextMenus.CreateProperties & { id: string }
+): Promise<void> => {
+	const { id, ...update } = properties;
+	let updateError: unknown;
+	try {
+		await menuOperation((done) => chrome.contextMenus.update(id, update, done));
+		return;
+	} catch (error) {
+		updateError = error;
+	}
 
-export type ContextMenuTitles = (typeof ContextMenuTitles)[keyof typeof ContextMenuTitles];
+	// Menus persist across worker restarts. Only create when updating did not succeed.
+	try {
+		await menuOperation((done) => chrome.contextMenus.create(properties, done));
+	} catch (createError) {
+		throw new AggregateError([updateError, createError], `Failed to initialize menu ${id}`);
+	}
+};
 
 export const setupContextMenus = async (): Promise<void> => {
-	await chrome.contextMenus.removeAll();
-
-	await Promise.all([
-		chrome.contextMenus.create({
-			id: ContextMenuIds.mergeWindow,
-			title: chrome.i18n.getMessage(ContextMenuTitles.mergeWindow),
-			contexts: ['all'],
-		}),
-		chrome.contextMenus.create({
-			id: ContextMenuIds.mergeIncognitoWindow,
-			title: chrome.i18n.getMessage(ContextMenuTitles.mergeIncognitoWindow),
-			contexts: ['all'],
-		}),
-	]);
-
-	const isAllowedIncognitoAccess = await chrome.extension.isAllowedIncognitoAccess();
-	await chrome.contextMenus.update(ContextMenuIds.mergeIncognitoWindow, {
-		enabled: isAllowedIncognitoAccess,
+	const allowed = await chrome.extension.isAllowedIncognitoAccess();
+	await ensureMenu({
+		id: ContextMenuIds.mergeWindow,
+		title: chrome.i18n.getMessage('mergeWindowTitle'),
+		contexts: ['all'],
+		enabled: true,
+	});
+	await ensureMenu({
+		id: ContextMenuIds.mergeIncognitoWindow,
+		title: chrome.i18n.getMessage('mergeIncognitoWindowTitle'),
+		contexts: ['all'],
+		enabled: allowed,
 	});
 };

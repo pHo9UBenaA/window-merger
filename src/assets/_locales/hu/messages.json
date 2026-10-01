@@ -8,7 +8,7 @@
 		"description": "Name of the extension."
 	},
 	"extensionDescription": {
-		"message": "Merge windows into one, preserving tab groups and pinned tabs.",
+		"message": "Ablakok egyesítése a lapcsoportok, a rögzített lapok és a némítási beállítások megőrzésével.",
 		"description": "Description of the extension."
 	},
 

@@ -8,7 +8,7 @@
 		"description": "Name of the extension."
 	},
 	"extensionDescription": {
-		"message": "Merge windows into one, preserving tab groups and pinned tabs.",
+		"message": "Combina ventanas conservando los grupos de pestañas, las pestañas fijadas y el estado de silencio.",
 		"description": "Description of the extension."
 	},
 

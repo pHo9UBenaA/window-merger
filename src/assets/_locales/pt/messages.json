@@ -8,7 +8,7 @@
 		"description": "Name of the extension."
 	},
 	"extensionDescription": {
-		"message": "Merge windows into one, preserving tab groups and pinned tabs.",
+		"message": "Mescla janelas preservando grupos de guias, guias fixadas e configurações de silenciamento.",
 		"description": "Description of the extension."
 	},
 

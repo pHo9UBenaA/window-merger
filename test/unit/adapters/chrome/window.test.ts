@@ -1,22 +1,18 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createChromeWindowAdapter } from '../../../../src/adapters/chrome/window';
 import { createMockChromeTab, createMockChromeWindow } from '../../../factories/chrome';
 import { createTestGroupId, createTestTabId, createTestWindowId } from '../../../factories/domain';
-import { resetChromeMocks, VitestChrome } from '../../../mocks/chrome';
+import { VitestChrome } from '../../../mocks/chrome';
 
 describe('Chrome Window Adapter', () => {
-	beforeEach(() => {
-		resetChromeMocks();
-	});
-
-	it('returns window snapshots', async () => {
-		VitestChrome.windows.getAll.mockResolvedValue([createMockChromeWindow(1, [{ id: 1 }])]);
-
-		const adapter = createChromeWindowAdapter();
-		const result = await adapter.getAllWindows();
-
-		expect(Array.isArray(result)).toBe(true);
-		expect(result).toHaveLength(1);
+	it('preserves zero window, tab and group IDs', async () => {
+		VitestChrome.windows.getAll.mockResolvedValue([
+			createMockChromeWindow(0, [{ id: 0, groupId: 0 }]),
+		]);
+		const [window] = await createChromeWindowAdapter().getAllWindows();
+		expect(window.id.value).toBe(0);
+		expect(window.tabs[0].id.value).toBe(0);
+		expect(window.tabs[0].groupId?.value).toBe(0);
 	});
 
 	it('handles empty window list', async () => {
@@ -100,7 +96,7 @@ describe('Chrome Window Adapter', () => {
 	it('filters out windows that do not have valid IDs', async () => {
 		const invalidWindow: chrome.windows.Window = {
 			...createMockChromeWindow(2, [{ id: 2 }]),
-			id: 0,
+			id: -1,
 		};
 		VitestChrome.windows.getAll.mockResolvedValue([
 			createMockChromeWindow(1, [{ id: 1 }]),
@@ -117,7 +113,7 @@ describe('Chrome Window Adapter', () => {
 	it('filters out tabs with invalid IDs', async () => {
 		const invalidTab: chrome.tabs.Tab = {
 			...createMockChromeTab(12),
-			id: 0,
+			id: -1,
 		};
 		VitestChrome.windows.getAll.mockResolvedValue([
 			{

@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createChromeTabGroupAdapter } from '../../../../src/adapters/chrome/tab-group';
 import { createTestGroupId, createTestWindowId } from '../../../factories/domain';
-import { resetChromeMocks, VitestChrome } from '../../../mocks/chrome';
+import { VitestChrome } from '../../../mocks/chrome';
 
 const createRequiredGroupId = (value: number) => {
 	const groupId = createTestGroupId(value);
@@ -13,40 +13,6 @@ const createRequiredGroupId = (value: number) => {
 };
 
 describe('Chrome TabGroup Adapter', () => {
-	beforeEach(() => {
-		resetChromeMocks();
-	});
-
-	it('moves a tab group to target window', async () => {
-		VitestChrome.tabGroups.move.mockResolvedValue(undefined);
-
-		const adapter = createChromeTabGroupAdapter();
-		await adapter.moveGroup(createRequiredGroupId(5), {
-			windowId: createTestWindowId(1),
-			index: -1,
-		});
-
-		expect(VitestChrome.tabGroups.move).toHaveBeenCalledWith(5, {
-			windowId: 1,
-			index: -1,
-		});
-	});
-
-	it('preserves moveProperties index value', async () => {
-		VitestChrome.tabGroups.move.mockResolvedValue(undefined);
-
-		const adapter = createChromeTabGroupAdapter();
-		await adapter.moveGroup(createRequiredGroupId(5), {
-			windowId: createTestWindowId(1),
-			index: 3,
-		});
-
-		expect(VitestChrome.tabGroups.move).toHaveBeenCalledWith(5, {
-			windowId: 1,
-			index: 3,
-		});
-	});
-
 	it('handles index -1 for append behavior', async () => {
 		VitestChrome.tabGroups.move.mockResolvedValue(undefined);
 
@@ -62,42 +28,30 @@ describe('Chrome TabGroup Adapter', () => {
 		});
 	});
 
-	it('accepts positive group IDs only', async () => {
+	it('preserves group ID zero', async () => {
 		VitestChrome.tabGroups.move.mockResolvedValue(undefined);
 
 		const adapter = createChromeTabGroupAdapter();
-		await adapter.moveGroup(createRequiredGroupId(1), {
+		await adapter.moveGroup(createRequiredGroupId(0), {
 			windowId: createTestWindowId(1),
 			index: 0,
 		});
 
-		expect(VitestChrome.tabGroups.move).toHaveBeenCalledWith(1, {
+		expect(VitestChrome.tabGroups.move).toHaveBeenCalledWith(0, {
 			windowId: 1,
 			index: 0,
 		});
 	});
 
-	it('completes without error for valid inputs', async () => {
+	it('forwards destination properties without mutating the input', async () => {
 		VitestChrome.tabGroups.move.mockResolvedValue(undefined);
-
-		const adapter = createChromeTabGroupAdapter();
-
-		await expect(
-			adapter.moveGroup(createRequiredGroupId(10), {
-				windowId: createTestWindowId(1),
-				index: 5,
-			})
-		).resolves.not.toThrow();
-	});
-
-	it('calls chrome.tabGroups.move with expected parameters', async () => {
-		VitestChrome.tabGroups.move.mockResolvedValue(undefined);
-
-		const adapter = createChromeTabGroupAdapter();
-		await adapter.moveGroup(createRequiredGroupId(7), {
-			windowId: createTestWindowId(3),
+		const destination = Object.freeze({
+			windowId: Object.freeze(createTestWindowId(3)),
 			index: 2,
 		});
+
+		const adapter = createChromeTabGroupAdapter();
+		await adapter.moveGroup(createRequiredGroupId(7), destination);
 
 		expect(VitestChrome.tabGroups.move).toHaveBeenCalledTimes(1);
 		expect(VitestChrome.tabGroups.move).toHaveBeenCalledWith(7, {
@@ -128,40 +82,18 @@ describe('Chrome TabGroup Adapter', () => {
 			index: 0,
 		});
 		await adapter.moveGroup(createRequiredGroupId(2), {
-			windowId: createTestWindowId(1),
+			windowId: createTestWindowId(2),
 			index: 1,
 		});
-		await adapter.moveGroup(createRequiredGroupId(3), {
-			windowId: createTestWindowId(2),
-			index: 0,
-		});
 
-		expect(VitestChrome.tabGroups.move).toHaveBeenCalledTimes(3);
+		expect(VitestChrome.tabGroups.move).toHaveBeenCalledTimes(2);
 		expect(VitestChrome.tabGroups.move).toHaveBeenNthCalledWith(1, 1, {
 			windowId: 1,
 			index: 0,
 		});
 		expect(VitestChrome.tabGroups.move).toHaveBeenNthCalledWith(2, 2, {
-			windowId: 1,
+			windowId: 2,
 			index: 1,
 		});
-		expect(VitestChrome.tabGroups.move).toHaveBeenNthCalledWith(3, 3, {
-			windowId: 2,
-			index: 0,
-		});
-	});
-
-	it('does not mutate input moveProperties object', async () => {
-		VitestChrome.tabGroups.move.mockResolvedValue(undefined);
-
-		const adapter = createChromeTabGroupAdapter();
-		const moveProperties = { windowId: createTestWindowId(1), index: 5 } as const;
-		const originalWindowId = moveProperties.windowId.value;
-		const originalIndex = moveProperties.index;
-
-		await adapter.moveGroup(createRequiredGroupId(10), moveProperties);
-
-		expect(moveProperties.windowId.value).toBe(originalWindowId);
-		expect(moveProperties.index).toBe(originalIndex);
 	});
 });

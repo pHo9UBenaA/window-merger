@@ -1,8 +1,9 @@
 // Domain types. Must stay platform-agnostic — no chrome.* imports, so the
 // application and adapter layers can depend on this without pulling in Chrome APIs.
 
-// IDs must be positive integers; 0 and negative values are invalid.
-const MIN_VALID_ID = 1;
+// Chrome API IDs are non-negative signed 32-bit integers; negative sentinels are invalid.
+export const isValidId = (value: number): boolean =>
+	Number.isInteger(value) && value >= 0 && value <= 0x7fffffff;
 
 export type WindowId = {
 	readonly kind: 'WindowId';
@@ -24,7 +25,7 @@ export type WindowType = 'normal' | 'popup' | 'panel' | 'app' | 'devtools' | 'un
 export const TARGET_WINDOW_TYPE = 'normal' as const;
 
 export const createWindowId = (value: number): WindowId | null => {
-	if (value < MIN_VALID_ID) {
+	if (!isValidId(value)) {
 		return null;
 	}
 
@@ -32,7 +33,7 @@ export const createWindowId = (value: number): WindowId | null => {
 };
 
 export const createTabId = (value: number): TabId | null => {
-	if (value < MIN_VALID_ID) {
+	if (!isValidId(value)) {
 		return null;
 	}
 
@@ -40,7 +41,7 @@ export const createTabId = (value: number): TabId | null => {
 };
 
 export const createGroupId = (value: number): GroupId | null => {
-	if (value < MIN_VALID_ID) {
+	if (!isValidId(value)) {
 		return null;
 	}
 

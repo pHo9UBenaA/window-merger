@@ -1,8 +1,9 @@
 {
 	"manifest_version": 3,
+	"minimum_chrome_version": "120",
 	"name": "__MSG_extensionName__",
 	"short_name": "__MSG_extensionShortName__",
-	"version": "1.4.9",
+	"version": "1.4.10",
 	"description": "__MSG_extensionDescription__",
 	"default_locale": "en",
 	"author": "pHo9UBenaA",
@@ -27,7 +28,7 @@
 				"default": "Alt+Shift+M",
 				"mac": "Alt+Shift+M"
 			},
-			"description": "Triggering merge"
+			"description": "__MSG_mergeWindowTitle__"
 		}
 	},
 	"permissions": ["contextMenus", "tabGroups"],

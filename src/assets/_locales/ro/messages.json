@@ -8,7 +8,7 @@
 		"description": "Name of the extension."
 	},
 	"extensionDescription": {
-		"message": "Merge windows into one, preserving tab groups and pinned tabs.",
+		"message": "Combină ferestrele păstrând grupurile de file, filele fixate și setările de dezactivare a sunetului.",
 		"description": "Description of the extension."
 	},
 

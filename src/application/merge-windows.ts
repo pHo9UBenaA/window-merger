@@ -7,15 +7,11 @@ import type {
 	TabId,
 	TabSnapshot,
 	WindowId,
-	WindowSnapshot,
 } from '../domain/window-merge.types';
 import type { TabPort } from '../ports/tab';
 import type { TabGroupPort } from '../ports/tab-group';
 import type { WindowPort } from '../ports/window';
 import type { Result } from '../shared/result';
-import { failure, success } from '../shared/result';
-
-const APPEND_TO_END_INDEX = -1;
 
 export type MergeWindowsDeps = {
 	readonly windowPort: WindowPort;
@@ -23,83 +19,53 @@ export type MergeWindowsDeps = {
 	readonly tabGroupPort: TabGroupPort;
 };
 
-const collectGroupIds = (tabs: readonly TabSnapshot[]): readonly GroupId[] => {
-	const groupIds: GroupId[] = [];
-	const seen = new Set<number>();
-
-	for (const tab of tabs) {
-		if (tab.groupId === null) {
-			continue;
-		}
-
-		if (seen.has(tab.groupId.value)) {
-			continue;
-		}
-
-		seen.add(tab.groupId.value);
-		groupIds.push(tab.groupId);
+// Keep the merge guard held until every already-started operation has settled.
+const waitForAll = async (tasks: readonly Promise<void>[]): Promise<void> => {
+	const results = await Promise.allSettled(tasks);
+	const errors = results.flatMap((result) =>
+		result.status === 'rejected' ? [result.reason] : []
+	);
+	if (errors.length > 0) {
+		throw new AggregateError(
+			errors,
+			'Chrome operations failed; some changes may have completed'
+		);
 	}
-
-	return groupIds;
-};
-
-const collectTabIds = (
-	tabs: readonly TabSnapshot[],
-	predicate: (tab: TabSnapshot) => boolean
-): readonly TabId[] => {
-	return tabs.filter(predicate).map((tab) => tab.id);
 };
 
 const moveTabsToTarget = async (
 	tabs: readonly TabSnapshot[],
-	targetWindowId: WindowId,
+	windowId: WindowId,
 	deps: MergeWindowsDeps
 ): Promise<void> => {
-	const moveProperties: MoveToWindow = { windowId: targetWindowId, index: APPEND_TO_END_INDEX };
+	const groups = new Map<number, GroupId>();
+	const ungrouped: TabId[] = [];
+	const updates: TabSnapshot[] = [];
+	for (const tab of tabs) {
+		if (tab.groupId === null) ungrouped.push(tab.id);
+		else groups.set(tab.groupId.value, tab.groupId);
+		if (tab.pinned || tab.muted) updates.push(tab);
+	}
 
-	const groupIds = collectGroupIds(tabs);
-	if (groupIds.length > 0) {
-		await Promise.all(
-			groupIds.map((groupId) => deps.tabGroupPort.moveGroup(groupId, moveProperties))
+	const destination: MoveToWindow = { windowId, index: -1 };
+	if (groups.size > 0) {
+		await waitForAll(
+			[...groups.values()].map(async (id) => deps.tabGroupPort.moveGroup(id, destination))
 		);
 	}
-
-	const ungroupedTabIds = collectTabIds(tabs, (tab) => tab.groupId === null);
-	if (ungroupedTabIds.length > 0) {
-		await deps.tabPort.moveTabs(ungroupedTabIds, moveProperties);
+	if (ungrouped.length > 0) {
+		await deps.tabPort.moveTabs(ungrouped, destination);
 	}
-
-	const pinnedTabIds = collectTabIds(tabs, (tab) => tab.pinned);
-	const mutedTabIds = collectTabIds(tabs, (tab) => tab.muted);
-
-	const pinTasks = pinnedTabIds.map((tabId) => deps.tabPort.updateTab(tabId, { pinned: true }));
-	const muteTasks = mutedTabIds.map((tabId) => deps.tabPort.updateTab(tabId, { muted: true }));
-
-	if (pinTasks.length > 0 || muteTasks.length > 0) {
-		await Promise.all([...pinTasks, ...muteTasks]);
+	if (updates.length > 0) {
+		await waitForAll(
+			updates.map(async (tab) =>
+				deps.tabPort.updateTab(tab.id, {
+					...(tab.pinned && { pinned: true }),
+					...(tab.muted && { muted: true }),
+				})
+			)
+		);
 	}
-};
-
-const executeMerge = async (
-	windows: readonly WindowSnapshot[],
-	deps: MergeWindowsDeps
-): Promise<Result<MergeResult, MergeError>> => {
-	const mergePlan = planMerge(windows);
-	if (!mergePlan.ok) {
-		return mergePlan;
-	}
-
-	const mergeResult = mergePlan.data;
-	const sourceWindows = windows.filter(
-		(window) => window.id.value !== mergeResult.targetWindowId.value
-	);
-
-	for (const sourceWindow of sourceWindows) {
-		await moveTabsToTarget(sourceWindow.tabs, mergeResult.targetWindowId, deps);
-	}
-
-	await deps.tabPort.updateTab(mergeResult.activeTabId, { active: true });
-	return success(mergeResult);
 };
 
 export const mergeWindows = async (
@@ -107,13 +73,14 @@ export const mergeWindows = async (
 	deps: MergeWindowsDeps
 ): Promise<Result<MergeResult, MergeError>> => {
 	const windows = filterWindows(await deps.windowPort.getAllWindows(), incognito);
-	if (windows.length <= 1) {
-		return failure({
-			type: 'insufficient-windows',
-			message: 'Not enough windows to merge',
-			context: { windowCount: windows.length },
-		});
-	}
+	const plan = planMerge(windows);
+	if (!plan.ok) return plan;
 
-	return executeMerge(windows, deps);
+	const { targetWindowId, activeTabId } = plan.data;
+	for (const window of windows) {
+		if (window.id.value === targetWindowId.value) continue;
+		await moveTabsToTarget(window.tabs, targetWindowId, deps);
+	}
+	await deps.tabPort.updateTab(activeTabId, { active: true });
+	return plan;
 };

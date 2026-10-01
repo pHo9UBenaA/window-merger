@@ -8,7 +8,7 @@
 		"description": "Name of the extension."
 	},
 	"extensionDescription": {
-		"message": "Merge windows into one, preserving tab groups and pinned tabs.",
+		"message": "Обединява прозорци, като запазва групите раздели, фиксираните раздели и заглушаването.",
 		"description": "Description of the extension."
 	},
 

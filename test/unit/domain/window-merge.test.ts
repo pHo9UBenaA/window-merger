@@ -108,10 +108,10 @@ describe('Core Logic - Window Merge', () => {
 			expect(result).toEqual([windows[0]]);
 		});
 
-		it('excludes windows with an ID value less than 1', () => {
+		it('excludes windows with invalid IDs', () => {
 			const invalidWindow: WindowSnapshot = {
 				...createWindowSnapshot(1, [createTabSnapshot(1)]),
-				id: { kind: 'WindowId', value: 0 } as const,
+				id: { kind: 'WindowId', value: -1 } as const,
 			};
 			const validWindow = createWindowSnapshot(2, [createTabSnapshot(2)]);
 
@@ -146,7 +146,7 @@ describe('Core Logic - Window Merge', () => {
 				}),
 				id: {
 					kind: 'WindowId',
-					value: 0,
+					value: -1,
 				} as const,
 			};
 			const window2 = createWindowSnapshot(2, [createTabSnapshot(2, { active: false })]);
