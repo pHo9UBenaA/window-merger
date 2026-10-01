@@ -21,6 +21,23 @@ The service-worker inspector shows logged failures. `pnpm build --watch` watches
 The build target comes from `minimum_chrome_version` in the manifest; restart the watcher after
 changing that setting.
 
+## Dependency updates
+
+```sh
+pnpm update --latest --config.frozen-lockfile=false
+```
+
+Review the catalog and lockfile diff before committing. The release-age policy and its exclusions
+are maintained in [`pnpm-workspace.yaml`](../pnpm-workspace.yaml): ordinary packages must be published
+for at least seven days (`minimumReleaseAge: 10080`). Keep the existing TypeScript/preview exclusions;
+do not lower the age or add broad exclusions just to install a newer release. Remove expired
+version-specific security exceptions once the patched version meets the ordinary age requirement.
+
+Keep `@types/node` on the Node major declared in [`.nvmrc`](../.nvmrc), even if `pnpm outdated` offers a
+newer major. Review transitive security overrides against their parents' supported dependency ranges;
+`--latest` does not refresh those pins. Apply reviewed catalog/override edits with
+`pnpm install --no-frozen-lockfile`, then verify frozen installation and the [release checks](testing.md).
+
 ## Git hooks
 
 Enable the optional hooks after installing dependencies:

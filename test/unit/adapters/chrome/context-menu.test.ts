@@ -64,18 +64,21 @@ describe('context menu lifecycle', () => {
 		expect(menus.get(ContextMenuIds.mergeWindow)?.title).toBe('mergeWindowTitle');
 	});
 
-	it.each([
-		ContextMenuIds.mergeWindow,
-		ContextMenuIds.mergeIncognitoWindow,
-	])('reports asynchronous creation failure for %s', async (failedId) => {
-		create.mockImplementation((properties, done) => {
-			complete(done, properties.id === failedId ? 'Creation failed' : undefined);
-			return properties.id ?? '';
-		});
-		await expect(setupContextMenus()).rejects.toMatchObject({
-			errors: [expect.any(Error), expect.objectContaining({ message: 'Creation failed' })],
-		});
-	});
+	it.each([ContextMenuIds.mergeWindow, ContextMenuIds.mergeIncognitoWindow])(
+		'reports asynchronous creation failure for %s',
+		async (failedId) => {
+			create.mockImplementation((properties, done) => {
+				complete(done, properties.id === failedId ? 'Creation failed' : undefined);
+				return properties.id ?? '';
+			});
+			await expect(setupContextMenus()).rejects.toMatchObject({
+				errors: [
+					expect.any(Error),
+					expect.objectContaining({ message: 'Creation failed' }),
+				],
+			});
+		}
+	);
 
 	it('reports update and fallback creation errors together', async () => {
 		update.mockImplementation((_id, _properties, done) => complete(done, 'Update failed'));

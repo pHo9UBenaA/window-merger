@@ -6,14 +6,12 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { checkPush, checkRelease, createReleaseTag, releaseVersion } from '../../scripts/release';
 
-it.each([
-	'release/v1.4.10',
-	'v1.4.10',
-	'refs/heads/release/v1.4.10',
-	'refs/tags/v1.4.10',
-])('recognizes %s', (ref) => {
-	expect(releaseVersion(ref)).toBe('1.4.10');
-});
+it.each(['release/v1.4.10', 'v1.4.10', 'refs/heads/release/v1.4.10', 'refs/tags/v1.4.10'])(
+	'recognizes %s',
+	(ref) => {
+		expect(releaseVersion(ref)).toBe('1.4.10');
+	}
+);
 it('skips non-release branches without accessing a repository', () => {
 	expect(createReleaseTag('feature/example', 'HEAD', '/nonexistent/window-merger')).toBe(
 		'skipped'

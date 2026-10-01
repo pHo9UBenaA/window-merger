@@ -170,16 +170,19 @@ describe('extension artifacts', () => {
 		['name', 75],
 		['description', 132],
 		['short_name', 12],
-	] as const)('validates the actual manifest %s, including literal text', async (key, maximum) => {
-		const path = join(root, 'src/assets/manifest.json');
-		const manifest = JSON.parse(await readFile(path, 'utf8'));
-		manifest[key] = 'x'.repeat(maximum);
-		await writeFile(path, JSON.stringify(manifest));
-		await expect(packageExtension(root)).resolves.toBeUndefined();
-		manifest[key] += 'x';
-		await writeFile(path, JSON.stringify(manifest));
-		await expect(packageExtension(root)).rejects.toThrow(`Localized manifest ${key}`);
-	});
+	] as const)(
+		'validates the actual manifest %s, including literal text',
+		async (key, maximum) => {
+			const path = join(root, 'src/assets/manifest.json');
+			const manifest = JSON.parse(await readFile(path, 'utf8'));
+			manifest[key] = 'x'.repeat(maximum);
+			await writeFile(path, JSON.stringify(manifest));
+			await expect(packageExtension(root)).resolves.toBeUndefined();
+			manifest[key] += 'x';
+			await writeFile(path, JSON.stringify(manifest));
+			await expect(packageExtension(root)).rejects.toThrow(`Localized manifest ${key}`);
+		}
+	);
 
 	it('checks localized short names after default-locale fallback', async () => {
 		const path = join(root, 'src/assets/manifest.json');
@@ -202,17 +205,17 @@ describe('extension artifacts', () => {
 		await expect(packageExtension(root)).rejects.toThrow('Missing message');
 	});
 
-	it.each([
-		'121',
-		'121.0.6167.85',
-	])('takes Chrome %s from the manifest as its build target', async (minimum) => {
-		const path = join(root, 'src/assets/manifest.json');
-		const manifest = JSON.parse(await readFile(path, 'utf8'));
-		manifest.minimum_chrome_version = minimum;
-		await writeFile(path, JSON.stringify(manifest));
-		await expect(packageExtension(root)).resolves.toBeUndefined();
-		expect(esbuild).toHaveBeenCalledWith(expect.objectContaining({ target: 'chrome121' }));
-	});
+	it.each(['121', '121.0.6167.85'])(
+		'takes Chrome %s from the manifest as its build target',
+		async (minimum) => {
+			const path = join(root, 'src/assets/manifest.json');
+			const manifest = JSON.parse(await readFile(path, 'utf8'));
+			manifest.minimum_chrome_version = minimum;
+			await writeFile(path, JSON.stringify(manifest));
+			await expect(packageExtension(root)).resolves.toBeUndefined();
+			expect(esbuild).toHaveBeenCalledWith(expect.objectContaining({ target: 'chrome121' }));
+		}
+	);
 
 	it('rejects a malformed minimum Chrome version', async () => {
 		const path = join(root, 'src/assets/manifest.json');
@@ -278,17 +281,12 @@ describe('extension artifacts', () => {
 	}, 15000);
 });
 
-it.each([
-	'',
-	'01.2',
-	'1.2.3.4.5',
-	'65536',
-	'0.0.0',
-	'1.0-beta',
-	null,
-])('rejects invalid version %s', (version) => {
-	expect(() => validateVersion(version)).toThrow();
-});
+it.each(['', '01.2', '1.2.3.4.5', '65536', '0.0.0', '1.0-beta', null])(
+	'rejects invalid version %s',
+	(version) => {
+		expect(() => validateVersion(version)).toThrow();
+	}
+);
 it.each(['1', '0.1', '1.4.10', '65535.65535.65535.65535'])('accepts version %s', (version) => {
 	expect(validateVersion(version)).toBe(version);
 });

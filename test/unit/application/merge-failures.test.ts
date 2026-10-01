@@ -70,14 +70,13 @@ describe('merge failures', () => {
 		expect(deps.mocks.updateTab).toHaveBeenCalledTimes(2);
 	});
 
-	it.each([
-		'getAllWindows',
-		'moveTabs',
-		'updateTab',
-	] as const)('propagates %s failure to the event boundary', async (method) => {
-		const deps = createDeps();
-		const error = new Error('API failure');
-		deps.mocks[method].mockRejectedValue(error);
-		await expect(mergeWindows(false, deps)).rejects.toThrow('API failure');
-	});
+	it.each(['getAllWindows', 'moveTabs', 'updateTab'] as const)(
+		'propagates %s failure to the event boundary',
+		async (method) => {
+			const deps = createDeps();
+			const error = new Error('API failure');
+			deps.mocks[method].mockRejectedValue(error);
+			await expect(mergeWindows(false, deps)).rejects.toThrow('API failure');
+		}
+	);
 });
