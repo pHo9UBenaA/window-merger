@@ -32,11 +32,6 @@ On failure, started parallel operations finish and subsequent stages stop. There
 automatic retry or persisted resume job. Errors go to the local service-worker console, without
 user notifications.
 
-## Privacy
-
-Window and tab state is processed locally to perform merges. The extension does not transmit that
-data or use analytics. See the [privacy policy](PRIVACY.md).
-
 ## Development
 
 - [Environment, build, Git hooks, Docker, and releases](docs/development.md)

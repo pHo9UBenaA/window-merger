@@ -93,24 +93,3 @@ an entire personal profile to a bug report.
 GitHub Actions execution, branch protection, Docker on differing host UIDs/architectures, and actual
 Chrome Web Store acceptance require validation in those environments. Local automated checks do
 not mark this entire manual matrix as completed.
-
-## Web Store and Featured review
-
-[Featured nomination](https://developer.chrome.com/docs/webstore/discovery#item-badges) is a Google
-review decision, not a manifest flag. Before nominating through
-[One Stop Support](https://support.google.com/chrome_webstore/contact/one_stop_support):
-
-- Confirm ownership, public publication, English support, core features accessible without credentials
-  or payments, and no active policy violations in the Developer Dashboard. A missing badge does not
-  establish a violation.
-- Publish the [privacy policy](../PRIVACY.md) at a public URL and set that URL in the Dashboard.
-  Keep the listed website and Privacy practices answers consistent with local data handling; no
-  network transmission does not remove the disclosure requirement.
-- Review the current listing's description, category, screenshots and promotional images against the
-  [listing guidelines](https://developer.chrome.com/docs/webstore/best-listing) and
-  [image guidance](https://developer.chrome.com/docs/webstore/images). Use actual current UI images;
-  at least one screenshot and the 440x280 promo tile are required. The 24px toolbar icon is optional
-  support for 1.5x displays, not a Featured eligibility requirement.
-
-Check Dashboard notices and review emails to investigate any previous removal. Repository checks
-cannot confirm account-level violations, external listing settings, or approval of a nomination.
