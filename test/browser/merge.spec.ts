@@ -1,17 +1,9 @@
 import type { Worker } from '@playwright/test';
 import { expect, test } from './fixtures';
 
-const expectMenus = async (worker: Worker, incognito: boolean, operation?: 'create' | 'update') => {
+const expectMenus = async (worker: Worker, incognito: boolean) => {
 	await expect
-		.poll(() =>
-			worker.evaluate(
-				(operation) =>
-					mergerTest.menuOperations
-						.filter((entry) => operation === undefined || entry.operation === operation)
-						.map(({ id, enabled }) => ({ id, enabled })),
-				operation
-			)
-		)
+		.poll(() => worker.evaluate(() => mergerTest.createdMenus))
 		.toEqual(
 			expect.arrayContaining([
 				{ id: 'mergeWindowId', enabled: true },
@@ -25,8 +17,10 @@ test('loads the packaged manifest, tooltip, shortcut and padded store icon', asy
 }) => {
 	const actual = await worker.evaluate(async () => {
 		const manifest = chrome.runtime.getManifest();
+		const iconPath = manifest.icons?.['128'];
+		if (typeof iconPath !== 'string') throw new Error('Missing 128px icon');
 		const image = await createImageBitmap(
-			await (await fetch(chrome.runtime.getURL(manifest.icons?.['128'] as string))).blob()
+			await (await fetch(chrome.runtime.getURL(iconPath))).blob()
 		);
 		const canvas = new OffscreenCanvas(image.width, image.height);
 		const context = canvas.getContext('2d');
@@ -35,12 +29,12 @@ test('loads the packaged manifest, tooltip, shortcut and padded store icon', asy
 		const pixels = context.getImageData(0, 0, image.width, image.height).data;
 		let opaqueMarginPixels = 0;
 		let opaqueArtworkPixels = 0;
-		for (let y = 0; y < image.height; y++) {
-			for (let x = 0; x < image.width; x++) {
-				if (pixels[(y * image.width + x) * 4 + 3] === 0) continue;
-				if (x < 16 || y < 16 || x >= 112 || y >= 112) opaqueMarginPixels++;
-				else opaqueArtworkPixels++;
-			}
+		for (let index = 0; index < image.width * image.height; index++) {
+			if (pixels[index * 4 + 3] === 0) continue;
+			const x = index % image.width;
+			const y = Math.floor(index / image.width);
+			if (x < 16 || y < 16 || x >= 112 || y >= 112) opaqueMarginPixels++;
+			else opaqueArtworkPixels++;
 		}
 		return {
 			manifest,
@@ -71,9 +65,11 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 		const source = await chrome.windows.create({
 			url: ['about:blank', 'about:blank', 'about:blank', 'about:blank'],
 		});
-		if (!source?.tabs?.every((tab) => tab.id !== undefined))
-			throw new Error('Missing test tabs');
-		const ids = source.tabs.map((tab) => tab.id as number);
+		if (!source?.tabs?.length) throw new Error('Missing test tabs');
+		const ids = source.tabs.map((tab) => {
+			if (tab.id === undefined) throw new Error('Missing test tab ID');
+			return tab.id;
+		});
 		await chrome.tabs.update(ids[0], { pinned: true });
 		await chrome.tabs.update(ids[1], { muted: true });
 		const group = await chrome.tabs.group({ tabIds: [ids[2], ids[3]] });
@@ -90,18 +86,20 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 		const target =
 			all.find((window) => window.focused) ??
 			all.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0))[0];
+		const active = target?.tabs?.find((tab) => tab.active)?.id;
+		if (active === undefined) throw new Error('Missing active target tab');
 		return {
 			ids,
 			group,
 			popupId: popup.id,
 			popupTabIds: popup.tabs.map((tab) => tab.id),
 			target: target?.id,
-			active: target?.tabs?.find((tab) => tab.active)?.id,
+			active,
 			allIds: all.flatMap((window) => window.tabs?.map((tab) => tab.id) ?? []),
 		};
 	});
-	await worker.evaluate(() => {
-		mergerTest.action();
+	await worker.evaluate(async () => {
+		await mergerTest.action();
 		mergerTest.menu('mergeWindowId'); // Duplicates must not start another merge.
 		mergerTest.menu('mergeIncognitoWindowId'); // Unavailable mode must be harmless.
 	});
@@ -118,7 +116,7 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 				const [pinned, muted, selected] = await Promise.all([
 					chrome.tabs.get(ids[0]),
 					chrome.tabs.get(ids[1]),
-					chrome.tabs.get(active as number),
+					chrome.tabs.get(active),
 				]);
 				return [pinned.pinned, muted.mutedInfo?.muted, selected.active];
 			}, before)
@@ -149,11 +147,14 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 test('respects incognito permission changes and never mixes normal and incognito tabs', async ({
 	extension: { worker: initial, restart, restartWorker },
 }) => {
-	await expectMenus(initial, false, 'create');
+	await expectMenus(initial, false);
 	const worker = await restart(true);
 	await expectMenus(worker, true);
+	await worker.evaluate(() => {
+		mergerTest.createdMenus.length = 0;
+	});
 	await restartWorker(worker);
-	await expectMenus(worker, true, 'update');
+	await expectMenus(worker, true);
 	expect(await worker.evaluate(() => chrome.extension.isAllowedIncognitoAccess())).toBe(true);
 	const before = await worker.evaluate(async () => {
 		await chrome.windows.create({ incognito: true, url: ['about:blank', 'about:blank'] });
@@ -168,10 +169,13 @@ test('respects incognito permission changes and never mixes normal and incognito
 		.poll(() =>
 			worker.evaluate(async () => {
 				const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
-				return [
-					windows.filter((window) => !window.incognito).length,
-					windows.filter((window) => window.incognito).length,
-				];
+				let normal = 0;
+				let incognito = 0;
+				for (const window of windows) {
+					if (window.incognito) incognito++;
+					else normal++;
+				}
+				return [normal, incognito];
 			})
 		)
 		.toEqual([1, 1]);
@@ -200,13 +204,18 @@ test('merges a larger snapshot without losing tabs @stress', async ({
 		const source = await chrome.windows.create({
 			url: Array.from({ length: count }, () => 'about:blank'),
 		});
-		const ids = (source?.tabs ?? []).map((tab) => tab.id as number);
+		if (source?.tabs?.length !== count) throw new Error('Missing stress test tabs');
+		const ids = source.tabs.map((tab) => {
+			if (tab.id === undefined) throw new Error('Missing stress test tab ID');
+			return tab.id;
+		});
 		const pinned = ids.slice(0, 5);
 		const muted = ids.slice(0, 10);
 		for (const id of pinned) await chrome.tabs.update(id, { pinned: true });
 		for (const id of muted) await chrome.tabs.update(id, { muted: true });
 		const groups: number[] = [];
-		for (let index = 10; index < ids.length; index += 10) {
+		for (const [index] of ids.entries()) {
+			if (index < 10 || index % 10 !== 0) continue;
 			groups.push(
 				await chrome.tabs.group({
 					tabIds: [ids[index], ...ids.slice(index + 1, index + 10)],

@@ -3,10 +3,12 @@ import { stripVTControlCharacters } from 'node:util';
 
 type Report = { total: number; lines: string[] };
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
+
 const object = (value: unknown): Record<string, unknown> => {
-	if (typeof value !== 'object' || value === null || Array.isArray(value))
-		throw new Error('Expected a JSON object');
-	return value as Record<string, unknown>;
+	if (!isObject(value)) throw new Error('Expected a JSON object');
+	return value;
 };
 const array = (value: unknown): unknown[] => {
 	if (!Array.isArray(value)) throw new Error('Expected a JSON array');
@@ -111,10 +113,10 @@ const audit = (
 export const checkDependencies = (): number => {
 	// Run pnpm's JS entry through Node, avoiding shell / .cmd resolution on Windows.
 	const pnpm = process.env.npm_execpath;
-	let pnpmStatus = 2;
-	if (pnpm)
-		pnpmStatus = audit('pnpm audit', process.execPath, [pnpm, 'audit', '--json'], parsePnpm);
-	else console.error('pnpm audit: run this check via pnpm check:dependencies');
+	if (!pnpm) console.error('pnpm audit: run this check via pnpm check:dependencies');
+	const pnpmStatus = pnpm
+		? audit('pnpm audit', process.execPath, [pnpm, 'audit', '--json'], parsePnpm)
+		: 2;
 	const osvStatus = audit(
 		'OSV Scanner',
 		'osv-scanner',

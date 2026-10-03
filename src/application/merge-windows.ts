@@ -22,9 +22,10 @@ export type MergeWindowsDeps = {
 // Keep the merge guard held until every already-started operation has settled.
 const waitForAll = async (tasks: readonly Promise<void>[]): Promise<void> => {
 	const results = await Promise.allSettled(tasks);
-	const errors = results.flatMap((result) =>
-		result.status === 'rejected' ? [result.reason] : []
-	);
+	const errors: unknown[] = [];
+	for (const result of results) {
+		if (result.status === 'rejected') errors.push(result.reason);
+	}
 	if (errors.length > 0) {
 		throw new AggregateError(
 			errors,

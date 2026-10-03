@@ -64,5 +64,5 @@ chrome.action.onClicked.addListener(() => {
 	void handleMergeIncognitoWindowEvent();
 });
 
-// Also refresh persisted menus after worker restarts and incognito-permission reloads.
+// Also rebuild persisted menus after worker restarts and incognito-permission reloads.
 initializeMenus();

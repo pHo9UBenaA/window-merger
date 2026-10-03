@@ -33,7 +33,8 @@ export const planMerge = (windows: readonly WindowSnapshot[]): Result<MergeResul
 		});
 	}
 
-	const [targetWindow, ...sourceWindows] = [...windows].sort(compareWindowsByTargetPriority);
+	const prioritizedWindows = windows.toSorted(compareWindowsByTargetPriority);
+	const [targetWindow] = prioritizedWindows;
 	if (!isValidId(targetWindow.id.value)) {
 		return failure({
 			type: 'no-valid-target',
@@ -44,29 +45,18 @@ export const planMerge = (windows: readonly WindowSnapshot[]): Result<MergeResul
 		});
 	}
 
-	let activeTabId = targetWindow.tabs.find((tab) => tab.active)?.id;
-	if (activeTabId === undefined) {
-		for (const window of sourceWindows) {
-			activeTabId = window.tabs.find((tab) => tab.active)?.id;
-			if (activeTabId !== undefined) {
-				break;
-			}
-		}
+	for (const window of prioritizedWindows) {
+		const activeTabId = window.tabs.find((tab) => tab.active)?.id;
+		if (activeTabId === undefined) continue;
+		return success({ targetWindowId: targetWindow.id, activeTabId });
 	}
 
-	if (activeTabId === undefined) {
-		return failure({
-			type: 'no-active-tab',
-			message: 'No active tab found in any window',
-			context: {
-				windowCount: windows.length,
-			},
-		});
-	}
-
-	return success({
-		targetWindowId: targetWindow.id,
-		activeTabId,
+	return failure({
+		type: 'no-active-tab',
+		message: 'No active tab found in any window',
+		context: {
+			windowCount: windows.length,
+		},
 	});
 };
 

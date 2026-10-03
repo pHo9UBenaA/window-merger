@@ -2,35 +2,49 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { it as base, expect, vi } from 'vitest';
 import { hasCodeChanges, withIndexSnapshot } from '../../scripts/pre-commit';
 
-let root: string;
-const git = (...args: string[]) =>
-	execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-beforeEach(async () => {
-	root = await mkdtemp(join(tmpdir(), 'window-merger-hook-test-'));
-	await mkdir(join(root, 'node_modules'));
-	git('init', '-b', 'main');
-});
-afterEach(async () => {
-	await rm(root, { recursive: true, force: true });
+const it = base.extend<{
+	repository: { root: string; git: (...args: string[]) => string };
+}>({
+	repository: async ({ task: _task }, use) => {
+		const root = await mkdtemp(join(tmpdir(), 'window-merger-hook-test-'));
+		const git = (...args: string[]) =>
+			execFileSync('git', args, {
+				cwd: root,
+				encoding: 'utf8',
+				stdio: ['ignore', 'pipe', 'pipe'],
+			});
+		try {
+			await mkdir(join(root, 'node_modules'));
+			git('init', '-b', 'main');
+			await use({ root, git });
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	},
 });
 
-it.each([
+it.for([
 	['README.md', false],
 	['example.ts', true],
 	['package.json', true],
 	['compose.yaml', true],
 	['icon.png', true],
-])('selects code checks for staged %s: %s', async (name, expected) => {
-	await writeFile(join(root, name), 'staged');
-	git('add', '--', name);
-	await writeFile(join(root, 'unstaged.ts'), 'not staged');
-	expect(hasCodeChanges(root)).toBe(expected);
-});
+] as const)(
+	'selects code checks for staged %s: %s',
+	async ([name, expected], { repository: { root, git } }) => {
+		await writeFile(join(root, name), 'staged');
+		git('add', '--', name);
+		await writeFile(join(root, 'unstaged.ts'), 'not staged');
+		expect(hasCodeChanges(root)).toBe(expected);
+	}
+);
 
-it('still runs code checks when code is renamed to Markdown or deleted', async () => {
+it('still runs code checks when code is renamed to Markdown or deleted', async ({
+	repository: { root, git },
+}) => {
 	await writeFile(join(root, 'example.ts'), 'export {};');
 	git('add', 'example.ts');
 	git(
@@ -52,39 +66,43 @@ it('still runs code checks when code is renamed to Markdown or deleted', async (
 	expect(hasCodeChanges(root)).toBe(true);
 });
 
-it('checks staged content without changing the working tree or index', async () => {
+it('checks staged content without changing the working tree or index', async ({
+	repository: { root, git },
+}) => {
 	const file = join(root, 'file [with spaces].txt');
 	await writeFile(file, 'staged content');
 	git('add', '--', 'file [with spaces].txt');
 	await writeFile(file, 'unstaged content');
-	let snapshotPath = '';
-	await withIndexSnapshot(root, async (snapshot, files) => {
-		snapshotPath = snapshot;
+	const verify = vi.fn(async (snapshot: string, files: string[]) => {
 		expect(files).toEqual(['file [with spaces].txt']);
 		expect(await readFile(join(snapshot, files[0]), 'utf8')).toBe('staged content');
 	});
+	await withIndexSnapshot(root, verify);
+	const [[snapshotPath]] = verify.mock.calls;
 	expect(await readFile(file, 'utf8')).toBe('unstaged content');
 	expect(git('show', ':file [with spaces].txt')).toBe('staged content');
 	await expect(readFile(join(snapshotPath, 'file [with spaces].txt'))).rejects.toThrow();
 });
 
-it('keeps staged failures visible and cleans up after a rejected check', async () => {
+it('keeps staged failures visible and cleans up after a rejected check', async ({
+	repository: { root, git },
+}) => {
 	await writeFile(join(root, 'file.ts'), 'invalid staged content');
 	git('add', 'file.ts');
 	await writeFile(join(root, 'file.ts'), 'fixed but not staged');
-	let snapshotPath = '';
-	await expect(
-		withIndexSnapshot(root, async (snapshot) => {
-			snapshotPath = snapshot;
-			if ((await readFile(join(snapshot, 'file.ts'), 'utf8')).startsWith('invalid'))
-				throw new Error('Staged failure');
-		})
-	).rejects.toThrow('Staged failure');
+	const verify = vi.fn(async (snapshot: string) => {
+		if ((await readFile(join(snapshot, 'file.ts'), 'utf8')).startsWith('invalid'))
+			throw new Error('Staged failure');
+	});
+	await expect(withIndexSnapshot(root, verify)).rejects.toThrow('Staged failure');
+	const [[snapshotPath]] = verify.mock.calls;
 	expect(await readFile(join(root, 'file.ts'), 'utf8')).toBe('fixed but not staged');
 	await expect(readFile(join(snapshotPath, 'file.ts'))).rejects.toThrow();
 });
 
-it('exports additions and renames but not staged deletions or untracked files', async () => {
+it('exports additions and renames but not staged deletions or untracked files', async ({
+	repository: { root, git },
+}) => {
 	await writeFile(join(root, 'old'), 'rename');
 	await writeFile(join(root, 'deleted'), 'delete');
 	git('add', 'old', 'deleted');

@@ -38,7 +38,7 @@ export const checkPush = (input: string, cwd = process.cwd()): void => {
 const compareVersions = (a: string, b: string): number => {
 	const left = a.split('.').map(Number);
 	const right = b.split('.').map(Number);
-	for (let index = 0; index < 3; index++) {
+	for (const index of [0, 1, 2]) {
 		const difference = left[index] - right[index];
 		if (difference !== 0) return difference;
 	}
@@ -55,16 +55,15 @@ export const createReleaseTag = (
 	if (version === null) return 'skipped';
 	const sha = git(['rev-parse', `${commit}^{commit}`], cwd);
 	const tag = `v${version}`;
-	const remoteTags = () =>
-		new Map(
-			git(['ls-remote', '--tags', remote], cwd)
-				.split('\n')
-				.filter(Boolean)
-				.map((line) => {
-					const [hash, name] = line.split(/\s+/);
-					return [name, hash];
-				})
-		);
+	const remoteTags = () => {
+		const tags = new Map<string, string>();
+		for (const line of git(['ls-remote', '--tags', remote], cwd).split('\n')) {
+			if (!line) continue;
+			const [hash, name] = line.split(/\s+/);
+			tags.set(name, hash);
+		}
+		return tags;
+	};
 	const tags = remoteTags();
 	const existing = tags.get(`refs/tags/${tag}^{}`) ?? tags.get(`refs/tags/${tag}`);
 	if (existing) {
