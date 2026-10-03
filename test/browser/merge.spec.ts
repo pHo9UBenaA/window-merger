@@ -4,13 +4,14 @@ import { expect, test } from './fixtures';
 const expectMenus = async (worker: Worker, incognito: boolean, operation?: 'create' | 'update') => {
 	await expect
 		.poll(() =>
-			worker.evaluate(
-				(operation) =>
-					mergerTest.menuOperations
-						.filter((entry) => operation === undefined || entry.operation === operation)
-						.map(({ id, enabled }) => ({ id, enabled })),
-				operation
-			)
+			worker.evaluate((operation) => {
+				const menus = [];
+				for (const entry of mergerTest.menuOperations) {
+					if (operation !== undefined && entry.operation !== operation) continue;
+					menus.push({ id: entry.id, enabled: entry.enabled });
+				}
+				return menus;
+			}, operation)
 		)
 		.toEqual(
 			expect.arrayContaining([
@@ -35,16 +36,15 @@ test('loads the packaged manifest, tooltip, shortcut and padded store icon', asy
 		if (!context) throw new Error('Missing image context');
 		context.drawImage(image, 0, 0);
 		const pixels = context.getImageData(0, 0, image.width, image.height).data;
-		const opaquePixels = Array.from(
-			{ length: image.width * image.height },
-			(_, index) => index
-		).filter((index) => pixels[index * 4 + 3] !== 0);
-		const opaqueMarginPixels = opaquePixels.filter((pixelIndex) => {
-			const x = pixelIndex % image.width;
-			const y = Math.floor(pixelIndex / image.width);
-			return x < 16 || y < 16 || x >= 112 || y >= 112;
-		}).length;
-		const opaqueArtworkPixels = opaquePixels.length - opaqueMarginPixels;
+		let opaqueMarginPixels = 0;
+		let opaqueArtworkPixels = 0;
+		for (let index = 0; index < image.width * image.height; index++) {
+			if (pixels[index * 4 + 3] === 0) continue;
+			const x = index % image.width;
+			const y = Math.floor(index / image.width);
+			if (x < 16 || y < 16 || x >= 112 || y >= 112) opaqueMarginPixels++;
+			else opaqueArtworkPixels++;
+		}
 		return {
 			manifest,
 			iconSize: [image.width, image.height],
@@ -175,10 +175,13 @@ test('respects incognito permission changes and never mixes normal and incognito
 		.poll(() =>
 			worker.evaluate(async () => {
 				const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
-				return [
-					windows.filter((window) => !window.incognito).length,
-					windows.filter((window) => window.incognito).length,
-				];
+				let normal = 0;
+				let incognito = 0;
+				for (const window of windows) {
+					if (window.incognito) incognito++;
+					else normal++;
+				}
+				return [normal, incognito];
 			})
 		)
 		.toEqual([1, 1]);

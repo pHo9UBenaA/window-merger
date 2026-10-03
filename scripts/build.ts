@@ -15,14 +15,15 @@ export const collectFiles = async (dir: string, ignoreMissing = false): Promise<
 		if (ignoreMissing && isMissing(error)) return [];
 		throw error;
 	});
-	const files = await Promise.all(
-		entries
-			.filter((entry) => entry.name !== '.DS_Store')
-			.map(async (entry) => {
-				const path = join(dir, entry.name);
-				return entry.isDirectory() ? collectFiles(path, ignoreMissing) : [path];
-			})
-	);
+	const tasks: Promise<string[]>[] = [];
+	for (const entry of entries) {
+		if (entry.name === '.DS_Store') continue;
+		const path = join(dir, entry.name);
+		tasks.push(
+			entry.isDirectory() ? collectFiles(path, ignoreMissing) : Promise.resolve([path])
+		);
+	}
+	const files = await Promise.all(tasks);
 	return files.flat();
 };
 

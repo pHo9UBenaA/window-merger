@@ -56,6 +56,12 @@ it.each([null, [], 42, 'not an object'])('rejects a non-object audit report: %j'
 	expect(check(result(cleanPnpm), result(report))).toBe(2);
 });
 
+it('sums vulnerability counts across all severities', () => {
+	const report = pnpmCounts({ info: 1, low: 2, moderate: 3, high: 4, critical: 5 });
+	expect(check(result(report))).toBe(1);
+	expect(console.log).toHaveBeenCalledWith('Found 15 vulnerability entries.');
+});
+
 it('fails for low-severity counts even without advisory details', () => {
 	expect(check(result(pnpmCounts({ ...counts, low: 1 })))).toBe(1);
 });

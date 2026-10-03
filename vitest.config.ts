@@ -7,9 +7,12 @@ import { defineConfig } from 'vitest/config';
  */
 const getSetupFiles = (dir: string): string[] => {
 	const entries = readdirSync(dir, { withFileTypes: true });
-	return entries
-		.filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-		.map((entry) => join(dir, entry.name));
+	const files: string[] = [];
+	for (const entry of entries) {
+		if (!entry.isFile() || !entry.name.endsWith('.ts')) continue;
+		files.push(join(dir, entry.name));
+	}
+	return files;
 };
 
 export default defineConfig({

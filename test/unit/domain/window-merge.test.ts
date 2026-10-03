@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	compareWindowsByTargetPriority,
 	filterWindows,
@@ -152,6 +152,25 @@ describe('Core Logic - Window Merge', () => {
 				data: { targetWindowId: target.id, activeTabId: target.tabs[0].id },
 			});
 			expect(windows).toEqual([source, target]);
+		});
+
+		it('stops searching windows once an active tab is found', () => {
+			const target = createWindowSnapshot(3, [createTabSnapshot(30, { active: true })], {
+				focused: true,
+			});
+			const readSourceTabs = vi.fn(() => [createTabSnapshot(10, { active: true })]);
+			const source: WindowSnapshot = {
+				...createWindowSnapshot(1),
+				get tabs() {
+					return readSourceTabs();
+				},
+			};
+
+			expect(planMerge([source, target])).toEqual({
+				ok: true,
+				data: { targetWindowId: target.id, activeTabId: target.tabs[0].id },
+			});
+			expect(readSourceTabs).not.toHaveBeenCalled();
 		});
 
 		it('uses source priority rather than input order when the target has no active tab', () => {

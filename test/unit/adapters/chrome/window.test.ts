@@ -129,6 +129,19 @@ describe('Chrome Window Adapter', () => {
 		expect(result[0]?.tabs[0]?.id).toEqual(createTestTabId(11));
 	});
 
+	it('preserves window and tab order while skipping invalid IDs', async () => {
+		VitestChrome.windows.getAll.mockResolvedValue([
+			createMockChromeWindow(3, [{ id: 30 }, { id: -1 }, { id: 10 }]),
+			createMockChromeWindow(-1, [{ id: 20 }]),
+			createMockChromeWindow(1, [{ id: 5 }]),
+		]);
+
+		const result = await createChromeWindowAdapter().getAllWindows();
+
+		expect(result.map((window) => window.id.value)).toEqual([3, 1]);
+		expect(result[0].tabs.map((tab) => tab.id.value)).toEqual([30, 10]);
+	});
+
 	it('propagates errors from chrome.windows.getAll', async () => {
 		VitestChrome.windows.getAll.mockRejectedValue(new Error('Chrome API error'));
 

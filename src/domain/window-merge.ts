@@ -45,23 +45,18 @@ export const planMerge = (windows: readonly WindowSnapshot[]): Result<MergeResul
 		});
 	}
 
-	const activeTabId = prioritizedWindows
-		.map((window) => window.tabs.find((tab) => tab.active)?.id)
-		.find((id) => id !== undefined);
-
-	if (activeTabId === undefined) {
-		return failure({
-			type: 'no-active-tab',
-			message: 'No active tab found in any window',
-			context: {
-				windowCount: windows.length,
-			},
-		});
+	for (const window of prioritizedWindows) {
+		const activeTabId = window.tabs.find((tab) => tab.active)?.id;
+		if (activeTabId === undefined) continue;
+		return success({ targetWindowId: targetWindow.id, activeTabId });
 	}
 
-	return success({
-		targetWindowId: targetWindow.id,
-		activeTabId,
+	return failure({
+		type: 'no-active-tab',
+		message: 'No active tab found in any window',
+		context: {
+			windowCount: windows.length,
+		},
 	});
 };
 

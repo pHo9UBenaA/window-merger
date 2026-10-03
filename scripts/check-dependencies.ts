@@ -30,12 +30,13 @@ const safeText = (value: unknown): string =>
 const parsePnpm = (value: unknown): Report => {
 	const report = object(value);
 	const counts = object(object(report.metadata).vulnerabilities);
-	const total = ['info', 'low', 'moderate', 'high', 'critical'].reduce((sum, severity) => {
+	let total = 0;
+	for (const severity of ['info', 'low', 'moderate', 'high', 'critical']) {
 		const count = counts[severity];
 		if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0)
 			throw new Error(`Invalid ${severity} vulnerability count`);
-		return sum + count;
-	}, 0);
+		total += count;
+	}
 	if (!Number.isSafeInteger(total)) throw new Error('Invalid total vulnerability count');
 	const lines = Object.values(object(report.advisories)).map((value) => {
 		const advisory = object(value);
