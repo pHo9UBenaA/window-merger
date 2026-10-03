@@ -93,15 +93,15 @@ export const test = base.extend<{
 						await page.evaluate(
 							({ extensionId, incognitoAccess }) =>
 								new Promise<void>((resolve, reject) => {
-									const api = Reflect.get(chrome, 'developerPrivate') as {
-										updateExtensionConfiguration: (
-											properties: {
-												extensionId: string;
-												incognitoAccess: boolean;
-											},
-											done: () => void
-										) => void;
-									};
+									const api: unknown = Reflect.get(chrome, 'developerPrivate');
+									if (
+										typeof api !== 'object' ||
+										api === null ||
+										!('updateExtensionConfiguration' in api) ||
+										typeof api.updateExtensionConfiguration !== 'function'
+									) {
+										throw new Error('Missing Chrome management-page API');
+									}
 									api.updateExtensionConfiguration(
 										{ extensionId, incognitoAccess },
 										() => {

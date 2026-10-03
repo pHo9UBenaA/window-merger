@@ -1,8 +1,3 @@
-/**
- * Type contract tests.
- * These tests protect TypeScript API contracts from accidental regressions.
- */
-
 // Guards the exported TypeScript surface against silent regressions (e.g. a
 // factory accidentally widening to `unknown`). Runtime behavior is covered
 // elsewhere; this file asserts types only via expectTypeOf.

@@ -33,7 +33,8 @@ export const planMerge = (windows: readonly WindowSnapshot[]): Result<MergeResul
 		});
 	}
 
-	const [targetWindow, ...sourceWindows] = [...windows].sort(compareWindowsByTargetPriority);
+	const prioritizedWindows = windows.toSorted(compareWindowsByTargetPriority);
+	const [targetWindow] = prioritizedWindows;
 	if (!isValidId(targetWindow.id.value)) {
 		return failure({
 			type: 'no-valid-target',
@@ -44,15 +45,9 @@ export const planMerge = (windows: readonly WindowSnapshot[]): Result<MergeResul
 		});
 	}
 
-	let activeTabId = targetWindow.tabs.find((tab) => tab.active)?.id;
-	if (activeTabId === undefined) {
-		for (const window of sourceWindows) {
-			activeTabId = window.tabs.find((tab) => tab.active)?.id;
-			if (activeTabId !== undefined) {
-				break;
-			}
-		}
-	}
+	const activeTabId = prioritizedWindows
+		.map((window) => window.tabs.find((tab) => tab.active)?.id)
+		.find((id) => id !== undefined);
 
 	if (activeTabId === undefined) {
 		return failure({

@@ -3,10 +3,12 @@ import { stripVTControlCharacters } from 'node:util';
 
 type Report = { total: number; lines: string[] };
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
+
 const object = (value: unknown): Record<string, unknown> => {
-	if (typeof value !== 'object' || value === null || Array.isArray(value))
-		throw new Error('Expected a JSON object');
-	return value as Record<string, unknown>;
+	if (!isObject(value)) throw new Error('Expected a JSON object');
+	return value;
 };
 const array = (value: unknown): unknown[] => {
 	if (!Array.isArray(value)) throw new Error('Expected a JSON array');
@@ -28,13 +30,12 @@ const safeText = (value: unknown): string =>
 const parsePnpm = (value: unknown): Report => {
 	const report = object(value);
 	const counts = object(object(report.metadata).vulnerabilities);
-	let total = 0;
-	for (const severity of ['info', 'low', 'moderate', 'high', 'critical']) {
+	const total = ['info', 'low', 'moderate', 'high', 'critical'].reduce((sum, severity) => {
 		const count = counts[severity];
 		if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0)
 			throw new Error(`Invalid ${severity} vulnerability count`);
-		total += count;
-	}
+		return sum + count;
+	}, 0);
 	if (!Number.isSafeInteger(total)) throw new Error('Invalid total vulnerability count');
 	const lines = Object.values(object(report.advisories)).map((value) => {
 		const advisory = object(value);
@@ -111,10 +112,10 @@ const audit = (
 export const checkDependencies = (): number => {
 	// Run pnpm's JS entry through Node, avoiding shell / .cmd resolution on Windows.
 	const pnpm = process.env.npm_execpath;
-	let pnpmStatus = 2;
-	if (pnpm)
-		pnpmStatus = audit('pnpm audit', process.execPath, [pnpm, 'audit', '--json'], parsePnpm);
-	else console.error('pnpm audit: run this check via pnpm check:dependencies');
+	if (!pnpm) console.error('pnpm audit: run this check via pnpm check:dependencies');
+	const pnpmStatus = pnpm
+		? audit('pnpm audit', process.execPath, [pnpm, 'audit', '--json'], parsePnpm)
+		: 2;
 	const osvStatus = audit(
 		'OSV Scanner',
 		'osv-scanner',

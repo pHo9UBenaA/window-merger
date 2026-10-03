@@ -67,15 +67,17 @@ console.error = (...values: unknown[]) => {
 
 declare global {
 	var mergerTest: {
-		action: () => void;
+		action: () => Promise<void>;
 		menu: (id: string) => void;
 		errors: string[];
 		menuOperations: MenuOperation[];
 	};
 }
 globalThis.mergerTest = {
-	action: () => {
-		for (const listener of actionListeners) listener({} as chrome.tabs.Tab);
+	action: async () => {
+		const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+		if (!tab) throw new Error('Missing active tab for action event');
+		for (const listener of actionListeners) listener(tab);
 	},
 	menu: (menuItemId) => {
 		for (const listener of menuListeners) listener({ menuItemId, editable: false });

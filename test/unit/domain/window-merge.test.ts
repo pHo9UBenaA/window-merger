@@ -5,57 +5,12 @@ import {
 	hasValidTabs,
 	planMerge,
 } from '../../../src/domain/window-merge';
+import type { WindowSnapshot } from '../../../src/domain/window-merge.types';
 import {
-	createTabId,
-	createWindowId,
-	TARGET_WINDOW_TYPE,
-	type TabSnapshot,
-	type WindowId,
-	type WindowSnapshot,
-} from '../../../src/domain/window-merge.types';
-
-const createTabSnapshot = (
-	id: number,
-	options: Partial<Omit<TabSnapshot, 'id'>> = {}
-): TabSnapshot => {
-	const tabId = createTabId(id);
-	if (tabId === null) {
-		throw new Error(`Invalid tab id in test: ${id}`);
-	}
-
-	return {
-		id: tabId,
-		groupId: null,
-		pinned: false,
-		muted: false,
-		active: false,
-		...options,
-	};
-};
-
-const createValidWindowId = (id: number): WindowId => {
-	const windowId = createWindowId(id);
-	if (windowId === null) {
-		throw new Error(`Invalid window id in test: ${id}`);
-	}
-
-	return windowId;
-};
-
-const createWindowSnapshot = (
-	id: number,
-	tabs: readonly TabSnapshot[] = [],
-	options: Partial<WindowSnapshot> = {}
-): WindowSnapshot => {
-	return {
-		id: createValidWindowId(id),
-		incognito: false,
-		focused: false,
-		type: TARGET_WINDOW_TYPE,
-		tabs,
-		...options,
-	};
-};
+	createMockTabSnapshot as createTabSnapshot,
+	createTestWindowId as createValidWindowId,
+	createMockWindowSnapshot as createWindowSnapshot,
+} from '../../factories/domain';
 
 describe('Core Logic - Window Merge', () => {
 	describe('compareWindowsByTargetPriority', () => {
@@ -183,6 +138,31 @@ describe('Core Logic - Window Merge', () => {
 				expect(result.error.type).toBe('insufficient-windows');
 				expect(result.error.context.windowCount).toBe(0);
 			}
+		});
+
+		it('prefers the target active tab without reordering the input windows', () => {
+			const target = createWindowSnapshot(3, [createTabSnapshot(30, { active: true })], {
+				focused: true,
+			});
+			const source = createWindowSnapshot(1, [createTabSnapshot(10, { active: true })]);
+			const windows = Object.freeze([source, target]);
+
+			expect(planMerge(windows)).toEqual({
+				ok: true,
+				data: { targetWindowId: target.id, activeTabId: target.tabs[0].id },
+			});
+			expect(windows).toEqual([source, target]);
+		});
+
+		it('uses source priority rather than input order when the target has no active tab', () => {
+			const target = createWindowSnapshot(3, [createTabSnapshot(30)], { focused: true });
+			const earlier = createWindowSnapshot(1, [createTabSnapshot(10, { active: true })]);
+			const later = createWindowSnapshot(2, [createTabSnapshot(20, { active: true })]);
+
+			expect(planMerge([later, target, earlier])).toEqual({
+				ok: true,
+				data: { targetWindowId: target.id, activeTabId: earlier.tabs[0].id },
+			});
 		});
 
 		it('finds active tab from a later source window', () => {

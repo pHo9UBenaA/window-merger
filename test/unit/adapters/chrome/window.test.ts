@@ -148,11 +148,10 @@ describe('Chrome Window Adapter', () => {
 		expect(result[0]?.tabs).toHaveLength(0);
 	});
 
-	it('maps tab with undefined groupId to null groupId', async () => {
-		const tabWithoutGroupId = {
-			...createMockChromeTab(1),
-			groupId: undefined,
-		} as unknown as chrome.tabs.Tab;
+	it('maps tab with absent groupId to null groupId', async () => {
+		const tabWithoutGroupId = createMockChromeTab(1);
+		// Simulate an incomplete API response without pretending it satisfies the type.
+		Reflect.deleteProperty(tabWithoutGroupId, 'groupId');
 		VitestChrome.windows.getAll.mockResolvedValue([
 			{ ...createMockChromeWindow(1), tabs: [tabWithoutGroupId] },
 		]);

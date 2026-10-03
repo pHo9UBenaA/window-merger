@@ -38,7 +38,7 @@ export const checkPush = (input: string, cwd = process.cwd()): void => {
 const compareVersions = (a: string, b: string): number => {
 	const left = a.split('.').map(Number);
 	const right = b.split('.').map(Number);
-	for (let index = 0; index < 3; index++) {
+	for (const index of [0, 1, 2]) {
 		const difference = left[index] - right[index];
 		if (difference !== 0) return difference;
 	}

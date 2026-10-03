@@ -20,19 +20,15 @@ const ensureMenu = async (
 	properties: chrome.contextMenus.CreateProperties & { id: string }
 ): Promise<void> => {
 	const { id, ...update } = properties;
-	let updateError: unknown;
 	try {
 		await menuOperation((done) => chrome.contextMenus.update(id, update, done));
-		return;
-	} catch (error) {
-		updateError = error;
-	}
-
-	// Menus persist across worker restarts. Only create when updating did not succeed.
-	try {
-		await menuOperation((done) => chrome.contextMenus.create(properties, done));
-	} catch (createError) {
-		throw new AggregateError([updateError, createError], `Failed to initialize menu ${id}`);
+	} catch (updateError) {
+		// Menus persist across worker restarts. Only create when updating did not succeed.
+		try {
+			await menuOperation((done) => chrome.contextMenus.create(properties, done));
+		} catch (createError) {
+			throw new AggregateError([updateError, createError], `Failed to initialize menu ${id}`);
+		}
 	}
 };
 
