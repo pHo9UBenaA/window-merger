@@ -1,18 +1,9 @@
 import type { Worker } from '@playwright/test';
 import { expect, test } from './fixtures';
 
-const expectMenus = async (worker: Worker, incognito: boolean, operation?: 'create' | 'update') => {
+const expectMenus = async (worker: Worker, incognito: boolean) => {
 	await expect
-		.poll(() =>
-			worker.evaluate((operation) => {
-				const menus = [];
-				for (const entry of mergerTest.menuOperations) {
-					if (operation !== undefined && entry.operation !== operation) continue;
-					menus.push({ id: entry.id, enabled: entry.enabled });
-				}
-				return menus;
-			}, operation)
-		)
+		.poll(() => worker.evaluate(() => mergerTest.createdMenus))
 		.toEqual(
 			expect.arrayContaining([
 				{ id: 'mergeWindowId', enabled: true },
@@ -156,11 +147,14 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 test('respects incognito permission changes and never mixes normal and incognito tabs', async ({
 	extension: { worker: initial, restart, restartWorker },
 }) => {
-	await expectMenus(initial, false, 'create');
+	await expectMenus(initial, false);
 	const worker = await restart(true);
 	await expectMenus(worker, true);
+	await worker.evaluate(() => {
+		mergerTest.createdMenus.length = 0;
+	});
 	await restartWorker(worker);
-	await expectMenus(worker, true, 'update');
+	await expectMenus(worker, true);
 	expect(await worker.evaluate(() => chrome.extension.isAllowedIncognitoAccess())).toBe(true);
 	const before = await worker.evaluate(async () => {
 		await chrome.windows.create({ incognito: true, url: ['about:blank', 'about:blank'] });

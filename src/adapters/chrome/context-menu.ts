@@ -16,31 +16,19 @@ const menuOperation = (start: (done: () => void) => void): Promise<void> =>
 		});
 	});
 
-const ensureMenu = async (
-	properties: chrome.contextMenus.CreateProperties & { id: string }
-): Promise<void> => {
-	const { id, ...update } = properties;
-	try {
-		await menuOperation((done) => chrome.contextMenus.update(id, update, done));
-	} catch (updateError) {
-		// Menus persist across worker restarts. Only create when updating did not succeed.
-		try {
-			await menuOperation((done) => chrome.contextMenus.create(properties, done));
-		} catch (createError) {
-			throw new AggregateError([updateError, createError], `Failed to initialize menu ${id}`);
-		}
-	}
-};
+const createMenu = (properties: chrome.contextMenus.CreateProperties): Promise<void> =>
+	menuOperation((done) => chrome.contextMenus.create(properties, done));
 
 export const setupContextMenus = async (): Promise<void> => {
 	const allowed = await chrome.extension.isAllowedIncognitoAccess();
-	await ensureMenu({
+	await menuOperation((done) => chrome.contextMenus.removeAll(done));
+	await createMenu({
 		id: ContextMenuIds.mergeWindow,
 		title: chrome.i18n.getMessage('mergeWindowTitle'),
 		contexts: ['all'],
 		enabled: true,
 	});
-	await ensureMenu({
+	await createMenu({
 		id: ContextMenuIds.mergeIncognitoWindow,
 		title: chrome.i18n.getMessage('mergeIncognitoWindowTitle'),
 		contexts: ['all'],

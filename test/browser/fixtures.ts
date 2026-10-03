@@ -73,7 +73,7 @@ export const test = base.extend<{
 					try {
 						await session.send('ServiceWorker.enable');
 						await expect.poll(() => runningStatus).toBe('running');
-						// Keep the extension loaded and its menus intact; only restart its worker.
+						// Keep the extension loaded; restart only its worker to exercise persisted menus.
 						await session.send('ServiceWorker.stopAllWorkers');
 						await expect.poll(() => runningStatus).toBe('stopped');
 						await session.send('ServiceWorker.startWorker', {
