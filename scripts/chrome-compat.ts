@@ -5,10 +5,12 @@ import { join } from 'node:path';
 import { PROJECT_ROOT } from './build.ts';
 
 const lockPath = join(PROJECT_ROOT, 'test/browser/chrome-versions.json');
+// Only the oldest and newest supported Chrome are exercised per platform. macOS uses
+// macos-14 because Chrome for Testing 120 cannot launch on macos-15 arm64.
 const platforms = {
 	'ubuntu-24.04': 'linux64',
 	'windows-2025': 'win64',
-	'macos-15': 'mac-arm64',
+	'macos-14': 'mac-arm64',
 } as const;
 
 export const validateChromeVersions = (
@@ -30,18 +32,15 @@ export const validateChromeVersions = (
 	return lock;
 };
 
-export const chromeMatrix = (lock: Record<string, string>, requested?: string) => {
-	const majors = (requested ?? '')
-		.split(',')
-		.map((major) => major.trim())
-		.filter(Boolean);
-	const unlocked = majors.filter((major) => !(major in lock));
-	if (unlocked.length > 0)
-		throw new Error(`Chrome majors are not locked: ${unlocked.join(', ')}`);
-	const selected = majors.length > 0 ? majors : Object.keys(lock);
+export const chromeMatrix = (lock: Record<string, string>, minimumMajor: number) => {
+	const majors = [minimumMajor, Number(Object.keys(lock).at(-1))];
 	return {
-		include: selected.flatMap((major) =>
-			Object.entries(platforms).map(([os, platform]) => ({ os, platform, major }))
+		include: majors.flatMap((major) =>
+			Object.entries(platforms).map(([os, platform]) => ({
+				os,
+				platform,
+				major: String(major),
+			}))
 		),
 	};
 };
@@ -149,7 +148,7 @@ if (import.meta.main) {
 					JSON.parse(await readFile(lockPath, 'utf8')),
 					await minimumMajor()
 				);
-				console.log(JSON.stringify(chromeMatrix(lock, major)));
+				console.log(JSON.stringify(chromeMatrix(lock, await minimumMajor())));
 				break;
 			}
 			case '--install':

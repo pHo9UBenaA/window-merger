@@ -50,7 +50,9 @@ unpinned order, group identity/member order/metadata, active/muted states, popup
 
 [`test/browser/chrome-versions.json`](../test/browser/chrome-versions.json) locks one Chrome for Testing
 **full Chrome** patch per major, from the manifest minimum to Stable. Tests do not resolve or change
-versions. To test a locked major locally:
+versions. CI exercises only the oldest and the newest locked major, on Linux, Windows and macOS, so
+add a major to CI only by changing `scripts/chrome-compat.ts`. macOS runs on `macos-14` because Chrome
+for Testing 120 cannot launch on `macos-15` arm64. To test a locked major locally:
 
 ```sh
 pnpm chrome:install 120 mac-arm64 # or linux64 / win64
@@ -71,14 +73,15 @@ creation order from window IDs.
 
 Merge, artifact and browser-fixture PRs and all release branches run the full compatibility matrix;
 docs-only or unrelated tooling PRs can skip it. `workflow_dispatch` always runs it. Failures do not
-cancel other versions; concurrency is capped at 12. Configure branch protection to require `checks`,
-the three `browser` jobs and `compatibility-gate` (the gate also succeeds for an intentional skip).
-A workflow alone cannot configure required checks in GitHub repository settings.
+cancel other platforms. Configure branch protection to require `checks`, the three `browser` jobs and
+`compatibility-gate` (the gate also succeeds for an intentional skip). A workflow alone cannot
+configure required checks in GitHub repository settings.
 
-Do not publish the ordering guarantee or bump to `v1.5.0` until every locked major/OS passes. Before
-release, check the lock reaches current Stable and rerun the full matrix if Stable has advanced. Keep
-any v1.4.9 / Chrome 113–119 historical investigation separate from current support acceptance; record
-the extension commit, browser/OS/version and before/after snapshots, including launch failures.
+Do not publish the ordering guarantee or bump to `v1.5.0` until both matrix majors pass on all three
+platforms. Before release, check the lock reaches current Stable and rerun the matrix if Stable has
+advanced. Keep any v1.4.9 / Chrome 113–119 historical investigation separate from current support
+acceptance; record the extension commit, browser/OS/version and before/after snapshots, including
+launch failures.
 
 ### Manual release checks
 
