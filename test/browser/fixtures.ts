@@ -50,7 +50,9 @@ export const test = base.extend<{
 				const page = context.pages()[0] ?? (await context.newPage());
 				const session = await context.newCDPSession(page);
 				let workerVersions: unknown;
-				session.on('ServiceWorker.workerVersionUpdated', (event) => { workerVersions = event.versions; });
+				session.on('ServiceWorker.workerVersionUpdated', (event) => {
+					workerVersions = event.versions;
+				});
 				try {
 					const version = await session.send('Browser.getVersion');
 					await testInfo.attach('browser-version', {
@@ -79,7 +81,11 @@ export const test = base.extend<{
 					);
 				} catch (error) {
 					await testInfo.attach('startup-targets', {
-						body: JSON.stringify({ scopeURL, workerVersions, ...await session.send('Target.getTargets') }),
+						body: JSON.stringify({
+							scopeURL,
+							workerVersions,
+							...(await session.send('Target.getTargets')),
+						}),
 						contentType: 'application/json',
 					});
 					throw error;
