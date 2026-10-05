@@ -6,6 +6,21 @@ import { type BrowserContext, test as base, chromium, expect, type Worker } from
 import { build } from 'esbuild';
 import { PROJECT_ROOT } from '../../scripts/build';
 
+type ChromeManagementApi = {
+	updateProfileConfiguration: (
+		properties: { inDeveloperMode: boolean },
+		done: () => void
+	) => void;
+	updateExtensionConfiguration: (
+		properties: { extensionId: string; incognitoAccess: boolean },
+		done: () => void
+	) => void;
+	getExtensionsInfo: (
+		properties: { includeDisabled: boolean; includeTerminated: boolean },
+		done: (info: { id: string; state: string }[]) => void
+	) => void;
+};
+
 export const test = base.extend<{
 	extension: {
 		worker: Worker;
@@ -33,7 +48,7 @@ export const test = base.extend<{
 				background,
 				`${harness.outputFiles[0].text}\n${await readFile(background, 'utf8')}`
 			);
-			const launch = async () => {
+			const launch = async (scopeURL?: string) => {
 				context = await chromium.launchPersistentContext(join(directory, 'profile'), {
 					channel: 'chromium',
 					headless: process.env.HEADED !== '1',
@@ -42,7 +57,33 @@ export const test = base.extend<{
 						`--load-extension=${extension}`,
 					],
 				});
-				return context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+				const page = context.pages()[0] ?? (await context.newPage());
+				const session = await context.newCDPSession(page);
+				try {
+					if (scopeURL) {
+						// Chrome may leave a persisted extension worker idle after a profile restart.
+						await session.send('ServiceWorker.enable');
+						await session.send('ServiceWorker.startWorker', { scopeURL });
+					}
+					const worker =
+						context.serviceWorkers()[0] ??
+						(await context.waitForEvent('serviceworker', { timeout: 15000 }));
+					// Hand out the worker only once production has created its context-menu entries.
+					await expect
+						.poll(
+							() =>
+								worker.evaluate(() =>
+									typeof mergerTest === 'undefined'
+										? 0
+										: mergerTest.menuOperations.length
+								),
+							{ timeout: 15000 }
+						)
+						.toBeGreaterThan(0);
+					return worker;
+				} finally {
+					await session.detach();
+				}
 			};
 			const worker = await launch();
 			await use({
@@ -90,18 +131,31 @@ export const test = base.extend<{
 						// Use Chrome's management-page API, only in this test's temporary profile.
 						const page = await context.newPage();
 						await page.goto('chrome://extensions');
+						// Modern Chrome disables unpacked extensions on reload without Developer mode.
+						await page.evaluate(
+							() =>
+								new Promise<void>((resolve, reject) => {
+									const api = Reflect.get(
+										chrome,
+										'developerPrivate'
+									) as ChromeManagementApi;
+									api.updateProfileConfiguration(
+										{ inDeveloperMode: true },
+										() => {
+											if (chrome.runtime.lastError)
+												reject(new Error(chrome.runtime.lastError.message));
+											else resolve();
+										}
+									);
+								})
+						);
 						await page.evaluate(
 							({ extensionId, incognitoAccess }) =>
 								new Promise<void>((resolve, reject) => {
-									const api = Reflect.get(chrome, 'developerPrivate') as {
-										updateExtensionConfiguration: (
-											properties: {
-												extensionId: string;
-												incognitoAccess: boolean;
-											},
-											done: () => void
-										) => void;
-									};
+									const api = Reflect.get(
+										chrome,
+										'developerPrivate'
+									) as ChromeManagementApi;
 									api.updateExtensionConfiguration(
 										{ extensionId, incognitoAccess },
 										() => {
@@ -113,9 +167,42 @@ export const test = base.extend<{
 								}),
 							{ extensionId: new URL(worker.url()).host, incognitoAccess: incognito }
 						);
+						// The update callback precedes reload completion; closing now persists DISABLE_RELOAD.
+						await expect
+							.poll(() =>
+								page.evaluate(
+									(extensionId) =>
+										new Promise<string | undefined>((resolve, reject) => {
+											const api = Reflect.get(
+												chrome,
+												'developerPrivate'
+											) as ChromeManagementApi;
+											api.getExtensionsInfo(
+												{ includeDisabled: true, includeTerminated: true },
+												(info) => {
+													if (chrome.runtime.lastError)
+														reject(
+															new Error(
+																chrome.runtime.lastError.message
+															)
+														);
+													else
+														resolve(
+															info.find(
+																(extension) =>
+																	extension.id === extensionId
+															)?.state
+														);
+												}
+											);
+										}),
+									new URL(worker.url()).host
+								)
+							)
+							.toBe('ENABLED');
 					}
 					await context?.close();
-					return launch();
+					return launch(new URL('/', worker.url()).href);
 				},
 			});
 		} finally {

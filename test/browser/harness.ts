@@ -69,11 +69,27 @@ declare global {
 	var mergerTest: {
 		action: () => void;
 		menu: (id: string) => void;
+		actionFromWindow: (windowId: number) => Promise<void>;
+		menuFromWindow: (id: string, windowId: number) => Promise<void>;
 		errors: string[];
 		menuOperations: MenuOperation[];
 	};
 }
+const activeTabInWindow = async (windowId: number): Promise<chrome.tabs.Tab> => {
+	const [tab] = await chrome.tabs.query({ windowId, active: true });
+	if (!tab) throw new Error(`No active tab in window ${windowId}`);
+	return tab;
+};
+
 globalThis.mergerTest = {
+	actionFromWindow: async (windowId) => {
+		const tab = await activeTabInWindow(windowId);
+		for (const listener of actionListeners) listener(tab);
+	},
+	menuFromWindow: async (menuItemId, windowId) => {
+		const tab = await activeTabInWindow(windowId);
+		for (const listener of menuListeners) listener({ menuItemId, editable: false }, tab);
+	},
 	action: () => {
 		for (const listener of actionListeners) listener({} as chrome.tabs.Tab);
 	},

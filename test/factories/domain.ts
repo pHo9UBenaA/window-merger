@@ -39,6 +39,7 @@ export const createMockTabSnapshot = (
 ): TabSnapshot => {
 	return {
 		id: createTestTabId(id),
+		index: id,
 		groupId: null,
 		pinned: false,
 		muted: false,

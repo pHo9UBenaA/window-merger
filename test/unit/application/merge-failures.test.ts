@@ -22,55 +22,55 @@ const createDeps = () => {
 };
 
 describe('merge failures', () => {
-	it('waits for started groups and stops unstarted work after failure', async () => {
+	it('awaits each group before starting the next and stops on failure', async () => {
 		const deps = createDeps();
 		const pending = Promise.withResolvers<void>();
 		const error = new Error('Group disappeared');
-		deps.mocks.moveGroup.mockRejectedValueOnce(error).mockReturnValueOnce(pending.promise);
+		deps.mocks.moveGroup.mockReturnValueOnce(pending.promise);
 		const settled = vi.fn();
 		const result = mergeWindows(false, deps).catch(settled);
-		await vi.waitFor(() => expect(deps.mocks.moveGroup).toHaveBeenCalledTimes(2));
+		await vi.waitFor(() => expect(deps.mocks.moveGroup).toHaveBeenCalledOnce());
 		expect(settled).not.toHaveBeenCalled();
-		pending.resolve();
+		expect(deps.mocks.moveTabs).not.toHaveBeenCalled();
+		pending.reject(error);
 		await result;
-		expect(settled.mock.calls[0][0].errors).toEqual([error]);
+		expect(settled).toHaveBeenCalledExactlyOnceWith(error);
+		expect(deps.mocks.moveGroup).toHaveBeenCalledOnce();
 		expect(deps.mocks.moveTabs).not.toHaveBeenCalled();
 		expect(deps.mocks.updateTab).not.toHaveBeenCalled();
 	});
 
-	it('collects all group failures, including synchronous port exceptions', async () => {
+	it('propagates synchronous port exceptions without starting more work', async () => {
 		const deps = createDeps();
-		const errors = [new Error('First'), new Error('Second')];
-		deps.mocks.moveGroup
-			.mockImplementationOnce(() => {
-				throw errors[0];
-			})
-			.mockRejectedValueOnce(errors[1]);
-		await expect(mergeWindows(false, deps)).rejects.toMatchObject({ errors });
-		expect(deps.mocks.moveGroup).toHaveBeenCalledTimes(2);
+		const error = new Error('First');
+		deps.mocks.moveGroup.mockImplementationOnce(() => {
+			throw error;
+		});
+		await expect(mergeWindows(false, deps)).rejects.toBe(error);
+		expect(deps.mocks.moveGroup).toHaveBeenCalledOnce();
 	});
 
-	it('waits for started attribute updates after one fails', async () => {
+	it('awaits repinning before the next move and stops on pin failure', async () => {
 		const deps = createDeps();
 		deps.mocks.getAllWindows.mockResolvedValue([
 			window(1, [tab(1, { active: true })]),
-			window(2, [tab(2, { pinned: true, muted: true }), tab(3, { muted: true })]),
+			window(2, [tab(2, { pinned: true, muted: true }), tab(3, { pinned: true })]),
 		]);
 		const pending = Promise.withResolvers<void>();
-		deps.mocks.updateTab
-			.mockRejectedValueOnce(new Error('Pin failed'))
-			.mockReturnValueOnce(pending.promise);
+		deps.mocks.updateTab.mockReturnValueOnce(pending.promise);
 		const settled = vi.fn();
 		const result = mergeWindows(false, deps).catch(settled);
-		await vi.waitFor(() => expect(deps.mocks.updateTab).toHaveBeenCalledTimes(2));
+		await vi.waitFor(() => expect(deps.mocks.updateTab).toHaveBeenCalledOnce());
+		expect(deps.mocks.moveTabs).toHaveBeenCalledOnce();
 		expect(settled).not.toHaveBeenCalled();
-		pending.resolve();
+		pending.reject(new Error('Pin failed'));
 		await result;
 		expect(settled).toHaveBeenCalledOnce();
-		expect(deps.mocks.updateTab).toHaveBeenCalledTimes(2);
+		expect(deps.mocks.moveTabs).toHaveBeenCalledOnce();
+		expect(deps.mocks.updateTab).toHaveBeenCalledOnce();
 	});
 
-	it.each(['getAllWindows', 'moveTabs', 'updateTab'] as const)(
+	it.each(['getAllWindows', 'moveTabs', 'updateTab', 'getCollapsed', 'setCollapsed'] as const)(
 		'propagates %s failure to the event boundary',
 		async (method) => {
 			const deps = createDeps();

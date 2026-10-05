@@ -13,6 +13,35 @@ const createRequiredGroupId = (value: number) => {
 };
 
 describe('Chrome TabGroup Adapter', () => {
+	it('reads collapsed state and restores only that metadata field', async () => {
+		const group = {
+			id: 0,
+			collapsed: true,
+			color: 'blue',
+			windowId: 1,
+			shared: false,
+		} as const;
+		VitestChrome.tabGroups.get.mockResolvedValue(group);
+		const adapter = createChromeTabGroupAdapter();
+		expect(await adapter.getCollapsed(createRequiredGroupId(0))).toBe(true);
+		expect(VitestChrome.tabGroups.get).toHaveBeenCalledExactlyOnceWith(0);
+		await adapter.setCollapsed(createRequiredGroupId(0), true);
+		expect(VitestChrome.tabGroups.update).toHaveBeenCalledExactlyOnceWith(0, {
+			collapsed: true,
+		});
+	});
+
+	it.each(['get', 'update'] as const)('propagates %s failure', async (method) => {
+		const error = new Error('Group disappeared');
+		VitestChrome.tabGroups[method].mockRejectedValueOnce(error);
+		const adapter = createChromeTabGroupAdapter();
+		await expect(
+			method === 'get'
+				? adapter.getCollapsed(createRequiredGroupId(0))
+				: adapter.setCollapsed(createRequiredGroupId(0), true)
+		).rejects.toBe(error);
+	});
+
 	it('handles index -1 for append behavior', async () => {
 		VitestChrome.tabGroups.move.mockResolvedValue(undefined);
 
