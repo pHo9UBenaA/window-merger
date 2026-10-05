@@ -63,6 +63,7 @@ describe('Chrome Window Adapter', () => {
 				tabs: [
 					{
 						id: createTestTabId(10),
+						index: 0,
 						active: true,
 						pinned: true,
 						muted: true,
@@ -70,6 +71,7 @@ describe('Chrome Window Adapter', () => {
 					},
 					{
 						id: createTestTabId(11),
+						index: 1,
 						active: false,
 						pinned: false,
 						muted: false,

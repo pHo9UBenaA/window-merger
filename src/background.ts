@@ -3,6 +3,7 @@ import { createChromeTabAdapter } from './adapters/chrome/tab';
 import { createChromeTabGroupAdapter } from './adapters/chrome/tab-group';
 import { createChromeWindowAdapter } from './adapters/chrome/window';
 import { mergeWindows } from './application/merge-windows';
+import { createWindowId } from './domain/window-merge.types';
 
 const deps = {
 	windowPort: createChromeWindowAdapter(),
@@ -13,14 +14,18 @@ const deps = {
 const createMergeHandler = (incognito: boolean) => {
 	let running = false;
 
-	return async (): Promise<void> => {
+	return async (triggerWindowId?: number): Promise<void> => {
 		if (running) {
 			return;
 		}
 
 		running = true;
 		try {
-			const result = await mergeWindows(incognito, deps);
+			const preferredTargetWindowId =
+				triggerWindowId === undefined
+					? undefined
+					: (createWindowId(triggerWindowId) ?? undefined);
+			const result = await mergeWindows(incognito, deps, preferredTargetWindowId);
 			if (!result.ok && result.error.type !== 'insufficient-windows') {
 				console.error('Failed to merge windows:', result.error);
 			}
@@ -48,20 +53,20 @@ const initializeMenus = (): void => {
 chrome.runtime.onInstalled.addListener(initializeMenus);
 chrome.runtime.onStartup.addListener(initializeMenus);
 
-chrome.contextMenus.onClicked.addListener(({ menuItemId }) => {
+chrome.contextMenus.onClicked.addListener(({ menuItemId }, tab) => {
 	switch (menuItemId) {
 		case ContextMenuIds.mergeWindow:
-			void handleMergeWindowEvent();
+			void handleMergeWindowEvent(tab?.windowId);
 			break;
 		case ContextMenuIds.mergeIncognitoWindow:
-			void handleMergeIncognitoWindowEvent();
+			void handleMergeIncognitoWindowEvent(tab?.windowId);
 			break;
 	}
 });
 
-chrome.action.onClicked.addListener(() => {
-	void handleMergeWindowEvent();
-	void handleMergeIncognitoWindowEvent();
+chrome.action.onClicked.addListener((tab) => {
+	void handleMergeWindowEvent(tab.windowId);
+	void handleMergeIncognitoWindowEvent(tab.windowId);
 });
 
 // Also refresh persisted menus after worker restarts and incognito-permission reloads.

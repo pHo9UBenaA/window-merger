@@ -29,6 +29,13 @@ type VitestChrome = {
 	};
 	tabGroups: {
 		move: MockedFunction<TabGroupsMove>;
+		get: MockedFunction<(groupId: number) => Promise<chrome.tabGroups.TabGroup>>;
+		update: MockedFunction<
+			(
+				groupId: number,
+				properties: chrome.tabGroups.UpdateProperties
+			) => Promise<chrome.tabGroups.TabGroup | undefined>
+		>;
 	};
 };
 
@@ -42,5 +49,7 @@ export const VitestChrome: VitestChrome = {
 	},
 	tabGroups: {
 		move: vi.fn<TabGroupsMove>(),
+		get: vi.fn(),
+		update: vi.fn(),
 	},
 };

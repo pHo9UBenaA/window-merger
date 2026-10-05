@@ -39,6 +39,7 @@ const toTabSnapshot = (tab: chrome.tabs.Tab): TabSnapshot | null => {
 
 	return {
 		id: tabId,
+		index: tab.index,
 		groupId,
 		pinned: tab.pinned === true,
 		muted: tab.mutedInfo?.muted === true,

@@ -4,6 +4,7 @@ import {
 	filterWindows,
 	hasValidTabs,
 	planMerge,
+	planTabMoves,
 } from '../../../src/domain/window-merge';
 import {
 	createTabId,
@@ -25,6 +26,7 @@ const createTabSnapshot = (
 
 	return {
 		id: tabId,
+		index: id,
 		groupId: null,
 		pinned: false,
 		muted: false,
@@ -122,6 +124,42 @@ describe('Core Logic - Window Merge', () => {
 	});
 
 	describe('planMerge', () => {
+		it.each([1, 2])('prefers trigger window %s over focus', (id) => {
+			const windows = [
+				createWindowSnapshot(2, [createTabSnapshot(2, { active: true })]),
+				createWindowSnapshot(1, [createTabSnapshot(1, { active: true })], {
+					focused: true,
+				}),
+			];
+			expect(planMerge(windows, createValidWindowId(id))).toEqual({
+				ok: true,
+				data: {
+					targetWindowId: createValidWindowId(id),
+					activeTabId: createTabSnapshot(id).id,
+				},
+			});
+		});
+
+		it('falls back to focus when the trigger is absent', () => {
+			const windows = [
+				createWindowSnapshot(1, [createTabSnapshot(1, { active: true })]),
+				createWindowSnapshot(2, [createTabSnapshot(2, { active: true })], {
+					focused: true,
+				}),
+			];
+			expect(planMerge(windows, createValidWindowId(99))).toEqual(planMerge(windows));
+		});
+
+		it('falls back to the lowest ID independently of array order', () => {
+			const windows = [
+				createWindowSnapshot(2, [createTabSnapshot(2, { active: true })]),
+				createWindowSnapshot(1, [createTabSnapshot(1, { active: true })]),
+			];
+			expect(planMerge(windows)).toMatchObject({
+				data: { targetWindowId: createValidWindowId(1) },
+			});
+		});
+
 		it('returns target window ID and active tab ID when merge is possible', () => {
 			const window1 = createWindowSnapshot(1, [createTabSnapshot(1, { active: true })], {
 				focused: true,
@@ -199,5 +237,52 @@ describe('Core Logic - Window Merge', () => {
 				expect(result.data.activeTabId).toEqual(createTabSnapshot(3).id);
 			}
 		});
+	});
+});
+
+describe('planTabMoves', () => {
+	it('uses index order for pinned tabs, ungrouped runs and atomic groups', () => {
+		const groupX = { kind: 'GroupId', value: 0 } as const;
+		const groupY = { kind: 'GroupId', value: 1 } as const;
+		const tabs = [
+			createTabSnapshot(1, { pinned: true }),
+			createTabSnapshot(2, { pinned: true }),
+			createTabSnapshot(3),
+			createTabSnapshot(4, { groupId: groupX }),
+			createTabSnapshot(5, { groupId: groupX }),
+			createTabSnapshot(6),
+			createTabSnapshot(7),
+			createTabSnapshot(8, { groupId: groupY }),
+			createTabSnapshot(9, { groupId: groupY }),
+			createTabSnapshot(10),
+		];
+		const shuffled = Object.freeze(tabs.toReversed());
+		expect(planTabMoves(shuffled)).toEqual([
+			{ type: 'pinned', tabId: tabs[0].id },
+			{ type: 'pinned', tabId: tabs[1].id },
+			{ type: 'tabs', tabIds: [tabs[2].id] },
+			{ type: 'group', groupId: groupX },
+			{ type: 'tabs', tabIds: [tabs[5].id, tabs[6].id] },
+			{ type: 'group', groupId: groupY },
+			{ type: 'tabs', tabIds: [tabs[9].id] },
+		]);
+	});
+
+	it('moves each group once, even for a malformed noncontiguous snapshot', () => {
+		const groupId = { kind: 'GroupId', value: 0 } as const;
+		expect(
+			planTabMoves([
+				createTabSnapshot(1, { groupId }),
+				createTabSnapshot(2),
+				createTabSnapshot(3, { groupId }),
+			])
+		).toEqual([
+			{ type: 'group', groupId },
+			{ type: 'tabs', tabIds: [createTabSnapshot(2).id] },
+		]);
+	});
+
+	it('has no moves for an empty strip', () => {
+		expect(planTabMoves([])).toEqual([]);
 	});
 });

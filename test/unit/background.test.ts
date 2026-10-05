@@ -2,6 +2,8 @@ import { setTimeout as flush } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setupContextMenus } from '../../src/adapters/chrome/context-menu';
 import { mergeWindows } from '../../src/application/merge-windows';
+import { createMockChromeTab } from '../factories/chrome';
+import { createTestWindowId } from '../factories/domain';
 
 vi.mock('../../src/application/merge-windows', () => ({ mergeWindows: vi.fn() }));
 vi.mock('../../src/adapters/chrome/context-menu', async (importOriginal) => ({
@@ -26,14 +28,20 @@ const chromeMock = {
 	},
 	contextMenus: {
 		onClicked: {
-			addListener: vi.fn<(fn: (info: { menuItemId: string | number }) => void) => void>(),
+			addListener:
+				vi.fn<
+					(
+						fn: (info: { menuItemId: string | number }, tab?: chrome.tabs.Tab) => void
+					) => void
+				>(),
 		},
 	},
-	action: { onClicked: { addListener: vi.fn<(fn: () => void) => void>() } },
+	action: { onClicked: { addListener: vi.fn<(fn: (tab: chrome.tabs.Tab) => void) => void>() } },
 };
-const menu = (menuItemId: string | number) =>
-	chromeMock.contextMenus.onClicked.addListener.mock.calls[0][0]({ menuItemId });
-const action = () => chromeMock.action.onClicked.addListener.mock.calls[0][0]();
+const menu = (menuItemId: string | number, tab?: chrome.tabs.Tab) =>
+	chromeMock.contextMenus.onClicked.addListener.mock.calls[0][0]({ menuItemId }, tab);
+const action = (tab = createMockChromeTab(1)) =>
+	chromeMock.action.onClicked.addListener.mock.calls[0][0](tab);
 
 const loadBackground = async () => {
 	vi.resetModules();
@@ -81,8 +89,29 @@ describe('background events', () => {
 	] as const)('routes %s', async (id, incognito) => {
 		menu(id);
 		await flush();
-		expect(merge).toHaveBeenCalledExactlyOnceWith(incognito, expect.any(Object));
+		expect(merge).toHaveBeenCalledExactlyOnceWith(incognito, expect.any(Object), undefined);
 	});
+
+	it.each(['mergeWindowId', 'mergeIncognitoWindowId'])(
+		'passes the event tab window from %s',
+		async (id) => {
+			menu(id, createMockChromeTab(1, { windowId: 42 }));
+			await flush();
+			expect(merge.mock.calls[0][2]).toEqual(createTestWindowId(42));
+		}
+	);
+
+	it.each([0, 42, -1, Number.NaN])(
+		'passes a valid action window ID or falls back: %s',
+		async (windowId) => {
+			action(createMockChromeTab(1, { windowId }));
+			await flush();
+			expect(merge.mock.calls.map((call) => call[2])).toEqual([
+				windowId >= 0 ? createTestWindowId(windowId) : undefined,
+				windowId >= 0 ? createTestWindowId(windowId) : undefined,
+			]);
+		}
+	);
 
 	it.each(['unknown', 123])('ignores unknown menu ID %s', async (id) => {
 		menu(id);

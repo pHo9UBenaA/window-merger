@@ -4,10 +4,14 @@
 import type { Result } from '../shared/result';
 import { failure, success } from '../shared/result';
 import {
+	type GroupId,
 	isValidId,
 	type MergeError,
 	type MergeResult,
 	TARGET_WINDOW_TYPE,
+	type TabId,
+	type TabSnapshot,
+	type WindowId,
 	type WindowSnapshot,
 } from './window-merge.types';
 
@@ -24,7 +28,10 @@ export const compareWindowsByTargetPriority = (a: WindowSnapshot, b: WindowSnaps
 	return a.id.value - b.id.value;
 };
 
-export const planMerge = (windows: readonly WindowSnapshot[]): Result<MergeResult, MergeError> => {
+export const planMerge = (
+	windows: readonly WindowSnapshot[],
+	preferredTargetWindowId?: WindowId
+): Result<MergeResult, MergeError> => {
 	if (windows.length <= 1) {
 		return failure({
 			type: 'insufficient-windows',
@@ -33,7 +40,12 @@ export const planMerge = (windows: readonly WindowSnapshot[]): Result<MergeResul
 		});
 	}
 
-	const [targetWindow, ...sourceWindows] = [...windows].sort(compareWindowsByTargetPriority);
+	const targetWindow =
+		windows.find((window) => window.id.value === preferredTargetWindowId?.value) ??
+		[...windows].sort(compareWindowsByTargetPriority)[0];
+	const sourceWindows = windows
+		.filter((window) => window.id.value !== targetWindow.id.value)
+		.toSorted((a, b) => a.id.value - b.id.value);
 	if (!isValidId(targetWindow.id.value)) {
 		return failure({
 			type: 'no-valid-target',
@@ -68,6 +80,30 @@ export const planMerge = (windows: readonly WindowSnapshot[]): Result<MergeResul
 		targetWindowId: targetWindow.id,
 		activeTabId,
 	});
+};
+
+export type TabMove =
+	| { readonly type: 'pinned'; readonly tabId: TabId }
+	| { readonly type: 'tabs'; readonly tabIds: TabId[] }
+	| { readonly type: 'group'; readonly groupId: GroupId };
+
+export const planTabMoves = (tabs: readonly TabSnapshot[]): readonly TabMove[] => {
+	const moves: TabMove[] = [];
+	const groups = new Set<number>();
+	for (const tab of tabs.toSorted((a, b) => a.index - b.index)) {
+		if (tab.pinned) {
+			moves.push({ type: 'pinned', tabId: tab.id });
+		} else if (tab.groupId !== null) {
+			if (groups.has(tab.groupId.value)) continue;
+			groups.add(tab.groupId.value);
+			moves.push({ type: 'group', groupId: tab.groupId });
+		} else {
+			const previous = moves.at(-1);
+			if (previous?.type === 'tabs') previous.tabIds.push(tab.id);
+			else moves.push({ type: 'tabs', tabIds: [tab.id] });
+		}
+	}
+	return moves;
 };
 
 export const hasValidTabs = (window: WindowSnapshot): boolean => {

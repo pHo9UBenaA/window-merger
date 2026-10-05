@@ -50,8 +50,9 @@ export const createMockChromeWindow = (
 		...windowBase,
 		...options,
 		id,
-		tabs: tabs.map((tab) =>
+		tabs: tabs.map((tab, index) =>
 			createMockChromeTab(tab.id, {
+				index,
 				windowId: id,
 				incognito: options.incognito ?? false,
 				...tab,
