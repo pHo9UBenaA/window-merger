@@ -1,0 +1,131 @@
+name: Browser matrix
+
+# Manual verification of the packaged extension. Not part of the pull request gate:
+# `checks` still runs the browser suite on ubuntu-latest, and this workflow can be
+# dispatched on demand before a release or when investigating a platform difference.
+
+on:
+  workflow_dispatch:
+    inputs:
+      stress:
+        description: Also run the 200-tab stress test
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# A dispatched rerun must finish; do not let a newer push cancel it.
+concurrency:
+  group: browser-matrix-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  browser:
+    name: browser (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          run_install: false
+      - if: runner.os == 'Windows'
+        run: choco install zip unzip --no-progress -y
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_GC: '1'
+      - run: pnpm run test:browser
+      - if: inputs.stress
+        run: pnpm run test:stress
+      - if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: browser-${{ matrix.os }}
+          path: test-results
+
+  plan:
+    name: plan compatibility matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - id: plan
+        run: echo "matrix=$(node --experimental-strip-types scripts/chrome-compat.ts --matrix)" >> "$GITHUB_OUTPUT"
+
+  compatibility:
+    name: compatibility (${{ matrix.os }}, Chrome ${{ matrix.major }})
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          run_install: false
+      - if: runner.os == 'Windows'
+        run: choco install zip unzip --no-progress -y
+      - run: pnpm install --frozen-lockfile
+      - if: runner.os == 'Linux'
+        run: pnpm exec playwright install-deps chromium
+      - run: pnpm chrome:install "${{ matrix.major }}" "${{ matrix.platform }}"
+      - if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm test:browser:compat
+      - if: runner.os != 'Linux'
+        run: pnpm test:browser:compat
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: compatibility-${{ matrix.os }}-${{ matrix.major }}
+          path: test-results
+
+  gate:
+    name: compatibility-gate
+    needs: [browser, plan, compatibility]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          BROWSER_RESULT: ${{ needs.browser.result }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          COMPATIBILITY_RESULT: ${{ needs.compatibility.result }}
+        run: |
+          [[ "$BROWSER_RESULT" == success ]]
+          [[ "$PLAN_RESULT" == success ]]
+          [[ "$COMPATIBILITY_RESULT" == success ]]

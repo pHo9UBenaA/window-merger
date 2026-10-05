@@ -30,6 +30,9 @@ export const test = base.extend<{
 }>({
 	extension: async ({ browserName }, use) => {
 		if (browserName !== 'chromium') throw new Error('Extension tests require Chromium');
+		// Set by `pnpm chrome:install` to test a locked Chrome for Testing build.
+		const executablePath = process.env.CHROME_EXECUTABLE_PATH;
+		const expectedMajor = process.env.CHROME_MAJOR;
 		const directory = await mkdtemp(join(tmpdir(), 'window-merger-browser-'));
 		const extension = join(directory, 'extension');
 		let context: BrowserContext | undefined;
@@ -50,7 +53,7 @@ export const test = base.extend<{
 			);
 			const launch = async (scopeURL?: string) => {
 				context = await chromium.launchPersistentContext(join(directory, 'profile'), {
-					channel: 'chromium',
+					...(executablePath ? { executablePath } : { channel: 'chromium' }),
 					headless: process.env.HEADED !== '1',
 					args: [
 						`--disable-extensions-except=${extension}`,
@@ -60,6 +63,14 @@ export const test = base.extend<{
 				const page = context.pages()[0] ?? (await context.newPage());
 				const session = await context.newCDPSession(page);
 				try {
+					if (expectedMajor) {
+						const version = await session.send('Browser.getVersion');
+						const major = version.product.split('/')[1]?.split('.')[0];
+						if (major !== expectedMajor)
+							throw new Error(
+								`Expected Chrome ${expectedMajor}, launched ${version.product}`
+							);
+					}
 					if (scopeURL) {
 						// Chrome may leave a persisted extension worker idle after a profile restart.
 						await session.send('ServiceWorker.enable');
