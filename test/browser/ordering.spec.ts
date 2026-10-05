@@ -46,8 +46,10 @@ for (const incognito of [false, true]) {
 						],
 						[second, [[4, 5]]],
 					] as const) {
-						const ids = window.tabs?.map((tab) => tab.id as number);
+						const ids = window.tabs?.map((tab) => tab.id as number).toReversed();
 						if (!ids?.length) throw new Error('Missing fixture tabs');
+						// Strip order must differ from ID/creation order, including multi-tab runs.
+						for (const id of ids) await chrome.tabs.move(id, { index: -1 });
 						for (const id of ids.slice(0, 2))
 							await chrome.tabs.update(id, { pinned: true });
 						await chrome.tabs.update(ids[2], { active: true, muted: true });

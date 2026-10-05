@@ -241,9 +241,28 @@ describe('Core Logic - Window Merge', () => {
 });
 
 describe('planTabMoves', () => {
+	it('orders by strip index, not tab ID or creation order', () => {
+		expect(
+			planTabMoves([
+				createTabSnapshot(1, { index: 2 }),
+				createTabSnapshot(10, { index: 0 }),
+				createTabSnapshot(7, { index: 1 }),
+			])
+		).toEqual([
+			{
+				type: 'tabs',
+				tabIds: [
+					createTabSnapshot(10).id,
+					createTabSnapshot(7).id,
+					createTabSnapshot(1).id,
+				],
+			},
+		]);
+	});
+
 	it('uses index order for pinned tabs, ungrouped runs and atomic groups', () => {
-		const groupX = { kind: 'GroupId', value: 0 } as const;
-		const groupY = { kind: 'GroupId', value: 1 } as const;
+		const groupX = { kind: 'GroupId', value: 1 } as const;
+		const groupY = { kind: 'GroupId', value: 0 } as const;
 		const tabs = [
 			createTabSnapshot(1, { pinned: true }),
 			createTabSnapshot(2, { pinned: true }),
