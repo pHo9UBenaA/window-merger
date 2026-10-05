@@ -41,6 +41,7 @@ export const test = base.extend<{
 				context = await chromium.launchPersistentContext(join(directory, 'profile'), {
 					...(executablePath ? { executablePath } : { channel: 'chromium' }),
 					headless: process.env.HEADED !== '1',
+					ignoreDefaultArgs: ['--disable-extensions'],
 					args: [
 						`--disable-extensions-except=${extension}`,
 						`--load-extension=${extension}`,
@@ -48,6 +49,8 @@ export const test = base.extend<{
 				});
 				const page = context.pages()[0] ?? (await context.newPage());
 				const session = await context.newCDPSession(page);
+				let workerVersions: unknown;
+				session.on('ServiceWorker.workerVersionUpdated', (event) => { workerVersions = event.versions; });
 				try {
 					const version = await session.send('Browser.getVersion');
 					await testInfo.attach('browser-version', {
@@ -69,10 +72,20 @@ export const test = base.extend<{
 						await session.send('ServiceWorker.enable');
 						await session.send('ServiceWorker.startWorker', { scopeURL });
 					}
+					// Keep the debugging session attached until Playwright has attached to the worker.
+					return (
+						context.serviceWorkers()[0] ??
+						(await context.waitForEvent('serviceworker', { timeout: 15000 }))
+					);
+				} catch (error) {
+					await testInfo.attach('startup-targets', {
+						body: JSON.stringify({ scopeURL, workerVersions, ...await session.send('Target.getTargets') }),
+						contentType: 'application/json',
+					});
+					throw error;
 				} finally {
 					await session.detach();
 				}
-				return context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
 			};
 			const worker = await launch();
 			await use({
