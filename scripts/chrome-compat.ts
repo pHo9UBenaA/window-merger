@@ -31,8 +31,8 @@ export const validateChromeVersions = (
 };
 
 export const chromeMatrix = (lock: Record<string, string>) => ({
-	include: Object.entries(platforms).flatMap(([os, platform]) =>
-		Object.keys(lock).map((major) => ({ os, platform, major }))
+	include: Object.keys(lock).flatMap((major) =>
+		Object.entries(platforms).map(([os, platform]) => ({ os, platform, major }))
 	),
 });
 

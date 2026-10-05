@@ -37,7 +37,7 @@ export const test = base.extend<{
 				background,
 				`${harness.outputFiles[0].text}\n${await readFile(background, 'utf8')}`
 			);
-			const launch = async () => {
+			const launch = async (scopeURL?: string) => {
 				context = await chromium.launchPersistentContext(join(directory, 'profile'), {
 					...(executablePath ? { executablePath } : { channel: 'chromium' }),
 					headless: process.env.HEADED !== '1',
@@ -64,6 +64,11 @@ export const test = base.extend<{
 						throw new Error(
 							`Expected Chrome ${expectedMajor}, launched ${version.product}`
 						);
+					if (scopeURL) {
+						// Chrome may leave a persisted extension worker idle after a profile restart.
+						await session.send('ServiceWorker.enable');
+						await session.send('ServiceWorker.startWorker', { scopeURL });
+					}
 				} finally {
 					await session.detach();
 				}
@@ -140,7 +145,7 @@ export const test = base.extend<{
 						);
 					}
 					await context?.close();
-					return launch();
+					return launch(new URL('/', worker.url()).href);
 				},
 			});
 		} finally {
