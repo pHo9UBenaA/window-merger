@@ -13,8 +13,12 @@ export const test = base.extend<{
 		restartWorker: (worker: Worker) => Promise<void>;
 	};
 }>({
-	extension: async ({ browserName }, use) => {
+	extension: async ({ browserName }, use, testInfo) => {
 		if (browserName !== 'chromium') throw new Error('Extension tests require Chromium');
+		const executablePath = process.env.CHROME_EXECUTABLE_PATH;
+		const expectedMajor = process.env.CHROME_MAJOR;
+		if (testInfo.project.name === 'compat' && (!executablePath || !expectedMajor))
+			throw new Error('Compatibility tests require CHROME_EXECUTABLE_PATH and CHROME_MAJOR');
 		const directory = await mkdtemp(join(tmpdir(), 'window-merger-browser-'));
 		const extension = join(directory, 'extension');
 		let context: BrowserContext | undefined;
@@ -35,13 +39,34 @@ export const test = base.extend<{
 			);
 			const launch = async () => {
 				context = await chromium.launchPersistentContext(join(directory, 'profile'), {
-					channel: 'chromium',
+					...(executablePath ? { executablePath } : { channel: 'chromium' }),
 					headless: process.env.HEADED !== '1',
 					args: [
 						`--disable-extensions-except=${extension}`,
 						`--load-extension=${extension}`,
 					],
 				});
+				const page = context.pages()[0] ?? (await context.newPage());
+				const session = await context.newCDPSession(page);
+				try {
+					const version = await session.send('Browser.getVersion');
+					await testInfo.attach('browser-version', {
+						body: JSON.stringify({
+							...version,
+							executablePath: executablePath ?? chromium.executablePath(),
+						}),
+						contentType: 'application/json',
+					});
+					if (
+						expectedMajor &&
+						version.product.split('/')[1]?.split('.')[0] !== expectedMajor
+					)
+						throw new Error(
+							`Expected Chrome ${expectedMajor}, launched ${version.product}`
+						);
+				} finally {
+					await session.detach();
+				}
 				return context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
 			};
 			const worker = await launch();

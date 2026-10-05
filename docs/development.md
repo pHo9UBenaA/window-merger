@@ -41,6 +41,47 @@ pnpm test:browser
 For merge-related changes, also run `pnpm test:stress` (200 tabs by default).
 Use `STRESS_TABS=500 pnpm test:stress` for larger cases or `HEADED=1 pnpm test:browser` to see Chrome.
 
+### Chrome compatibility
+
+`pnpm test:browser` runs the full integration suite on Playwright-managed Chromium. CI runs it on
+Linux, Windows and Apple Silicon macOS. `pnpm test:browser:compat` runs only the `@compat` scenarios:
+both merge directions through action and context menu, normal/incognito separation, exact pinned and
+unpinned order, group identity/member order/metadata, active/muted states, popups and no tab loss.
+
+[`test/browser/chrome-versions.json`](../test/browser/chrome-versions.json) locks one Chrome for Testing
+**full Chrome** patch per major, from the manifest minimum to Stable. Tests do not resolve or change
+versions. To test a locked major locally:
+
+```sh
+pnpm chrome:install 120 mac-arm64 # or linux64 / win64
+# Set the executablePath printed by the installer (use a disposable profile).
+CHROME_EXECUTABLE_PATH='/path/to/chrome' CHROME_MAJOR=120 HEADED=1 pnpm test:browser:compat
+```
+
+Linux headed runs require `xvfb-run -a`; CI installs Chrome's system dependencies. Windows runners
+install `zip`/`unzip` with Chocolatey. The fixture checks the actual browser major via CDP and attaches
+its version plus before/after ordering snapshots. Do not use `chrome-headless-shell` for extensions.
+
+To refresh patches or extend the range when Stable advances, run `pnpm chrome:update-lock`, review
+and commit the lock diff as an explicit maintenance change, then rerun the full matrix. The updater
+uses Chrome for Testing's milestone/Stable APIs and verifies full binaries for all three platforms
+before writing the lock. CI derives the matrix from the lock: every major on `ubuntu-24.04/linux64`,
+`windows-2025/win64` and `macos-15/mac-arm64`, with both directions in each job. It does not infer window
+creation order from window IDs.
+
+Merge, artifact and browser-fixture PRs and all release branches run the full compatibility matrix;
+docs-only or unrelated tooling PRs can skip it. `workflow_dispatch` always runs it. Failures do not
+cancel other versions; concurrency is capped at 12. Configure branch protection to require `checks`,
+the three `browser` jobs and `compatibility-gate` (the gate also succeeds for an intentional skip).
+A workflow alone cannot configure required checks in GitHub repository settings.
+
+Do not publish the ordering guarantee or bump to `v1.5.0` until every locked major/OS passes. Before
+release, check the lock reaches current Stable and rerun the full matrix if Stable has advanced. Keep
+any v1.4.9 / Chrome 113–119 historical investigation separate from current support acceptance; record
+the extension commit, browser/OS/version and before/after snapshots, including launch failures.
+
+### Manual release checks
+
 Before a release, use disposable profiles on the minimum supported Chrome version and current stable
 Chrome. Record browser/OS/version, results and console errors:
 

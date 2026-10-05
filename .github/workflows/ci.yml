@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, 'release/**']
   workflow_dispatch:
     inputs:
       stress:
@@ -55,9 +55,134 @@ jobs:
           RELEASE_BRANCH: ${{ github.head_ref || github.ref_name }}
           RELEASE_COMMIT: HEAD
         run: node --experimental-strip-types scripts/release.ts --check
+
+  browser:
+    name: browser (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          run_install: false
+      - if: runner.os == 'Windows'
+        run: choco install zip unzip --no-progress -y
+      - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
         env:
           PLAYWRIGHT_SKIP_BROWSER_GC: '1'
       - run: pnpm run test:browser
       - if: github.event_name == 'workflow_dispatch' && inputs.stress
         run: pnpm run test:stress
+      - if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: browser-${{ matrix.os }}
+          path: test-results
+
+  compatibility-plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      required: ${{ steps.plan.outputs.required }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          required=true
+          if [[ "$EVENT_NAME" == pull_request && "$HEAD_REF" != release/* ]]; then
+            if git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+              src test/browser scripts/build.ts scripts/package.ts scripts/validate-extension.ts \
+              scripts/chrome-compat.ts test/unit/chrome-compat.test.ts \
+              package.json pnpm-lock.yaml pnpm-workspace.yaml playwright.config.ts .github/workflows; then
+              required=false
+            fi
+          fi
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(node --experimental-strip-types scripts/chrome-compat.ts --matrix)" >> "$GITHUB_OUTPUT"
+
+  compatibility:
+    name: compatibility (${{ matrix.os }}, Chrome ${{ matrix.major }})
+    needs: compatibility-plan
+    if: needs.compatibility-plan.outputs.required == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix: ${{ fromJSON(needs.compatibility-plan.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          run_install: false
+      - if: runner.os == 'Windows'
+        run: choco install zip unzip --no-progress -y
+      - run: pnpm install --frozen-lockfile
+      - if: runner.os == 'Linux'
+        run: pnpm exec playwright install-deps chromium
+      - run: pnpm chrome:install "${{ matrix.major }}" "${{ matrix.platform }}"
+      - if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm test:browser:compat
+      - if: runner.os != 'Linux'
+        run: pnpm test:browser:compat
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: compatibility-${{ matrix.os }}-${{ matrix.major }}
+          path: test-results
+
+  compatibility-gate:
+    name: compatibility-gate
+    needs: [compatibility-plan, compatibility]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          PLAN_RESULT: ${{ needs.compatibility-plan.result }}
+          REQUIRED: ${{ needs.compatibility-plan.outputs.required }}
+          MATRIX_RESULT: ${{ needs.compatibility.result }}
+        run: |
+          [[ "$PLAN_RESULT" == success ]]
+          if [[ "$REQUIRED" == true ]]; then
+            [[ "$MATRIX_RESULT" == success ]]
+          else
+            [[ "$MATRIX_RESULT" == skipped ]]
+          fi
