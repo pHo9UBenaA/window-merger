@@ -56,7 +56,6 @@ export const test = base.extend<{
 				context = await chromium.launchPersistentContext(join(directory, 'profile'), {
 					...(executablePath ? { executablePath } : { channel: 'chromium' }),
 					headless: process.env.HEADED !== '1',
-					ignoreDefaultArgs: ['--disable-extensions'],
 					args: [
 						`--disable-extensions-except=${extension}`,
 						`--load-extension=${extension}`,

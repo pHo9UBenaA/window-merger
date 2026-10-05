@@ -30,11 +30,21 @@ export const validateChromeVersions = (
 	return lock;
 };
 
-export const chromeMatrix = (lock: Record<string, string>) => ({
-	include: Object.keys(lock).flatMap((major) =>
-		Object.entries(platforms).map(([os, platform]) => ({ os, platform, major }))
-	),
-});
+export const chromeMatrix = (lock: Record<string, string>, requested?: string) => {
+	const majors = (requested ?? '')
+		.split(',')
+		.map((major) => major.trim())
+		.filter(Boolean);
+	const unlocked = majors.filter((major) => !(major in lock));
+	if (unlocked.length > 0)
+		throw new Error(`Chrome majors are not locked: ${unlocked.join(', ')}`);
+	const selected = majors.length > 0 ? majors : Object.keys(lock);
+	return {
+		include: selected.flatMap((major) =>
+			Object.entries(platforms).map(([os, platform]) => ({ os, platform, major }))
+		),
+	};
+};
 
 const getJson = async (url: string) => {
 	const response = await fetch(url);
@@ -139,14 +149,16 @@ if (import.meta.main) {
 					JSON.parse(await readFile(lockPath, 'utf8')),
 					await minimumMajor()
 				);
-				console.log(JSON.stringify(chromeMatrix(lock)));
+				console.log(JSON.stringify(chromeMatrix(lock, major)));
 				break;
 			}
 			case '--install':
 				await installChrome(major, platform);
 				break;
 			default:
-				throw new Error('Use --update-lock, --matrix, or --install <major> <platform>');
+				throw new Error(
+					'Use --update-lock, --matrix [majors], or --install <major> <platform>'
+				);
 		}
 	} catch (error) {
 		console.error(error);

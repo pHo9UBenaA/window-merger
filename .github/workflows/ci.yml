@@ -10,6 +10,10 @@ on:
         description: Run the larger browser test
         type: boolean
         default: false
+      majors:
+        description: 'Limit compatibility jobs to these Chrome majors (comma-separated); empty runs every locked major'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -116,6 +120,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REF: ${{ github.head_ref }}
+          INPUT_MAJORS: ${{ inputs.majors }}
         run: |
           required=true
           if [[ "$EVENT_NAME" == pull_request && "$HEAD_REF" != release/* ]]; then
@@ -127,7 +132,7 @@ jobs:
             fi
           fi
           echo "required=$required" >> "$GITHUB_OUTPUT"
-          echo "matrix=$(node --experimental-strip-types scripts/chrome-compat.ts --matrix)" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(node --experimental-strip-types scripts/chrome-compat.ts --matrix "$INPUT_MAJORS")" >> "$GITHUB_OUTPUT"
 
   compatibility:
     name: compatibility (${{ matrix.os }}, Chrome ${{ matrix.major }})
