@@ -86,10 +86,8 @@ test('preserves a collapsed group left alone in a source window @compat', async 
 		if (popup?.id === undefined || !popup.tabs?.length) throw new Error('Missing test popup');
 		await chrome.windows.create({ url: 'about:blank', focused: true });
 		const all = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
-		// Headless Chromium may report no focused window. Follow the documented tie-breaker.
-		const target =
-			all.find((window) => window.focused) ??
-			all.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0))[0];
+		// Trigger from a chosen window so the target never depends on OS-specific focus timing.
+		const target = all.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0))[0];
 		const orderedTabs = [
 			target,
 			...all
@@ -109,11 +107,11 @@ test('preserves a collapsed group left alone in a source window @compat', async 
 			].map((tab) => tab.id),
 		};
 	});
-	await worker.evaluate(() => {
-		mergerTest.action();
+	await worker.evaluate(async (target) => {
+		await mergerTest.actionFromWindow(target as number);
 		mergerTest.menu('mergeWindowId'); // Duplicates must not start another merge.
 		mergerTest.menu('mergeIncognitoWindowId'); // Unavailable mode must be harmless.
-	});
+	}, before.target);
 	await expect
 		.poll(() =>
 			worker.evaluate(
@@ -124,15 +122,16 @@ test('preserves a collapsed group left alone in a source window @compat', async 
 	await expect
 		.poll(() =>
 			worker.evaluate(async ({ ids, active }) => {
-				const [pinned, muted, selected] = await Promise.all([
-					chrome.tabs.get(ids[0]),
-					chrome.tabs.get(ids[1]),
-					chrome.tabs.get(active as number),
-				]);
-				return [pinned.pinned, muted.mutedInfo?.muted, selected.active];
+				const tabs = await chrome.tabs.query({ windowType: 'normal' });
+				return {
+					pinned: tabs.some((tab) => tab.id === ids[0] && tab.pinned),
+					muted: tabs.some((tab) => tab.id === ids[1] && tab.mutedInfo?.muted),
+					selected: tabs.filter((tab) => tab.active).map((tab) => tab.id),
+					expected: active,
+				};
 			}, before)
 		)
-		.toEqual([true, true, true]);
+		.toEqual({ pinned: true, muted: true, selected: [before.active], expected: before.active });
 	await expect
 		.poll(() =>
 			worker.evaluate(async (id) => (await chrome.tabGroups.get(id)).collapsed, before.group)

@@ -89,15 +89,28 @@ export const test = base.extend<{
 						await session.send('ServiceWorker.startWorker', { scopeURL });
 					}
 					// Keep the debugging session attached until Playwright has attached to the worker.
-					return (
+					const worker =
 						context.serviceWorkers()[0] ??
-						(await context.waitForEvent('serviceworker', { timeout: 15000 }))
-					);
+						(await context.waitForEvent('serviceworker', { timeout: 15000 }));
+					// Hand out the worker only once production has created its context-menu entries.
+					await expect
+						.poll(
+							() =>
+								worker.evaluate(() =>
+									typeof mergerTest === 'undefined'
+										? 0
+										: mergerTest.menuOperations.length
+								),
+							{ timeout: 15000 }
+						)
+						.toBeGreaterThan(0);
+					return worker;
 				} catch (error) {
 					await testInfo.attach('startup-targets', {
 						body: JSON.stringify({
 							scopeURL,
 							workerVersions,
+							workers: context.serviceWorkers().map(({ url }) => url),
 							...(await session.send('Target.getTargets')),
 						}),
 						contentType: 'application/json',
