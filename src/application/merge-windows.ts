@@ -56,14 +56,12 @@ export const mergeWindows = async (
 	// Removing a source's last ungrouped tab can activate and expand its remaining group.
 	// Capture every group's state before any moves, including groups already in the target.
 	const groups = new Map<number, { id: GroupId; collapsed: boolean }>();
-	for (const window of windows) {
-		for (const tab of window.tabs) {
-			if (tab.groupId === null || groups.has(tab.groupId.value)) continue;
-			groups.set(tab.groupId.value, {
-				id: tab.groupId,
-				collapsed: await deps.tabGroupPort.getCollapsed(tab.groupId),
-			});
-		}
+	for (const tab of windows.flatMap((window) => window.tabs)) {
+		if (tab.groupId === null || groups.has(tab.groupId.value)) continue;
+		groups.set(tab.groupId.value, {
+			id: tab.groupId,
+			collapsed: await deps.tabGroupPort.getCollapsed(tab.groupId),
+		});
 	}
 
 	const { targetWindowId, activeTabId } = plan.data;
