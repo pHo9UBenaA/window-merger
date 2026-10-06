@@ -55,36 +55,23 @@ Do not attach private URLs or a personal browser profile to bug reports.
 
 ### Manual browser matrix
 
-`pnpm test:browser` runs the full integration suite on Playwright-managed Chromium. CI runs it on
-ubuntu-latest; the `Browser matrix` workflow runs it on Linux, Windows and Apple Silicon macOS on
-demand. `pnpm test:browser:compat` runs only the `@compat` scenarios: both merge directions through
-the action and the context menu, exact pinned and unpinned order, group identity/member order and
-metadata, active and muted states, popups, and no tab loss.
-
-[`test/browser/chrome-versions.json`](../test/browser/chrome-versions.json) locks one Chrome for Testing
-**full Chrome** patch per major, from the manifest minimum to Stable. Tests never resolve or change
-versions. To test a locked major locally:
+`pnpm test:browser:compat` runs only the `@compat` scenarios.
+[`test/browser/chrome-versions.json`](../test/browser/chrome-versions.json) locks one full Chrome for
+Testing patch per major, from the manifest minimum to Stable. To test a locked major locally:
 
 ```sh
 pnpm chrome:install 120 mac-arm64 # or linux64 / win64
-# CHROME_EXECUTABLE_PATH is printed by the installer (use a disposable profile).
 CHROME_EXECUTABLE_PATH='/path/to/chrome' CHROME_MAJOR=120 HEADED=1 pnpm test:browser:compat
 ```
 
-The fixture verifies the launched major over CDP and fails on a mismatch. Linux headed runs need
-`xvfb-run -a`; Windows needs `zip` and `unzip`. Do not use `chrome-headless-shell` for extensions.
+The installer prints the executable path. Linux headed runs need `xvfb-run -a`.
 
-Run **Actions → Browser matrix → Run workflow** before a release. It runs the browser suite on
-ubuntu-24.04, windows-2025 and macos-15, then the oldest and newest locked Chrome on ubuntu-24.04,
-windows-2025 and macos-14. macOS uses `macos-14` because Chrome for Testing 120 cannot launch on
-`macos-15` arm64; that is a property of those binaries, not of the extension. The workflow is manual
-and never gates a pull request. Uploaded `test-results` artifacts carry the Playwright JSON report,
-ordering snapshots and failure context.
+Run **Actions → Browser matrix → Run workflow** before a release. It is manual and never gates a pull
+request; uploaded `test-results` artifacts carry the Playwright report and failure context.
 
-Refresh patches, or extend the range when Stable advances, with `pnpm chrome:update-lock`, then review
-and commit the lock diff as its own maintenance change. The updater reads the Chrome for Testing
-milestone and Stable endpoints and verifies that full binaries exist for every platform in the matrix
-before writing the lock. CI reads the lock and never picks versions by itself.
+Refresh patches, or extend the range when Stable advances, with `pnpm chrome:update-lock` and commit
+the lock diff as its own maintenance change. Tests and CI read the lock and never pick versions
+themselves.
 
 ## Dependencies and Git hooks
 
