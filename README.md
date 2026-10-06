@@ -14,7 +14,8 @@ separately. Context-menu entries let you merge either mode individually.
 
 - Only ordinary windows in the accessible browser profile are merged.
 - To merge incognito windows, [allow incognito access](https://support.google.com/chrome/a/answer/13130396).
-- Tab ordering is not guaranteed. Collapsed groups may expand during a merge.
+- Tab order is preserved: the window you merge from stays first, and tabs and tab groups
+  keep their left-to-right order. Collapsed groups stay collapsed.
 - A failed merge may leave some tabs already moved.
 - Change the shortcut at `chrome://extensions/shortcuts`.
 
