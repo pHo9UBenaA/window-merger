@@ -26,7 +26,7 @@ describe('Chrome compatibility lock', () => {
 		);
 	});
 
-	it.each([
+	it.each<Record<string, string>>([
 		{},
 		{ '121': '121.0.1.1' },
 		{ '120': '120.0.1.1', '122': '122.0.1.1' },
@@ -34,6 +34,6 @@ describe('Chrome compatibility lock', () => {
 		{ '120': '120.0.1' },
 		{ '120': '120.0.1.1', invalid: 'invalid' },
 	])('rejects an incomplete or invalid lock: %j', (versions) => {
-		expect(() => validateChromeVersions(versions as Record<string, string>, 120)).toThrow();
+		expect(() => validateChromeVersions(versions, 120)).toThrow();
 	});
 });

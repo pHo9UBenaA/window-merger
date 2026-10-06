@@ -28,6 +28,10 @@ export const compareWindowsByTargetPriority = (a: WindowSnapshot, b: WindowSnaps
 	return a.id.value - b.id.value;
 };
 
+// Order windows by ID; `chrome.windows.getAll` gives no ordering guarantee of its own.
+export const compareWindowsById = (a: WindowSnapshot, b: WindowSnapshot): number =>
+	a.id.value - b.id.value;
+
 export const planMerge = (
 	windows: readonly WindowSnapshot[],
 	preferredTargetWindowId?: WindowId
@@ -42,10 +46,10 @@ export const planMerge = (
 
 	const targetWindow =
 		windows.find((window) => window.id.value === preferredTargetWindowId?.value) ??
-		[...windows].sort(compareWindowsByTargetPriority)[0];
+		windows.toSorted(compareWindowsByTargetPriority)[0];
 	const sourceWindows = windows
 		.filter((window) => window.id.value !== targetWindow.id.value)
-		.toSorted((a, b) => a.id.value - b.id.value);
+		.toSorted(compareWindowsById);
 	if (!isValidId(targetWindow.id.value)) {
 		return failure({
 			type: 'no-valid-target',

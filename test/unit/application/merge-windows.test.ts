@@ -168,8 +168,9 @@ describe('App Layer - Merge Windows', () => {
 			[targetGroup, false],
 			[sourceGroup, true],
 		]);
+		const lastUpdateOrder = deps.mocks.updateTab.mock.invocationCallOrder.at(-1) ?? 0;
 		expect(deps.mocks.setCollapsed.mock.invocationCallOrder[0]).toBeGreaterThan(
-			deps.mocks.updateTab.mock.invocationCallOrder.at(-1) as number
+			lastUpdateOrder
 		);
 	});
 

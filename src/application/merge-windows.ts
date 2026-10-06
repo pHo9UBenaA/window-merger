@@ -1,4 +1,4 @@
-import { filterWindows, planMerge, planTabMoves } from '../domain/window-merge';
+import { compareWindowsById, filterWindows, planMerge, planTabMoves } from '../domain/window-merge';
 import type {
 	GroupId,
 	MergeError,
@@ -65,7 +65,7 @@ export const mergeWindows = async (
 	}
 
 	const { targetWindowId, activeTabId } = plan.data;
-	for (const window of windows.toSorted((a, b) => a.id.value - b.id.value)) {
+	for (const window of windows.toSorted(compareWindowsById)) {
 		if (window.id.value === targetWindowId.value) continue;
 		await moveTabsToTarget(window.tabs, targetWindowId, deps);
 	}

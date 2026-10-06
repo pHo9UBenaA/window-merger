@@ -8,9 +8,12 @@ const lockPath = join(PROJECT_ROOT, 'test/browser/chrome-versions.json');
 // Only the oldest and newest supported Chrome are exercised per platform. macOS uses
 // macos-14 because Chrome for Testing 120 cannot launch on macos-15 arm64.
 const platforms = {
-	'ubuntu-24.04': 'linux64',
-	'windows-2025': 'win64',
-	'macos-14': 'mac-arm64',
+	'ubuntu-24.04': { platform: 'linux64', executable: 'chrome' },
+	'windows-2025': { platform: 'win64', executable: 'chrome.exe' },
+	'macos-14': {
+		platform: 'mac-arm64',
+		executable: 'Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+	},
 } as const;
 
 export const validateChromeVersions = (
@@ -36,13 +39,18 @@ export const chromeMatrix = (lock: Record<string, string>, minimumMajor: number)
 	const majors = [minimumMajor, Number(Object.keys(lock).at(-1))];
 	return {
 		include: majors.flatMap((major) =>
-			Object.entries(platforms).map(([os, platform]) => ({
+			Object.entries(platforms).map(([os, { platform }]) => ({
 				os,
 				platform,
 				major: String(major),
 			}))
 		),
 	};
+};
+
+type KnownGoodVersion = {
+	version: string;
+	downloads?: { chrome?: { platform: string }[] };
 };
 
 const getJson = async (url: string) => {
@@ -58,6 +66,9 @@ const minimumMajor = async (): Promise<number> => {
 	return Number(manifest.minimum_chrome_version.split('.')[0]);
 };
 
+const readLock = async (minimum: number): Promise<Record<string, string>> =>
+	validateChromeVersions(JSON.parse(await readFile(lockPath, 'utf8')), minimum);
+
 const updateLock = async (): Promise<void> => {
 	const [latest, channels, known] = await Promise.all([
 		getJson(
@@ -72,18 +83,15 @@ const updateLock = async (): Promise<void> => {
 	]);
 	const minimum = await minimumMajor();
 	const stable = Number(channels.channels.Stable.version.split('.')[0]);
+	const availableByVersion = new Map<string, KnownGoodVersion>(
+		known.versions.map((entry: KnownGoodVersion) => [entry.version, entry])
+	);
 	const lock: Record<string, string> = {};
 	for (let major = minimum; major <= stable; major++) {
 		const version = latest.milestones[major]?.version;
-		const available = known.versions.find(
-			(entry: { version: string }) => entry.version === version
-		);
-		for (const platform of Object.values(platforms)) {
-			if (
-				!available?.downloads.chrome?.some(
-					(download: { platform: string }) => download.platform === platform
-				)
-			)
+		const available = availableByVersion.get(version);
+		for (const { platform } of Object.values(platforms)) {
+			if (!available?.downloads?.chrome?.some((entry) => entry.platform === platform))
 				throw new Error(
 					`No full Chrome ${version ?? major} for ${platform}; lock unchanged`
 				);
@@ -95,12 +103,9 @@ const updateLock = async (): Promise<void> => {
 };
 
 const installChrome = async (major: string, platform: string): Promise<void> => {
-	if (!Object.values(platforms).some((value) => value === platform))
-		throw new Error(`Unsupported Chrome for Testing platform: ${platform}`);
-	const lock = validateChromeVersions(
-		JSON.parse(await readFile(lockPath, 'utf8')),
-		await minimumMajor()
-	);
+	const target = Object.values(platforms).find((candidate) => candidate.platform === platform);
+	if (!target) throw new Error(`Unsupported Chrome for Testing platform: ${platform}`);
+	const lock = await readLock(await minimumMajor());
 	const version = lock[major];
 	if (!version) throw new Error(`Chrome major ${major} is not locked`);
 	const directory = await mkdtemp(
@@ -114,13 +119,7 @@ const installChrome = async (major: string, platform: string): Promise<void> => 
 			stdio: 'inherit',
 		});
 		execFileSync('unzip', ['-q', archive, '-d', directory]);
-		const executable =
-			platform === 'mac-arm64'
-				? 'Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'
-				: platform === 'win64'
-					? 'chrome.exe'
-					: 'chrome';
-		const executablePath = join(directory, `chrome-${platform}`, executable);
+		const executablePath = join(directory, `chrome-${platform}`, target.executable);
 		if (process.env.GITHUB_ENV) {
 			await appendFile(
 				process.env.GITHUB_ENV,
@@ -144,11 +143,8 @@ if (import.meta.main) {
 				await updateLock();
 				break;
 			case '--matrix': {
-				const lock = validateChromeVersions(
-					JSON.parse(await readFile(lockPath, 'utf8')),
-					await minimumMajor()
-				);
-				console.log(JSON.stringify(chromeMatrix(lock, await minimumMajor())));
+				const minimum = await minimumMajor();
+				console.log(JSON.stringify(chromeMatrix(await readLock(minimum), minimum)));
 				break;
 			}
 			case '--install':

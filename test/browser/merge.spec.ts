@@ -92,7 +92,7 @@ test('preserves a collapsed group left alone in a source window @compat', async 
 			target,
 			...all
 				.filter((window) => window.id !== target.id)
-				.toSorted((a, b) => (a.id as number) - (b.id as number)),
+				.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0)),
 		].flatMap((window) => window.tabs ?? []);
 		return {
 			ids,
