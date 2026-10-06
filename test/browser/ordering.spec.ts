@@ -185,13 +185,15 @@ type After = Awaited<ReturnType<typeof readAfter>>;
 
 const expectPreserved = (fixture: Fixture, after: After, expected: Expectation) => {
 	const tabs = after.window.tabs ?? [];
+	const mergedById = new Map(tabs.map((tab) => [tab.id, tab]));
+	const mergedGroups = new Map(after.groups.map((group) => [group.id, group]));
 	expect(tabs.map((tab) => tab.id)).toEqual([...expected.pinned, ...expected.unpinned]);
 	expect(tabs.filter((tab) => tab.pinned).map((tab) => tab.id)).toEqual(expected.pinned);
 	expect(tabs.filter((tab) => !tab.pinned).map((tab) => tab.id)).toEqual(expected.unpinned);
-	expect(new Set(tabs.map((tab) => tab.id)).size).toBe(expected.ordered.length);
+	expect(mergedById.size).toBe(expected.ordered.length);
 	expect(tabs.find((tab) => tab.active)?.id).toBe(expected.active);
 	for (const original of expected.ordered) {
-		expect(tabs.find((tab) => tab.id === original.id)).toMatchObject({
+		expect(mergedById.get(original.id)).toMatchObject({
 			pinned: original.pinned,
 			groupId: original.groupId,
 			incognito: original.incognito,
@@ -200,7 +202,7 @@ const expectPreserved = (fixture: Fixture, after: After, expected: Expectation) 
 	}
 	expect(after.groups).toHaveLength(fixture.groups.length);
 	for (const group of fixture.groups) {
-		expect(after.groups.find(({ id }) => id === group.id)).toEqual({
+		expect(mergedGroups.get(group.id)).toEqual({
 			...group,
 			windowId: expected.targetId,
 		});
