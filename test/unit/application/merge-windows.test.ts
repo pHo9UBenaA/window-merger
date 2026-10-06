@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mergeWindows } from '../../../src/application/merge-windows';
+import type { WindowId } from '../../../src/domain/window-merge.types';
 import {
 	createMockTabSnapshot,
 	createMockWindowSnapshot,
@@ -107,7 +108,8 @@ describe('App Layer - Merge Windows', () => {
 		'falls back when the trigger is %s',
 		async (reason) => {
 			const deps = createMockMergeWindowsDeps();
-			const ineligible = createMockWindowSnapshot(
+			const rejectedId: WindowId = { kind: 'WindowId', value: reason === 'invalid' ? -1 : 3 };
+			const candidate = createMockWindowSnapshot(
 				3,
 				[createMockTabSnapshot(3, { active: true })],
 				{
@@ -115,27 +117,15 @@ describe('App Layer - Merge Windows', () => {
 					type: reason === 'popup' ? 'popup' : 'normal',
 				}
 			);
+			const ineligible = reason === 'absent' ? undefined : { ...candidate, id: rejectedId };
 			deps.mocks.getAllWindows.mockResolvedValue([
 				createMockWindowSnapshot(1, [createMockTabSnapshot(1, { active: true })]),
 				createMockWindowSnapshot(2, [createMockTabSnapshot(2, { active: true })], {
 					focused: true,
 				}),
-				...(reason === 'absent'
-					? []
-					: [
-							{
-								...ineligible,
-								id: {
-									kind: 'WindowId' as const,
-									value: reason === 'invalid' ? -1 : 3,
-								},
-							},
-						]),
+				...(ineligible ? [ineligible] : []),
 			]);
-			await mergeWindows(false, deps, {
-				kind: 'WindowId',
-				value: reason === 'invalid' ? -1 : 3,
-			});
+			await mergeWindows(false, deps, rejectedId);
 			expect(deps.mocks.moveTabs).toHaveBeenCalledExactlyOnceWith([createTestTabId(1)], {
 				windowId: createTestWindowId(2),
 				index: -1,

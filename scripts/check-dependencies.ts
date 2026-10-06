@@ -3,10 +3,12 @@ import { stripVTControlCharacters } from 'node:util';
 
 type Report = { total: number; lines: string[] };
 
+const isJsonObject = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
+
 const object = (value: unknown): Record<string, unknown> => {
-	if (typeof value !== 'object' || value === null || Array.isArray(value))
-		throw new Error('Expected a JSON object');
-	return value as Record<string, unknown>;
+	if (!isJsonObject(value)) throw new Error('Expected a JSON object');
+	return value;
 };
 const array = (value: unknown): unknown[] => {
 	if (!Array.isArray(value)) throw new Error('Expected a JSON array');

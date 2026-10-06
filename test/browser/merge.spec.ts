@@ -25,8 +25,10 @@ test('loads the packaged manifest, tooltip, shortcut and padded store icon', asy
 }) => {
 	const actual = await worker.evaluate(async () => {
 		const manifest = chrome.runtime.getManifest();
+		const iconPath = manifest.icons?.['128'];
+		if (typeof iconPath !== 'string') throw new Error('Missing store icon');
 		const image = await createImageBitmap(
-			await (await fetch(chrome.runtime.getURL(manifest.icons?.['128'] as string))).blob()
+			await (await fetch(chrome.runtime.getURL(iconPath))).blob()
 		);
 		const canvas = new OffscreenCanvas(image.width, image.height);
 		const context = canvas.getContext('2d');
@@ -73,7 +75,7 @@ test('preserves a collapsed group left alone in a source window @compat', async 
 		});
 		if (!source?.tabs?.every((tab) => tab.id !== undefined))
 			throw new Error('Missing test tabs');
-		const ids = source.tabs.map((tab) => tab.id as number);
+		const ids = source.tabs.map((tab) => tab.id).filter((id) => id !== undefined);
 		await chrome.tabs.update(ids[0], { pinned: true });
 		await chrome.tabs.update(ids[1], { muted: true });
 		const group = await chrome.tabs.group({ tabIds: [ids[2], ids[3]] });
@@ -88,6 +90,7 @@ test('preserves a collapsed group left alone in a source window @compat', async 
 		const all = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
 		// Trigger from a chosen window so the target never depends on OS-specific focus timing.
 		const target = all.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0))[0];
+		if (target.id === undefined) throw new Error('Missing target window');
 		const orderedTabs = [
 			target,
 			...all
@@ -99,7 +102,7 @@ test('preserves a collapsed group left alone in a source window @compat', async 
 			group,
 			popupId: popup.id,
 			popupTabIds: popup.tabs.map((tab) => tab.id),
-			target: target?.id,
+			target: target.id,
 			active: target?.tabs?.find((tab) => tab.active)?.id,
 			allIds: [
 				...orderedTabs.filter((tab) => tab.pinned),
@@ -108,7 +111,7 @@ test('preserves a collapsed group left alone in a source window @compat', async 
 		};
 	});
 	await worker.evaluate(async (target) => {
-		await mergerTest.actionFromWindow(target as number);
+		await mergerTest.actionFromWindow(target);
 		mergerTest.menu('mergeWindowId'); // Duplicates must not start another merge.
 		mergerTest.menu('mergeIncognitoWindowId'); // Unavailable mode must be harmless.
 	}, before.target);
@@ -213,7 +216,8 @@ test('merges a larger snapshot without losing tabs @stress', async ({
 		const source = await chrome.windows.create({
 			url: Array.from({ length: count }, () => 'about:blank'),
 		});
-		const ids = (source?.tabs ?? []).map((tab) => tab.id as number);
+		const tabs = source?.tabs ?? [];
+		const ids = tabs.map((tab) => tab.id).filter((id) => id !== undefined);
 		const pinned = ids.slice(0, 5);
 		const muted = ids.slice(0, 10);
 		for (const id of pinned) await chrome.tabs.update(id, { pinned: true });

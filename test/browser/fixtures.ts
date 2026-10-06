@@ -6,19 +6,80 @@ import { type BrowserContext, test as base, chromium, expect, type Worker } from
 import { build } from 'esbuild';
 import { PROJECT_ROOT } from '../../scripts/build';
 
-type ChromeManagementApi = {
-	updateProfileConfiguration: (
-		properties: { inDeveloperMode: boolean },
-		done: () => void
-	) => void;
-	updateExtensionConfiguration: (
-		properties: { extensionId: string; incognitoAccess: boolean },
-		done: () => void
-	) => void;
-	getExtensionsInfo: (
-		properties: { includeDisabled: boolean; includeTerminated: boolean },
-		done: (info: { id: string; state: string }[]) => void
-	) => void;
+// chrome.developerPrivate exists only on chrome://extensions pages and is absent from @types/chrome.
+declare global {
+	namespace chrome {
+		namespace developerPrivate {
+			function updateProfileConfiguration(
+				properties: { inDeveloperMode: boolean },
+				callback: () => void
+			): void;
+			function updateExtensionConfiguration(
+				properties: { extensionId: string; incognitoAccess: boolean },
+				callback: () => void
+			): void;
+			function getExtensionsInfo(
+				query: { includeDisabled: boolean; includeTerminated: boolean },
+				callback: (info: { id: string; state: string }[]) => void
+			): void;
+		}
+	}
+}
+
+// Playwright serializes these into the chrome://extensions page, so they must not
+// reference module scope. lastError is only valid inside the management callbacks.
+
+// Modern Chrome disables unpacked extensions on reload without Developer mode.
+const enableDeveloperMode = () =>
+	new Promise<void>((resolve, reject) => {
+		chrome.developerPrivate.updateProfileConfiguration({ inDeveloperMode: true }, () => {
+			const error = chrome.runtime.lastError;
+			if (error) reject(new Error(error.message));
+			else resolve();
+		});
+	});
+
+const applyIncognitoAccess = ({
+	extensionId,
+	incognitoAccess,
+}: {
+	extensionId: string;
+	incognitoAccess: boolean;
+}) =>
+	new Promise<void>((resolve, reject) => {
+		chrome.developerPrivate.updateExtensionConfiguration(
+			{ extensionId, incognitoAccess },
+			() => {
+				const error = chrome.runtime.lastError;
+				if (error) reject(new Error(error.message));
+				else resolve();
+			}
+		);
+	});
+
+const readExtensionState = (extensionId: string) =>
+	new Promise<string | undefined>((resolve, reject) => {
+		chrome.developerPrivate.getExtensionsInfo(
+			{ includeDisabled: true, includeTerminated: true },
+			(info) => {
+				const error = chrome.runtime.lastError;
+				if (error) reject(new Error(error.message));
+				else resolve(info.find((extension) => extension.id === extensionId)?.state);
+			}
+		);
+	});
+
+const grantIncognitoAccess = async (
+	context: BrowserContext,
+	extensionId: string,
+	incognitoAccess: boolean
+): Promise<void> => {
+	const page = await context.newPage();
+	await page.goto('chrome://extensions');
+	await page.evaluate(enableDeveloperMode);
+	await page.evaluate(applyIncognitoAccess, { extensionId, incognitoAccess });
+	// The update callback precedes reload completion; the caller closes the context to finish it.
+	await expect.poll(() => page.evaluate(readExtensionState, extensionId)).toBe('ENABLED');
 };
 
 export const test = base.extend<{
@@ -104,24 +165,13 @@ export const test = base.extend<{
 					const page = await context.newPage();
 					const session = await context.newCDPSession(page);
 					let runningStatus: string | undefined;
-					session.on(
-						'ServiceWorker.workerVersionUpdated',
-						({
-							versions,
-						}: {
-							versions: {
-								scriptURL: string;
-								status: string;
-								runningStatus: string;
-							}[];
-						}) => {
-							const version = versions.find(
-								(version) => version.scriptURL === worker.url()
-							);
-							if (version?.status === 'activated')
-								runningStatus = version.runningStatus;
-						}
-					);
+					session.on('ServiceWorker.workerVersionUpdated', ({ versions }) => {
+						const activated = versions.find(
+							(version) => version.scriptURL === worker.url()
+						);
+						if (activated?.status === 'activated')
+							runningStatus = activated.runningStatus;
+					});
 					try {
 						await session.send('ServiceWorker.enable');
 						await expect.poll(() => runningStatus).toBe('running');
@@ -138,82 +188,12 @@ export const test = base.extend<{
 					}
 				},
 				restart: async (incognito) => {
-					if (incognito !== undefined && context) {
-						// Use Chrome's management-page API, only in this test's temporary profile.
-						const page = await context.newPage();
-						await page.goto('chrome://extensions');
-						// Modern Chrome disables unpacked extensions on reload without Developer mode.
-						await page.evaluate(
-							() =>
-								new Promise<void>((resolve, reject) => {
-									const api = Reflect.get(
-										chrome,
-										'developerPrivate'
-									) as ChromeManagementApi;
-									api.updateProfileConfiguration(
-										{ inDeveloperMode: true },
-										() => {
-											if (chrome.runtime.lastError)
-												reject(new Error(chrome.runtime.lastError.message));
-											else resolve();
-										}
-									);
-								})
-						);
-						await page.evaluate(
-							({ extensionId, incognitoAccess }) =>
-								new Promise<void>((resolve, reject) => {
-									const api = Reflect.get(
-										chrome,
-										'developerPrivate'
-									) as ChromeManagementApi;
-									api.updateExtensionConfiguration(
-										{ extensionId, incognitoAccess },
-										() => {
-											if (chrome.runtime.lastError)
-												reject(new Error(chrome.runtime.lastError.message));
-											else resolve();
-										}
-									);
-								}),
-							{ extensionId: new URL(worker.url()).host, incognitoAccess: incognito }
-						);
-						// The update callback precedes reload completion; closing now persists DISABLE_RELOAD.
-						await expect
-							.poll(() =>
-								page.evaluate(
-									(extensionId) =>
-										new Promise<string | undefined>((resolve, reject) => {
-											const api = Reflect.get(
-												chrome,
-												'developerPrivate'
-											) as ChromeManagementApi;
-											api.getExtensionsInfo(
-												{ includeDisabled: true, includeTerminated: true },
-												(info) => {
-													if (chrome.runtime.lastError)
-														reject(
-															new Error(
-																chrome.runtime.lastError.message
-															)
-														);
-													else
-														resolve(
-															info.find(
-																(extension) =>
-																	extension.id === extensionId
-															)?.state
-														);
-												}
-											);
-										}),
-									new URL(worker.url()).host
-								)
-							)
-							.toBe('ENABLED');
-					}
+					const workerURL = new URL(worker.url());
+					// Use Chrome's management-page API, only in this test's temporary profile.
+					if (incognito !== undefined && context)
+						await grantIncognitoAccess(context, workerURL.host, incognito);
 					await context?.close();
-					return launch(new URL('/', worker.url()).href);
+					return launch(new URL('/', workerURL).href);
 				},
 			});
 		} finally {

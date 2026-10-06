@@ -96,7 +96,9 @@ describe('extension artifacts', () => {
 
 	it('compacts distribution JSON without changing source, messages or placeholders', async () => {
 		const source = join(root, 'src/assets/_locales/en/messages.json');
-		const messages = JSON.parse(await readFile(source, 'utf8'));
+		const messages: Record<string, Record<string, unknown>> = JSON.parse(
+			await readFile(source, 'utf8')
+		);
 		messages.greeting = {
 			message: 'Hello $NAME$ $DESCRIPTION$',
 			description: 'Translator guidance',
@@ -115,10 +117,7 @@ describe('extension artifacts', () => {
 			const distributed = JSON.parse(compact);
 			expect(compact).toBe(JSON.stringify(distributed));
 			for (const [key, message] of Object.entries(messages)) {
-				const { description: _description, ...runtime } = message as Record<
-					string,
-					unknown
-				>;
+				const { description: _description, ...runtime } = message;
 				expect(distributed[key]).toEqual(runtime);
 			}
 		}
