@@ -50,6 +50,7 @@ export const createGroupId = (value: number): GroupId | null => {
 
 export type TabSnapshot = {
 	readonly id: TabId;
+	readonly index: number;
 	readonly groupId: GroupId | null;
 	readonly pinned: boolean;
 	readonly muted: boolean;

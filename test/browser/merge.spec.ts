@@ -25,8 +25,10 @@ test('loads the packaged manifest, tooltip, shortcut and padded store icon', asy
 }) => {
 	const actual = await worker.evaluate(async () => {
 		const manifest = chrome.runtime.getManifest();
+		const iconPath = manifest.icons?.['128'];
+		if (typeof iconPath !== 'string') throw new Error('Missing store icon');
 		const image = await createImageBitmap(
-			await (await fetch(chrome.runtime.getURL(manifest.icons?.['128'] as string))).blob()
+			await (await fetch(chrome.runtime.getURL(iconPath))).blob()
 		);
 		const canvas = new OffscreenCanvas(image.width, image.height);
 		const context = canvas.getContext('2d');
@@ -64,7 +66,7 @@ test('loads the packaged manifest, tooltip, shortcut and padded store icon', asy
 	expect(actual.errors).toEqual([]);
 });
 
-test('merges real windows while preserving IDs, groups, pinned and muted states', async ({
+test('preserves a collapsed group left alone in a source window @compat', async ({
 	extension: { worker },
 }) => {
 	const before = await worker.evaluate(async () => {
@@ -73,7 +75,7 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 		});
 		if (!source?.tabs?.every((tab) => tab.id !== undefined))
 			throw new Error('Missing test tabs');
-		const ids = source.tabs.map((tab) => tab.id as number);
+		const ids = source.tabs.map((tab) => tab.id).filter((id) => id !== undefined);
 		await chrome.tabs.update(ids[0], { pinned: true });
 		await chrome.tabs.update(ids[1], { muted: true });
 		const group = await chrome.tabs.group({ tabIds: [ids[2], ids[3]] });
@@ -86,25 +88,33 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 		if (popup?.id === undefined || !popup.tabs?.length) throw new Error('Missing test popup');
 		await chrome.windows.create({ url: 'about:blank', focused: true });
 		const all = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
-		// Headless Chromium may report no focused window. Follow the documented tie-breaker.
-		const target =
-			all.find((window) => window.focused) ??
-			all.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0))[0];
+		// Trigger from a chosen window so the target never depends on OS-specific focus timing.
+		const target = all.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0))[0];
+		if (target.id === undefined) throw new Error('Missing target window');
+		const orderedTabs = [
+			target,
+			...all
+				.filter((window) => window.id !== target.id)
+				.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0)),
+		].flatMap((window) => window.tabs ?? []);
 		return {
 			ids,
 			group,
 			popupId: popup.id,
 			popupTabIds: popup.tabs.map((tab) => tab.id),
-			target: target?.id,
+			target: target.id,
 			active: target?.tabs?.find((tab) => tab.active)?.id,
-			allIds: all.flatMap((window) => window.tabs?.map((tab) => tab.id) ?? []),
+			allIds: [
+				...orderedTabs.filter((tab) => tab.pinned),
+				...orderedTabs.filter((tab) => !tab.pinned),
+			].map((tab) => tab.id),
 		};
 	});
-	await worker.evaluate(() => {
-		mergerTest.action();
+	await worker.evaluate(async (target) => {
+		await mergerTest.actionFromWindow(target);
 		mergerTest.menu('mergeWindowId'); // Duplicates must not start another merge.
 		mergerTest.menu('mergeIncognitoWindowId'); // Unavailable mode must be harmless.
-	});
+	}, before.target);
 	await expect
 		.poll(() =>
 			worker.evaluate(
@@ -115,15 +125,21 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 	await expect
 		.poll(() =>
 			worker.evaluate(async ({ ids, active }) => {
-				const [pinned, muted, selected] = await Promise.all([
-					chrome.tabs.get(ids[0]),
-					chrome.tabs.get(ids[1]),
-					chrome.tabs.get(active as number),
-				]);
-				return [pinned.pinned, muted.mutedInfo?.muted, selected.active];
+				const tabs = await chrome.tabs.query({ windowType: 'normal' });
+				return {
+					pinned: tabs.some((tab) => tab.id === ids[0] && tab.pinned),
+					muted: tabs.some((tab) => tab.id === ids[1] && tab.mutedInfo?.muted),
+					selected: tabs.filter((tab) => tab.active).map((tab) => tab.id),
+					expected: active,
+				};
 			}, before)
 		)
-		.toEqual([true, true, true]);
+		.toEqual({ pinned: true, muted: true, selected: [before.active], expected: before.active });
+	await expect
+		.poll(() =>
+			worker.evaluate(async (id) => (await chrome.tabGroups.get(id)).collapsed, before.group)
+		)
+		.toBe(true);
 	const after = await worker.evaluate(
 		async ({ group, popupId }) => ({
 			windows: await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] }),
@@ -134,7 +150,7 @@ test('merges real windows while preserving IDs, groups, pinned and muted states'
 		before
 	);
 	expect(after.windows[0].id).toBe(before.target);
-	expect(after.windows[0].tabs?.map((tab) => tab.id).sort()).toEqual(before.allIds.sort());
+	expect(after.windows[0].tabs?.map((tab) => tab.id)).toEqual(before.allIds);
 	expect(after.group).toMatchObject({
 		title: 'Test group',
 		color: 'blue',
@@ -200,7 +216,8 @@ test('merges a larger snapshot without losing tabs @stress', async ({
 		const source = await chrome.windows.create({
 			url: Array.from({ length: count }, () => 'about:blank'),
 		});
-		const ids = (source?.tabs ?? []).map((tab) => tab.id as number);
+		const tabs = source?.tabs ?? [];
+		const ids = tabs.map((tab) => tab.id).filter((id) => id !== undefined);
 		const pinned = ids.slice(0, 5);
 		const muted = ids.slice(0, 10);
 		for (const id of pinned) await chrome.tabs.update(id, { pinned: true });

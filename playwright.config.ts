@@ -12,5 +12,6 @@ export default defineConfig({
 	projects: [
 		{ name: 'chromium', grepInvert: /@stress/ },
 		{ name: 'stress', grep: /@stress/, timeout: 180000 },
+		{ name: 'compat', grep: /@compat/ },
 	],
 });

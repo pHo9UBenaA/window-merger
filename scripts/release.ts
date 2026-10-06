@@ -55,16 +55,15 @@ export const createReleaseTag = (
 	if (version === null) return 'skipped';
 	const sha = git(['rev-parse', `${commit}^{commit}`], cwd);
 	const tag = `v${version}`;
-	const remoteTags = () =>
-		new Map(
-			git(['ls-remote', '--tags', remote], cwd)
-				.split('\n')
-				.filter(Boolean)
-				.map((line) => {
-					const [hash, name] = line.split(/\s+/);
-					return [name, hash];
-				})
-		);
+	const remoteTags = () => {
+		const tags = new Map<string, string>();
+		for (const line of git(['ls-remote', '--tags', remote], cwd).split('\n')) {
+			const [hash, name] = line.split(/\s+/);
+			if (name) tags.set(name, hash);
+		}
+
+		return tags;
+	};
 	const tags = remoteTags();
 	const existing = tags.get(`refs/tags/${tag}^{}`) ?? tags.get(`refs/tags/${tag}`);
 	if (existing) {

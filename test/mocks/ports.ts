@@ -10,6 +10,8 @@ export const createMockMergeWindowsDeps = (): MergeWindowsDeps & {
 		moveTabs: ReturnType<typeof vi.fn<TabPort['moveTabs']>>;
 		updateTab: ReturnType<typeof vi.fn<TabPort['updateTab']>>;
 		moveGroup: ReturnType<typeof vi.fn<TabGroupPort['moveGroup']>>;
+		getCollapsed: ReturnType<typeof vi.fn<TabGroupPort['getCollapsed']>>;
+		setCollapsed: ReturnType<typeof vi.fn<TabGroupPort['setCollapsed']>>;
 	};
 } => {
 	const getAllWindows = vi.fn<WindowPort['getAllWindows']>();
@@ -19,12 +21,14 @@ export const createMockMergeWindowsDeps = (): MergeWindowsDeps & {
 
 	const windowPort: WindowPort = { getAllWindows };
 	const tabPort: TabPort = { moveTabs, updateTab };
-	const tabGroupPort: TabGroupPort = { moveGroup };
+	const getCollapsed = vi.fn<TabGroupPort['getCollapsed']>().mockResolvedValue(false);
+	const setCollapsed = vi.fn<TabGroupPort['setCollapsed']>();
+	const tabGroupPort: TabGroupPort = { moveGroup, getCollapsed, setCollapsed };
 
 	return {
 		windowPort,
 		tabPort,
 		tabGroupPort,
-		mocks: { getAllWindows, moveTabs, updateTab, moveGroup },
+		mocks: { getAllWindows, moveTabs, updateTab, moveGroup, getCollapsed, setCollapsed },
 	};
 };

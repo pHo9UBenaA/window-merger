@@ -67,15 +67,34 @@ console.error = (...values: unknown[]) => {
 
 declare global {
 	var mergerTest: {
-		action: () => void;
 		menu: (id: string) => void;
+		actionFromWindow: (windowId: number) => Promise<void>;
+		menuFromWindow: (id: string, windowId: number) => Promise<void>;
+		action: () => Promise<void>;
 		errors: string[];
 		menuOperations: MenuOperation[];
 	};
 }
+const activeTabInWindow = async (windowId: number): Promise<chrome.tabs.Tab> => {
+	const [tab] = await chrome.tabs.query({ windowId, active: true });
+	if (!tab) throw new Error(`No active tab in window ${windowId}`);
+	return tab;
+};
+
 globalThis.mergerTest = {
-	action: () => {
-		for (const listener of actionListeners) listener({} as chrome.tabs.Tab);
+	actionFromWindow: async (windowId) => {
+		const tab = await activeTabInWindow(windowId);
+		for (const listener of actionListeners) listener(tab);
+	},
+	menuFromWindow: async (menuItemId, windowId) => {
+		const tab = await activeTabInWindow(windowId);
+		for (const listener of menuListeners) listener({ menuItemId, editable: false }, tab);
+	},
+	// chrome.action.onClicked always delivers a real tab, so trigger from a real window too.
+	action: async () => {
+		const [tab] = await chrome.tabs.query({ active: true, windowType: 'normal' });
+		if (!tab) throw new Error('No active tab in a normal window');
+		for (const listener of actionListeners) listener(tab);
 	},
 	menu: (menuItemId) => {
 		for (const listener of menuListeners) listener({ menuItemId, editable: false });

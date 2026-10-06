@@ -53,6 +53,26 @@ Chrome. Record browser/OS/version, results and console errors:
 
 Do not attach private URLs or a personal browser profile to bug reports.
 
+### Manual browser matrix
+
+`pnpm test:browser:compat` runs only the `@compat` scenarios.
+[`test/browser/chrome-versions.json`](../test/browser/chrome-versions.json) locks one full Chrome for
+Testing patch per major, from the manifest minimum to Stable. To test a locked major locally:
+
+```sh
+pnpm chrome:install 120 mac-arm64 # or linux64 / win64
+CHROME_EXECUTABLE_PATH='/path/to/chrome' CHROME_MAJOR=120 HEADED=1 pnpm test:browser:compat
+```
+
+The installer prints the executable path. Linux headed runs need `xvfb-run -a`.
+
+Run **Actions → Browser matrix → Run workflow** before a release. It is manual and never gates a pull
+request; uploaded `test-results` artifacts carry the Playwright report and failure context.
+
+Refresh patches, or extend the range when Stable advances, with `pnpm chrome:update-lock` and commit
+the lock diff as its own maintenance change. Tests and CI read the lock and never pick versions
+themselves.
+
 ## Dependencies and Git hooks
 
 ```sh
