@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { validateVersion } from './validate-extension.ts';
 
 export const releaseVersion = (ref: string): string | null => {
-	const name = ref.replace(/^refs\/(heads|tags)\//, '');
-	const match = /^(?:release\/)?v(\d+\.\d+\.\d+)$/.exec(name);
+	const refName = ref.replace(/^refs\/(heads|tags)\//, '');
+	const match = /^(?:release\/)?v(\d+\.\d+\.\d+)$/.exec(refName);
 	return match ? validateVersion(match[1]) : null;
 };
 
@@ -29,21 +29,35 @@ export const checkPush = (input: string, cwd = process.cwd()): void => {
 	for (const line of input.trim().split('\n')) {
 		if (!line) continue;
 		const [localRef, commit, remoteRef] = line.split(/\s+/);
+		// A zero local commit denotes a deletion, not a release to validate.
 		if (/^0+$/.test(commit)) continue;
 		checkRelease(localRef, commit, cwd);
 		checkRelease(remoteRef, commit, cwd);
 	}
 };
 
-const compareVersions = (a: string, b: string): number => {
-	const left = a.split('.').map(Number);
-	const right = b.split('.').map(Number);
+const compareVersions = (leftVersion: string, rightVersion: string): number => {
+	const leftParts = leftVersion.split('.').map(Number);
+	const rightParts = rightVersion.split('.').map(Number);
 	for (let index = 0; index < 3; index++) {
-		const difference = left[index] - right[index];
+		const difference = leftParts[index] - rightParts[index];
 		if (difference !== 0) return difference;
 	}
 	return 0;
 };
+
+const readRemoteTags = (remote: string, cwd: string): Map<string, string> => {
+	const tags = new Map<string, string>();
+	for (const line of git(['ls-remote', '--tags', remote], cwd).split('\n')) {
+		const [objectSha, tagRef] = line.split(/\s+/);
+		if (tagRef) tags.set(tagRef, objectSha);
+	}
+	return tags;
+};
+
+// Annotated tags need the peeled commit (^{}) rather than the tag object's SHA.
+const findTagCommit = (tags: ReadonlyMap<string, string>, tagName: string): string | undefined =>
+	tags.get(`refs/tags/${tagName}^{}`) ?? tags.get(`refs/tags/${tagName}`);
 
 export const createReleaseTag = (
 	ref: string,
@@ -53,37 +67,30 @@ export const createReleaseTag = (
 ): 'created' | 'existing' | 'skipped' => {
 	const version = checkRelease(ref, commit, cwd);
 	if (version === null) return 'skipped';
-	const sha = git(['rev-parse', `${commit}^{commit}`], cwd);
-	const tag = `v${version}`;
-	const remoteTags = () => {
-		const tags = new Map<string, string>();
-		for (const line of git(['ls-remote', '--tags', remote], cwd).split('\n')) {
-			const [hash, name] = line.split(/\s+/);
-			if (name) tags.set(name, hash);
-		}
-
-		return tags;
-	};
-	const tags = remoteTags();
-	const existing = tags.get(`refs/tags/${tag}^{}`) ?? tags.get(`refs/tags/${tag}`);
-	if (existing) {
-		if (existing !== sha) throw new Error(`Tag ${tag} already points to a different commit`);
+	const commitSha = git(['rev-parse', `${commit}^{commit}`], cwd);
+	const tagName = `v${version}`;
+	const publishedTags = readRemoteTags(remote, cwd);
+	const existingCommit = findTagCommit(publishedTags, tagName);
+	if (existingCommit) {
+		if (existingCommit !== commitSha)
+			throw new Error(`Tag ${tagName} already points to a different commit`);
 		return 'existing';
 	}
-	for (const name of tags.keys()) {
-		const published = releaseVersion(name);
-		if (published && compareVersions(published, version) >= 0) {
-			throw new Error(`Release ${version} is not newer than published version ${published}`);
+	for (const tagRef of publishedTags.keys()) {
+		const publishedVersion = releaseVersion(tagRef);
+		if (publishedVersion !== null && compareVersions(publishedVersion, version) >= 0) {
+			throw new Error(
+				`Release ${version} is not newer than published version ${publishedVersion}`
+			);
 		}
 	}
 	try {
 		// Publish the verified commit directly; local tags are neither created nor consulted.
-		git(['push', remote, `${sha}:refs/tags/${tag}`], cwd);
+		git(['push', remote, `${commitSha}:refs/tags/${tagName}`], cwd);
 	} catch (error) {
 		// A concurrent run or a lost response may have published this exact tag already.
-		const latest = remoteTags();
-		if ((latest.get(`refs/tags/${tag}^{}`) ?? latest.get(`refs/tags/${tag}`)) !== sha)
-			throw error;
+		const latestTags = readRemoteTags(remote, cwd);
+		if (findTagCommit(latestTags, tagName) !== commitSha) throw error;
 		return 'existing';
 	}
 	return 'created';

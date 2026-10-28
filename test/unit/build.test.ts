@@ -179,6 +179,29 @@ describe('extension artifacts', () => {
 		await expect(readFile(join(root, 'dist.zip'))).rejects.toMatchObject({ code: 'ENOENT' });
 	});
 
+	it.each(['../outside.js', 'nested/../../outside.js', '/outside.js', ''])(
+		'rejects a manifest asset outside the output directory: %j',
+		async (assetName) => {
+			const manifestPath = join(root, 'src/assets/manifest.json');
+			const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+			manifest.background.service_worker = assetName;
+			await writeFile(manifestPath, JSON.stringify(manifest));
+			await expect(packageExtension(root)).rejects.toThrow('Invalid asset path');
+		}
+	);
+
+	it.each([
+		[0, 16],
+		[16, 32],
+	])('rejects a PNG icon with dimensions %sx%s', async (width, height) => {
+		const iconPath = join(root, 'src/assets/icon-16.png');
+		const icon = await readFile(iconPath);
+		icon.writeUInt32BE(width, 16);
+		icon.writeUInt32BE(height, 20);
+		await writeFile(iconPath, icon);
+		await expect(packageExtension(root)).rejects.toThrow('Icon dimensions do not match 16');
+	});
+
 	it('rejects an icon whose dimensions do not match its manifest declaration', async () => {
 		const path = join(root, 'src/assets/manifest.json');
 		const manifest = JSON.parse(await readFile(path, 'utf8'));

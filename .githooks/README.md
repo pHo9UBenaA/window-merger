@@ -1,3 +1,3 @@
 # Git Hooks
 
-See [Git hook setup and checks](../docs/development.md#git-hooks).
+See [Git hooks](../docs/development.md#git-hooks) in the development guide for setup and checks.

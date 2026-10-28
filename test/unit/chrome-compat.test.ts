@@ -5,6 +5,9 @@ import { chromeMatrix, validateChromeVersions } from '../../scripts/chrome-compa
 const lock = JSON.parse(
 	readFileSync(new URL('../browser/chrome-versions.json', import.meta.url), 'utf8')
 );
+const checksums = JSON.parse(
+	readFileSync(new URL('../browser/chrome-checksums.json', import.meta.url), 'utf8')
+);
 const manifest = JSON.parse(
 	readFileSync(new URL('../../src/assets/manifest.json', import.meta.url), 'utf8')
 );
@@ -24,6 +27,13 @@ describe('Chrome compatibility lock', () => {
 				{ os: 'macos-14', platform: 'mac-arm64', major: String(major) },
 			])
 		);
+	});
+
+	it('has a valid pinned SHA-256 for every compatibility matrix download', () => {
+		for (const { major, platform } of chromeMatrix(lock, minimum).include) {
+			const pin = checksums[lock[major]]?.[platform];
+			expect(pin).toMatch(/^[a-f0-9]{64}$/);
+		}
 	});
 
 	it.each<Record<string, string>>([
