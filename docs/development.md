@@ -7,8 +7,6 @@ You need:
 - **Node.js 24.21 or later in the 24.x line** and **pnpm**, as specified by
   [`engines.node` and `packageManager` in `package.json`](../package.json).
 - **`zip` and `unzip`** on `PATH` for packaging and artifact tests.
-- **[OSV Scanner v2](https://google.github.io/osv-scanner/installation/)** on `PATH` for
-  [`pnpm check:dependencies`](#tests-and-checks).
 
 ## Development workflow
 
