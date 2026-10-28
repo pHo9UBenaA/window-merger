@@ -5,22 +5,22 @@ import { buildExtension, PROJECT_ROOT } from './build.ts';
 import { validateExtension } from './validate-extension.ts';
 
 export const packageExtension = async (root = PROJECT_ROOT): Promise<void> => {
-	const archive = resolve(root, 'dist.zip');
-	const temporary = resolve(root, 'dist.tmp.zip');
-	await rm(archive, { force: true });
-	await rm(temporary, { force: true });
+	const archivePath = resolve(root, 'dist.zip');
+	const temporaryArchivePath = resolve(root, 'dist.tmp.zip');
+	await rm(archivePath, { force: true });
+	await rm(temporaryArchivePath, { force: true });
 	try {
 		await buildExtension({ root });
-		const directory = join(root, 'dist');
-		await validateExtension(directory);
+		const outputDirectory = join(root, 'dist');
+		await validateExtension(outputDirectory);
 		// Archive files only, without platform-specific metadata.
-		execFileSync('zip', ['-qr9', '-X', '-D', temporary, '.', '-x', '*.DS_Store'], {
-			cwd: directory,
+		execFileSync('zip', ['-qr9', '-X', '-D', temporaryArchivePath, '.', '-x', '*.DS_Store'], {
+			cwd: outputDirectory,
 			stdio: 'inherit',
 		});
-		await rename(temporary, archive);
+		await rename(temporaryArchivePath, archivePath);
 	} finally {
-		await rm(temporary, { force: true });
+		await rm(temporaryArchivePath, { force: true });
 	}
 };
 

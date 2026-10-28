@@ -27,11 +27,13 @@ const content = Buffer.alloc(200000, 42);
 const sha256 = createHash('sha256').update(content).digest('hex');
 const allPlatforms = { linux64: sha256, win64: sha256, 'mac-arm64': sha256 };
 let checksums: Record<string, Record<string, unknown>>;
+let availablePlatforms: string[];
 let root: string;
 
 beforeEach(() => {
 	root = mkdtempSync(join(tmpdir(), 'window-merger-chrome-test-'));
 	checksums = { [version]: { ...allPlatforms } };
+	availablePlatforms = Object.keys(allPlatforms);
 	vi.stubEnv('GITHUB_ENV', '/github-env');
 	vi.spyOn(console, 'log').mockImplementation(() => {});
 	vi.mocked(mkdtemp).mockImplementation(async (prefix) =>
@@ -64,7 +66,7 @@ beforeEach(() => {
 					versions: [version, nextVersion].map((value) => ({
 						version: value,
 						downloads: {
-							chrome: Object.keys(allPlatforms).map((platform) => ({ platform })),
+							chrome: availablePlatforms.map((platform) => ({ platform })),
 						},
 					})),
 				},
@@ -165,6 +167,18 @@ describe('Chrome installer', () => {
 });
 
 describe('Chrome lock update', () => {
+	it.each(['linux64', 'win64', 'mac-arm64'])(
+		'rejects incomplete download metadata for %s without updating either lock',
+		async (missingPlatform) => {
+			availablePlatforms = availablePlatforms.filter(
+				(platform) => platform !== missingPlatform
+			);
+			await expect(updateLock()).rejects.toThrow(`for ${missingPlatform}; lock unchanged`);
+			expect(exec).not.toHaveBeenCalled();
+			expect(writeFile).not.toHaveBeenCalled();
+		}
+	);
+
 	it('collects missing matrix checksums without extraction before updating the version lock', async () => {
 		await updateLock();
 		expect(exec.mock.calls.map(([command]) => command)).toEqual(['curl', 'curl', 'curl']);
@@ -197,6 +211,21 @@ describe('Chrome lock update', () => {
 		await expect(updateLock()).rejects.toThrow('Missing or invalid');
 		expect(exec).not.toHaveBeenCalled();
 		expect(writeFile).not.toHaveBeenCalled();
+	});
+
+	it('does not publish partially collected checksums when a later download fails', async () => {
+		let downloadCount = 0;
+		exec.mockImplementation((command, args) => {
+			if (command === 'curl' && args) {
+				downloadCount++;
+				if (downloadCount === 2) throw new Error('Second download failed');
+				writeFileSync(args[args.indexOf('--output') + 1], content);
+			}
+			return Buffer.alloc(0);
+		});
+		await expect(updateLock()).rejects.toThrow('Second download failed');
+		expect(writeFile).not.toHaveBeenCalled();
+		expect(rm).toHaveBeenCalledTimes(2);
 	});
 
 	it('keeps both locks unchanged and cleans up on download failure', async () => {

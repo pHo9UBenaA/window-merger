@@ -106,7 +106,8 @@ it('includes transitive, development and optional dependencies and resolves alia
 	});
 });
 
-it('uses sequential batches of at most 100 packages', async () => {
+it('uses sequential batches of at most 100 packages with a shared audit timeout', async () => {
+	const timeout = vi.spyOn(AbortSignal, 'timeout');
 	const dependencies = Object.fromEntries(
 		Array.from({ length: 201 }, (_, index) => [`pkg-${index}`, { version: '1.0.0' }])
 	);
@@ -117,6 +118,9 @@ it('uses sequential batches of at most 100 packages', async () => {
 	expect(await check(result(cleanPnpm), result([{ dependencies }]))).toBe(0);
 	expect(api).toHaveBeenCalledTimes(3);
 	expect([0, 1, 2].map((index) => requestBody(index).queries.length)).toEqual([100, 100, 1]);
+	expect(timeout).toHaveBeenCalledExactlyOnceWith(60000);
+	const firstSignal = api.mock.calls[0][1]?.signal;
+	for (const [, options] of api.mock.calls) expect(options?.signal).toBe(firstSignal);
 });
 
 it('reports OSV IDs and sanitizes untrusted output', async () => {
@@ -181,6 +185,25 @@ it('rejects repeated pagination tokens rather than looping or silently truncatin
 	api.mockImplementation(async () => Response.json({ results: [{ next_page_token: 'same' }] }));
 	expect(await check()).toBe(2);
 	expect(api).toHaveBeenCalledTimes(2);
+});
+
+it('stops after 100 pages even when the API keeps returning distinct tokens', async () => {
+	api.mockImplementation(async () =>
+		Response.json({
+			results: [{ next_page_token: `page-${api.mock.calls.length}` }],
+		})
+	);
+	expect(await check()).toBe(2);
+	expect(api).toHaveBeenCalledTimes(100);
+	expect(console.error).toHaveBeenCalledWith('OSV API: audit incomplete: Too many OSV pages');
+});
+
+it('accepts a valid JSON response at the exact 4 MiB size boundary', async () => {
+	const body = JSON.stringify({ results: [{}] }).padEnd(4 * 1024 * 1024, ' ');
+	api.mockResolvedValueOnce(
+		new Response(body, { headers: { 'Content-Type': 'application/json' } })
+	);
+	expect(await check()).toBe(0);
 });
 
 it.each([302, 429, 500])(

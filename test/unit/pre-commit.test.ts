@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { hasCodeChanges, withIndexSnapshot } from '../../scripts/pre-commit';
 
 let root: string;
@@ -14,6 +14,7 @@ beforeEach(async () => {
 	git('init', '-b', 'main');
 });
 afterEach(async () => {
+	vi.unstubAllEnvs();
 	await rm(root, { recursive: true, force: true });
 });
 
@@ -66,6 +67,18 @@ it('checks staged content without changing the working tree or index', async () 
 	expect(await readFile(file, 'utf8')).toBe('unstaged content');
 	expect(git('show', ':file [with spaces].txt')).toBe('staged content');
 	await expect(readFile(join(snapshotPath, 'file [with spaces].txt'))).rejects.toThrow();
+});
+
+it('removes original Git paths from the snapshot environment but preserves other variables', async () => {
+	await writeFile(join(root, 'file.ts'), 'staged');
+	git('add', 'file.ts');
+	vi.stubEnv('GIT_INDEX_FILE', join(root, '.git/index'));
+	vi.stubEnv('WINDOW_MERGER_TEST', 'preserved');
+	await withIndexSnapshot(root, async (_snapshot, _files, environment) => {
+		expect(environment.GIT_INDEX_FILE).toBeUndefined();
+		expect(environment.WINDOW_MERGER_TEST).toBe('preserved');
+	});
+	expect(process.env.GIT_INDEX_FILE).toBe(join(root, '.git/index'));
 });
 
 it('keeps staged failures visible and cleans up after a rejected check', async () => {

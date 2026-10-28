@@ -1,28 +1,38 @@
 import { spawnSync } from 'node:child_process';
 import { stripVTControlCharacters } from 'node:util';
 
-type Report = { total: number; lines: string[] };
-type Package = { name: string; version: string };
+type AuditReport = { findingCount: number; lines: string[] };
+type LockedPackage = { name: string; version: string };
 type OsvQuery = {
 	package: { ecosystem: 'npm'; name: string };
 	version: string;
 	page_token?: string;
 };
+type OsvResult = { vulnerabilityIds: string[]; nextPageToken: string };
 
-const object = (value: unknown): Record<string, unknown> => {
-	if (typeof value !== 'object' || value === null || Array.isArray(value))
-		throw new Error('Expected a JSON object');
-	return value as Record<string, unknown>;
+const AUDIT_TIMEOUT_MS = 60_000;
+const MAX_COMMAND_OUTPUT_BYTES = 16 * 1024 * 1024;
+const MAX_OSV_RESPONSE_BYTES = 4 * 1024 * 1024;
+const OSV_BATCH_SIZE = 100;
+const MAX_OSV_PAGES = 100;
+const MAX_OSV_PAGE_TOKEN_CHARS = 4096;
+
+const isJsonObject = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const requireObject = (value: unknown): Record<string, unknown> => {
+	if (!isJsonObject(value)) throw new Error('Expected a JSON object');
+	return value;
 };
-const array = (value: unknown): unknown[] => {
+const requireArray = (value: unknown): unknown[] => {
 	if (!Array.isArray(value)) throw new Error('Expected a JSON array');
 	return value;
 };
-const text = (value: unknown): string => {
+const requireString = (value: unknown): string => {
 	if (typeof value !== 'string') throw new Error('Expected a JSON string');
 	return value;
 };
-const safeText = (value: unknown): string =>
+const escapeLogText = (value: unknown): string =>
 	stripVTControlCharacters(String(value))
 		.replaceAll('::', '\\u{3a}\\u{3a}')
 		.replace(
@@ -31,80 +41,91 @@ const safeText = (value: unknown): string =>
 		);
 
 // pnpm 11 reports advisories, not npm's vulnerabilities[].via representation.
-const parsePnpm = (value: unknown): Report => {
-	const report = object(value);
-	const counts = object(object(report.metadata).vulnerabilities);
-	let total = 0;
+const parsePnpmReport = (value: unknown): AuditReport => {
+	const report = requireObject(value);
+	const metadata = requireObject(report.metadata);
+	const severityCounts = requireObject(metadata.vulnerabilities);
+	let findingCount = 0;
 	for (const severity of ['info', 'low', 'moderate', 'high', 'critical']) {
-		const count = counts[severity];
+		const count = severityCounts[severity];
 		if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0)
 			throw new Error(`Invalid ${severity} vulnerability count`);
-		total += count;
+		findingCount += count;
 	}
-	if (!Number.isSafeInteger(total)) throw new Error('Invalid total vulnerability count');
-	const lines = Object.values(object(report.advisories)).map((value) => {
-		const advisory = object(value);
-		return `${text(advisory.module_name)}: ${text(advisory.title)}`;
+	if (!Number.isSafeInteger(findingCount)) throw new Error('Invalid total vulnerability count');
+
+	const lines = Object.values(requireObject(report.advisories)).map((value) => {
+		const advisory = requireObject(value);
+		return `${requireString(advisory.module_name)}: ${requireString(advisory.title)}`;
 	});
-	return { total: Math.max(total, lines.length), lines };
+	return { findingCount: Math.max(findingCount, lines.length), lines };
 };
 
-const runPnpm = (pnpm: string, args: string[]): { value: unknown; status: number } => {
+const runPnpmJson = (
+	pnpmEntryPath: string,
+	args: string[]
+): { data: unknown; exitCode: number } => {
 	// Use Node directly, avoiding shell / .cmd resolution on Windows.
-	const result = spawnSync(process.execPath, [pnpm, ...args], {
+	const result = spawnSync(process.execPath, [pnpmEntryPath, ...args], {
 		encoding: 'utf8',
 		stdio: ['ignore', 'pipe', 'pipe'],
-		timeout: 60000,
-		maxBuffer: 16 * 1024 * 1024,
+		timeout: AUDIT_TIMEOUT_MS,
+		maxBuffer: MAX_COMMAND_OUTPUT_BYTES,
 	});
 	try {
 		if (result.error) throw result.error;
-		if (result.signal || (result.status !== 0 && result.status !== 1))
+		const exitCode = result.status;
+		const hasAuditExitCode = exitCode === 0 || exitCode === 1;
+		if (result.signal || !hasAuditExitCode)
 			throw new Error(
 				`Command failed (code ${result.status}, signal ${result.signal ?? 'none'})`
 			);
-		return { value: JSON.parse(result.stdout), status: result.status };
+		return { data: JSON.parse(result.stdout), exitCode };
 	} catch (error) {
-		if (result.stderr?.trim()) console.error(safeText(result.stderr.trim()));
+		if (result.stderr?.trim()) console.error(escapeLogText(result.stderr.trim()));
 		throw error;
 	}
 };
 
-const lockedPackages = (pnpm: string): Package[] => {
-	// Read the lockfile, including transitive, development and other-platform optional deps.
-	const { value, status } = runPnpm(pnpm, [
+const parseLockedPackage = (alias: string, entry: Record<string, unknown>): LockedPackage => {
+	const name = entry.from === undefined ? alias : requireString(entry.from);
+	const version = requireString(entry.version);
+	const hasValidName = name.length <= 214 && /^(?:@[a-z0-9._~-]+\/)?[a-z0-9._~-]+$/.test(name);
+	const hasValidVersion =
+		version.length <= 256 && /^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/.test(version);
+	if (!hasValidName || !hasValidVersion)
+		throw new Error('Unsupported locked package name or version');
+	return { name, version };
+};
+
+const readLockedPackages = (pnpmEntryPath: string): LockedPackage[] => {
+	// Include transitive, development and other-platform optional dependencies, even if not installed.
+	const { data, exitCode } = runPnpmJson(pnpmEntryPath, [
 		'list',
 		'--lockfile-only',
 		'--depth',
 		'Infinity',
 		'--json',
 	]);
-	if (status !== 0) throw new Error('pnpm list failed');
-	const pending = array(value).map(object);
-	const packages = new Map<string, Package>();
-	while (pending.length > 0) {
-		const node = pending.pop();
+	if (exitCode !== 0) throw new Error('pnpm list failed');
+
+	const pendingNodes = requireArray(data).map(requireObject);
+	const packagesByIdentity = new Map<string, LockedPackage>();
+	while (pendingNodes.length > 0) {
+		const node = pendingNodes.pop();
 		if (!node) break;
 		for (const group of ['dependencies', 'devDependencies', 'optionalDependencies']) {
 			if (node[group] === undefined) continue;
-			for (const [alias, value] of Object.entries(object(node[group]))) {
-				const entry = object(value);
-				const name = entry.from === undefined ? alias : text(entry.from);
-				const version = text(entry.version);
-				if (
-					name.length > 214 ||
-					!/^(?:@[a-z0-9._~-]+\/)?[a-z0-9._~-]+$/.test(name) ||
-					version.length > 256 ||
-					!/^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/.test(version)
-				)
-					throw new Error('Unsupported locked package name or version');
-				packages.set(`${name}@${version}`, { name, version });
-				pending.push(entry);
+			for (const [alias, value] of Object.entries(requireObject(node[group]))) {
+				const entry = requireObject(value);
+				const pkg = parseLockedPackage(alias, entry);
+				packagesByIdentity.set(`${pkg.name}@${pkg.version}`, pkg);
+				pendingNodes.push(entry);
 			}
 		}
 	}
-	if (packages.size === 0) throw new Error('No locked packages found');
-	return [...packages.values()];
+	if (packagesByIdentity.size === 0) throw new Error('No locked packages found');
+	return [...packagesByIdentity.values()];
 };
 
 const queryOsv = async (queries: OsvQuery[], signal: AbortSignal): Promise<unknown[]> => {
@@ -117,105 +138,130 @@ const queryOsv = async (queries: OsvQuery[], signal: AbortSignal): Promise<unkno
 		credentials: 'omit',
 		signal,
 	});
-	if (
-		response.status !== 200 ||
-		!response.headers.get('content-type')?.includes('application/json')
-	) {
+	const isJsonResponse = response.headers.get('content-type')?.includes('application/json');
+	if (response.status !== 200 || !isJsonResponse) {
 		await response.body?.cancel();
 		throw new Error(`Unexpected OSV response (HTTP ${response.status})`);
 	}
 	if (!response.body) throw new Error('Empty OSV response');
-	const chunks: Uint8Array[] = [];
-	let size = 0;
+
+	const bodyChunks: Uint8Array[] = [];
+	let responseBytes = 0;
 	for await (const chunk of response.body) {
-		size += chunk.byteLength;
-		if (size > 4 * 1024 * 1024) throw new Error('OSV response exceeds 4 MiB');
-		chunks.push(chunk);
+		responseBytes += chunk.byteLength;
+		if (responseBytes > MAX_OSV_RESPONSE_BYTES) throw new Error('OSV response exceeds 4 MiB');
+		bodyChunks.push(chunk);
 	}
-	const report = object(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+	const report = requireObject(JSON.parse(Buffer.concat(bodyChunks).toString('utf8')));
 	if ('error' in report) throw new Error('OSV returned an error');
-	const results = array(report.results);
+	const results = requireArray(report.results);
 	if (results.length !== queries.length)
 		throw new Error('OSV result count does not match queries');
 	return results;
 };
 
-const checkOsv = async (pnpm: string): Promise<Report> => {
-	const packages = lockedPackages(pnpm);
-	const signal = AbortSignal.timeout(60000);
-	const lines = new Set<string>();
-	const seenTokens = new Set<string>();
-	// Small sequential batches bound response size and avoid flooding the service.
-	for (let start = 0; start < packages.length; start += 100) {
-		let queries: OsvQuery[] = packages.slice(start, start + 100).map(({ name, version }) => ({
-			package: { ecosystem: 'npm', name },
-			version,
-		}));
-		for (let page = 0; queries.length > 0; page++) {
-			if (page >= 100) throw new Error('Too many OSV pages');
-			const results = await queryOsv(queries, signal);
-			const next: OsvQuery[] = [];
-			for (const [index, value] of results.entries()) {
-				const result = object(value);
-				if (Object.keys(result).some((key) => key !== 'vulns' && key !== 'next_page_token'))
-					throw new Error('Unexpected OSV query result');
-				const query = queries[index];
-				const pkg = `${query.package.name}@${query.version}`;
-				for (const value of array(result.vulns === undefined ? [] : result.vulns)) {
-					const id = text(object(value).id);
-					if (!id.trim()) throw new Error('Missing OSV vulnerability ID');
-					lines.add(`${pkg}: ${id}`);
-				}
-				const token =
-					result.next_page_token === undefined ? '' : text(result.next_page_token);
-				if (token) {
-					const key = `${pkg}:${token}`;
-					if (token.length > 4096 || seenTokens.has(key))
-						throw new Error('Invalid OSV pagination');
-					seenTokens.add(key);
-					next.push({ ...query, page_token: token });
-				}
-			}
-			queries = next;
-		}
-	}
-	return { total: lines.size, lines: [...lines] };
+const parseOsvResult = (value: unknown): OsvResult => {
+	const result = requireObject(value);
+	const hasUnknownFields = Object.keys(result).some(
+		(key) => key !== 'vulns' && key !== 'next_page_token'
+	);
+	if (hasUnknownFields) throw new Error('Unexpected OSV query result');
+
+	const vulnerabilities = requireArray(result.vulns === undefined ? [] : result.vulns);
+	const vulnerabilityIds = vulnerabilities.map((value) => {
+		const vulnerability = requireObject(value);
+		const id = requireString(vulnerability.id);
+		if (!id.trim()) throw new Error('Missing OSV vulnerability ID');
+		return id;
+	});
+	const nextPageToken =
+		result.next_page_token === undefined ? '' : requireString(result.next_page_token);
+	return { vulnerabilityIds, nextPageToken };
 };
 
-const audit = async (label: string, check: () => Report | Promise<Report>): Promise<number> => {
+const scanOsvBatch = async (
+	initialQueries: OsvQuery[],
+	signal: AbortSignal
+): Promise<Set<string>> => {
+	const findings = new Set<string>();
+	const seenPageTokens = new Set<string>();
+	let pendingQueries = initialQueries;
+	for (let page = 0; pendingQueries.length > 0; page++) {
+		if (page >= MAX_OSV_PAGES) throw new Error('Too many OSV pages');
+		const results = await queryOsv(pendingQueries, signal);
+		const nextPageQueries: OsvQuery[] = [];
+		for (const [index, value] of results.entries()) {
+			const query = pendingQueries[index];
+			const packageIdentity = `${query.package.name}@${query.version}`;
+			const { vulnerabilityIds, nextPageToken } = parseOsvResult(value);
+			for (const id of vulnerabilityIds) findings.add(`${packageIdentity}: ${id}`);
+
+			if (!nextPageToken) continue;
+			const tokenKey = `${packageIdentity}:${nextPageToken}`;
+			if (nextPageToken.length > MAX_OSV_PAGE_TOKEN_CHARS || seenPageTokens.has(tokenKey))
+				throw new Error('Invalid OSV pagination');
+			seenPageTokens.add(tokenKey);
+			nextPageQueries.push({ ...query, page_token: nextPageToken });
+		}
+		pendingQueries = nextPageQueries;
+	}
+	return findings;
+};
+
+const checkOsv = async (pnpmEntryPath: string): Promise<AuditReport> => {
+	const packages = readLockedPackages(pnpmEntryPath);
+	const signal = AbortSignal.timeout(AUDIT_TIMEOUT_MS);
+	const findings = new Set<string>();
+	// Small sequential batches bound response size and avoid flooding the service.
+	for (let start = 0; start < packages.length; start += OSV_BATCH_SIZE) {
+		const queries: OsvQuery[] = packages
+			.slice(start, start + OSV_BATCH_SIZE)
+			.map(({ name, version }) => ({
+				package: { ecosystem: 'npm', name },
+				version,
+			}));
+		const batchFindings = await scanOsvBatch(queries, signal);
+		for (const finding of batchFindings) findings.add(finding);
+	}
+	return { findingCount: findings.size, lines: [...findings] };
+};
+
+const runAudit = async (
+	label: string,
+	check: () => AuditReport | Promise<AuditReport>
+): Promise<number> => {
 	console.log(`## ${label}`);
 	try {
 		const report = await check();
-		if (report.total > 0) {
-			console.log(`Found ${report.total} vulnerability entries.`);
-			for (const line of report.lines) console.log(`  - ${safeText(line)}`);
+		if (report.findingCount > 0) {
+			console.log(`Found ${report.findingCount} vulnerability entries.`);
+			for (const line of report.lines) console.log(`  - ${escapeLogText(line)}`);
 			return 1;
 		}
 		console.log(`No vulnerabilities found by ${label}.`);
 		return 0;
 	} catch (error) {
-		console.error(
-			`${label}: audit incomplete: ${safeText(error instanceof Error ? error.message : error)}`
-		);
+		const message = error instanceof Error ? error.message : error;
+		console.error(`${label}: audit incomplete: ${escapeLogText(message)}`);
 		return 2;
 	}
 };
 
 // 0: both completed cleanly; 1: findings; 2: incomplete or invalid audit.
 export const checkDependencies = async (): Promise<number> => {
-	const pnpm = process.env.npm_execpath;
-	if (!pnpm) {
+	const pnpmEntryPath = process.env.npm_execpath;
+	if (!pnpmEntryPath) {
 		console.error('Run this check via pnpm check:dependencies');
 		return 2;
 	}
-	const pnpmStatus = await audit('pnpm audit', () => {
-		const { value, status } = runPnpm(pnpm, ['audit', '--json']);
-		const report = parsePnpm(value);
-		if (status !== 0 && report.total === 0)
+	const pnpmStatus = await runAudit('pnpm audit', () => {
+		const { data, exitCode } = runPnpmJson(pnpmEntryPath, ['audit', '--json']);
+		const report = parsePnpmReport(data);
+		if (exitCode !== 0 && report.findingCount === 0)
 			throw new Error('Command exited 1 without recognized findings');
 		return report;
 	});
-	const osvStatus = await audit('OSV API', () => checkOsv(pnpm));
+	const osvStatus = await runAudit('OSV API', () => checkOsv(pnpmEntryPath));
 	return Math.max(pnpmStatus, osvStatus);
 };
 

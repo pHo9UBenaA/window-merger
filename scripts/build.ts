@@ -2,31 +2,35 @@ import { type FSWatcher, watch as watchDirectory } from 'node:fs';
 import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type BuildOptions, build as esbuild, context as esbuildContext } from 'esbuild';
+import {
+	type BuildOptions as EsbuildOptions,
+	build as esbuild,
+	context as esbuildContext,
+} from 'esbuild';
 
 export const PROJECT_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-type Options = { root?: string; minify?: boolean };
+type ExtensionBuildOptions = { root?: string; minify?: boolean };
 
-const isMissing = (error: unknown): boolean =>
+const isMissingFileError = (error: unknown): boolean =>
 	error instanceof Error && 'code' in error && error.code === 'ENOENT';
 
-export const collectFiles = async (dir: string, ignoreMissing = false): Promise<string[]> => {
-	const entries = await readdir(dir, { withFileTypes: true }).catch((error: unknown) => {
-		if (ignoreMissing && isMissing(error)) return [];
+export const collectFiles = async (directory: string, ignoreMissing = false): Promise<string[]> => {
+	const entries = await readdir(directory, { withFileTypes: true }).catch((error: unknown) => {
+		if (ignoreMissing && isMissingFileError(error)) return [];
 		throw error;
 	});
-	const files = await Promise.all(
-		entries
-			.filter((entry) => entry.name !== '.DS_Store')
-			.map(async (entry) => {
-				const path = join(dir, entry.name);
-				return entry.isDirectory() ? collectFiles(path, ignoreMissing) : [path];
-			})
-	);
-	return files.flat();
+	const fileReads: Promise<string[]>[] = [];
+	for (const entry of entries) {
+		if (entry.name === '.DS_Store') continue;
+		const path = join(directory, entry.name);
+		fileReads.push(
+			entry.isDirectory() ? collectFiles(path, ignoreMissing) : Promise.resolve([path])
+		);
+	}
+	return (await Promise.all(fileReads)).flat();
 };
 
-const withoutDescriptions = (messages: Record<string, Record<string, unknown>>) =>
+const stripMessageDescriptions = (messages: Record<string, Record<string, unknown>>) =>
 	Object.fromEntries(
 		Object.entries(messages).map(([name, { description: _description, ...message }]) => [
 			name,
@@ -34,49 +38,58 @@ const withoutDescriptions = (messages: Record<string, Record<string, unknown>>) 
 		])
 	);
 
-const copyAsset = async (assets: string, name: string, destination: string): Promise<void> => {
-	const source = join(assets, name);
-	if (!name.endsWith('.json')) return copyFile(source, destination);
-	const data = JSON.parse(await readFile(source, 'utf8'));
-	const isLocale = name.startsWith(`_locales${sep}`) && basename(name) === 'messages.json';
-	await writeFile(destination, JSON.stringify(isLocale ? withoutDescriptions(data) : data));
+const copyAsset = async (
+	assetsDirectory: string,
+	assetName: string,
+	destinationPath: string
+): Promise<void> => {
+	const sourcePath = join(assetsDirectory, assetName);
+	if (!assetName.endsWith('.json')) return copyFile(sourcePath, destinationPath);
+	const data = JSON.parse(await readFile(sourcePath, 'utf8'));
+	const isLocaleMessages =
+		assetName.startsWith(`_locales${sep}`) && basename(assetName) === 'messages.json';
+	await writeFile(
+		destinationPath,
+		JSON.stringify(isLocaleMessages ? stripMessageDescriptions(data) : data)
+	);
 };
 
-const prepareOutput = async (root: string): Promise<void> => {
-	const directory = join(root, 'dist');
-	await rm(directory, { recursive: true, force: true });
-	await mkdir(directory, { recursive: true });
-	await copyFile(join(root, 'LICENSE'), join(directory, 'LICENSE'));
+const resetOutputDirectory = async (root: string): Promise<void> => {
+	const outputDirectory = join(root, 'dist');
+	await rm(outputDirectory, { recursive: true, force: true });
+	await mkdir(outputDirectory, { recursive: true });
+	await copyFile(join(root, 'LICENSE'), join(outputDirectory, 'LICENSE'));
 };
 
-const assetSync = (root: string, watching = false) => {
-	let previous = new Set<string>();
+const createAssetSync = (root: string, watching = false) => {
+	const assetsDirectory = join(root, 'src/assets');
+	const outputDirectory = join(root, 'dist');
+	let previousAssetNames = new Set<string>();
 	return async () => {
-		const assets = join(root, 'src/assets');
-		const files = await collectFiles(assets, watching);
-		const current = new Set(files.map((file) => relative(assets, file)));
-		for (const name of previous) {
-			if (!current.has(name)) {
-				await rm(join(root, 'dist', name), { force: true });
+		const files = await collectFiles(assetsDirectory, watching);
+		const currentAssetNames = new Set(files.map((file) => relative(assetsDirectory, file)));
+		for (const name of previousAssetNames) {
+			if (!currentAssetNames.has(name)) {
+				await rm(join(outputDirectory, name), { force: true });
 			}
 		}
-		for (const name of current) {
-			const destination = join(root, 'dist', name);
-			await mkdir(dirname(destination), { recursive: true });
+		for (const name of currentAssetNames) {
+			const destinationPath = join(outputDirectory, name);
+			await mkdir(dirname(destinationPath), { recursive: true });
 			try {
-				await copyAsset(assets, name, destination);
+				await copyAsset(assetsDirectory, name, destinationPath);
 			} catch (error) {
-				if (!watching || !isMissing(error)) throw error;
+				if (!watching || !isMissingFileError(error)) throw error;
 				// A deletion may race with directory enumeration; remove any stale output too.
-				current.delete(name);
-				await rm(destination, { force: true });
+				currentAssetNames.delete(name);
+				await rm(destinationPath, { force: true });
 			}
 		}
-		previous = current;
+		previousAssetNames = currentAssetNames;
 	};
 };
 
-const buildOptions = async (root: string, minify: boolean): Promise<BuildOptions> => {
+const createBuildOptions = async (root: string, minify: boolean): Promise<EsbuildOptions> => {
 	const manifest = JSON.parse(await readFile(join(root, 'src/assets/manifest.json'), 'utf8'));
 	return {
 		entryPoints: [join(root, 'src/background.ts')],
@@ -92,39 +105,44 @@ const buildOptions = async (root: string, minify: boolean): Promise<BuildOptions
 export const buildExtension = async ({
 	root = PROJECT_ROOT,
 	minify = true,
-}: Options = {}): Promise<void> => {
-	await prepareOutput(root);
-	await assetSync(root)();
-	await esbuild(await buildOptions(root, minify));
+}: ExtensionBuildOptions = {}): Promise<void> => {
+	await resetOutputDirectory(root);
+	const syncAssets = createAssetSync(root);
+	await syncAssets();
+	await esbuild(await createBuildOptions(root, minify));
 };
 
 export const watchExtension = async (
-	{ root = PROJECT_ROOT, minify = true }: Options = {},
+	{ root = PROJECT_ROOT, minify = true }: ExtensionBuildOptions = {},
 	onError: (error: unknown) => void = console.error
 ): Promise<() => Promise<void>> => {
-	await prepareOutput(root);
-	const sync = assetSync(root, true);
-	let pending = Promise.resolve();
-	const refresh = () => {
-		pending = pending.then(sync).catch(onError);
+	await resetOutputDirectory(root);
+	const syncAssets = createAssetSync(root, true);
+	let pendingAssetSync = Promise.resolve();
+	const queueAssetSync = () => {
+		pendingAssetSync = pendingAssetSync.then(syncAssets).catch(onError);
 	};
-	const context = await esbuildContext(await buildOptions(root, minify));
-	let watcher: FSWatcher | undefined;
+	const buildContext = await esbuildContext(await createBuildOptions(root, minify));
+	let assetWatcher: FSWatcher | undefined;
 	try {
-		watcher = watchDirectory(join(root, 'src/assets'), { recursive: true }, refresh);
-		watcher.on('error', onError);
-		refresh();
-		await pending;
-		await context.watch();
+		assetWatcher = watchDirectory(
+			join(root, 'src/assets'),
+			{ recursive: true },
+			queueAssetSync
+		);
+		assetWatcher.on('error', onError);
+		queueAssetSync();
+		await pendingAssetSync;
+		await buildContext.watch();
 	} catch (error) {
-		watcher?.close();
-		await context.dispose();
+		assetWatcher?.close();
+		await buildContext.dispose();
 		throw error;
 	}
 	return async () => {
-		watcher?.close();
-		await pending;
-		await context.dispose();
+		assetWatcher?.close();
+		await pendingAssetSync;
+		await buildContext.dispose();
 	};
 };
 
