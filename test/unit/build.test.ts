@@ -5,8 +5,8 @@ import { join, relative } from 'node:path';
 import { build as esbuild } from 'esbuild';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildExtension, collectFiles, PROJECT_ROOT, watchExtension } from '../../scripts/build';
+import { validateExtension, validateVersion } from '../../scripts/lib/validate-extension';
 import { packageExtension } from '../../scripts/package';
-import { validateExtension, validateVersion } from '../../scripts/validate-extension';
 
 // Observe the real compiler boundary without replacing compilation or packaging.
 vi.mock('esbuild', async (importOriginal) => {

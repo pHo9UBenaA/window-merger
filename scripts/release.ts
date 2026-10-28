@@ -1,12 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { validateVersion } from './validate-extension.ts';
-
-export const releaseVersion = (ref: string): string | null => {
-	const refName = ref.replace(/^refs\/(heads|tags)\//, '');
-	const match = /^(?:release\/)?v(\d+\.\d+\.\d+)$/.exec(refName);
-	return match ? validateVersion(match[1]) : null;
-};
+import { checkRelease, releaseVersion } from './lib/release-version.ts';
 
 const git = (args: string[], cwd: string): string =>
 	execFileSync('git', args, {
@@ -14,27 +7,6 @@ const git = (args: string[], cwd: string): string =>
 		encoding: 'utf8',
 		stdio: ['ignore', 'pipe', 'pipe'],
 	}).trim();
-
-export const checkRelease = (ref: string, commit: string, cwd = process.cwd()): string | null => {
-	const version = releaseVersion(ref);
-	if (version === null) return null;
-	const manifest = JSON.parse(git(['show', `${commit}:src/assets/manifest.json`], cwd));
-	if (validateVersion(manifest.version) !== version) {
-		throw new Error(`Release ${ref} does not match manifest version ${manifest.version}`);
-	}
-	return version;
-};
-
-export const checkPush = (input: string, cwd = process.cwd()): void => {
-	for (const line of input.trim().split('\n')) {
-		if (!line) continue;
-		const [localRef, commit, remoteRef] = line.split(/\s+/);
-		// A zero local commit denotes a deletion, not a release to validate.
-		if (/^0+$/.test(commit)) continue;
-		checkRelease(localRef, commit, cwd);
-		checkRelease(remoteRef, commit, cwd);
-	}
-};
 
 const compareVersions = (leftVersion: string, rightVersion: string): number => {
 	const leftParts = leftVersion.split('.').map(Number);
@@ -98,9 +70,11 @@ export const createReleaseTag = (
 
 if (import.meta.main) {
 	try {
-		if (process.argv.includes('--check-push')) {
-			checkPush(readFileSync(0, 'utf8'));
-		} else if (process.argv.includes('--check')) {
+		const args = process.argv.slice(2);
+		if (args.length > 1 || (args.length === 1 && args[0] !== '--check')) {
+			throw new Error('Use --check to validate or no arguments to publish a release tag');
+		}
+		if (args[0] === '--check') {
 			checkRelease(process.env.RELEASE_BRANCH ?? '', process.env.RELEASE_COMMIT ?? 'HEAD');
 		} else {
 			const branch = process.env.RELEASE_BRANCH;

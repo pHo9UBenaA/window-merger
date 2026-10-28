@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { rename, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { buildExtension, PROJECT_ROOT } from './build.ts';
-import { validateExtension } from './validate-extension.ts';
+import { validateExtension } from './lib/validate-extension.ts';
 
 export const packageExtension = async (root = PROJECT_ROOT): Promise<void> => {
 	const archivePath = resolve(root, 'dist.zip');

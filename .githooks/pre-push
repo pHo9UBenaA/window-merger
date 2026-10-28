@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-node --experimental-strip-types scripts/release.ts --check-push
+node --experimental-strip-types scripts/pre-push.ts
 pnpm run ci
 pnpm run typecheck
 pnpm run test:coverage

@@ -2,19 +2,29 @@
 
 ## Getting started
 
-You need:
+Install the Node.js and pnpm versions specified in
+[`engines.node` and `packageManager`](../package.json), plus `zip` and `unzip` on `PATH`.
+Run commands from the repository root.
 
-- **Node.js 24.21 or later in the 24.x line** and **pnpm**, as specified by
-  [`engines.node` and `packageManager` in `package.json`](../package.json).
-- **`zip` and `unzip`** on `PATH` for packaging and artifact tests.
+```sh
+pnpm install --frozen-lockfile
+```
 
 ## Development workflow
 
-```sh
-pnpm build --watch
-```
+1. Start the watch build:
 
-Add `--no-minify` for readable JavaScript.
+   ```sh
+   pnpm build --watch
+   ```
+
+   Add `--no-minify` for readable JavaScript.
+
+2. In Chrome, open `chrome://extensions`, enable **Developer mode**, select **Load unpacked**,
+   and choose the repository's `dist/` directory.
+3. After source or asset changes, wait for the rebuild and reload the extension in Chrome.
+
+### Project layout
 
 | Path | Purpose |
 | --- | --- |
@@ -23,12 +33,19 @@ Add `--no-minify` for readable JavaScript.
 | `src/application/` | Merge orchestration through ports |
 | `src/ports/`, `src/adapters/chrome/` | API contracts and Chrome implementations |
 | `src/assets/` | Manifest, icons and translations |
-| `scripts/` | Build, packaging and maintenance tools |
+| `scripts/` | Build, packaging and maintenance entry points |
+| `scripts/lib/` | Supporting modules shared by scripts |
 | `test/unit/`, `test/browser/` | Unit and packaged-extension tests |
 
 ## Tests and checks
 
-Run `pnpm test` for a quick unit-test pass. Before opening a pull request, run:
+For a quick unit-test pass:
+
+```sh
+pnpm test
+```
+
+Before opening a pull request, [install Chromium](#browser-tests) if needed, then run:
 
 ```sh
 pnpm run ci
@@ -46,40 +63,53 @@ Install Playwright's Chromium once before running browser tests:
 
 ```sh
 pnpm exec playwright install chromium
-
-# Linux: install Chromium with system dependencies instead
-pnpm exec playwright install --with-deps chromium
 ```
 
-Run headed and stress tests:
+On Linux, add `--with-deps` to install system dependencies.
+For a visible browser, prefix `pnpm test:browser` with `HEADED=1`.
+
+For merge-related changes, run the 200-tab stress test:
 
 ```sh
-# Run with a visible browser
-HEADED=1 pnpm test:browser
-
-# Run for merge-related changes (200 tabs)
 pnpm test:stress
 ```
 
 ### Chrome compatibility
 
-Run **Actions → Browser matrix → Run workflow** before a release or to investigate platform
-differences. It covers Linux, Windows and macOS, including locked Chrome for Testing versions.
-This workflow is manual and does not gate pull requests; reports and failure context are uploaded
-as `test-results` artifacts.
+Before a release or when investigating platform differences, run
+**Actions → Browser matrix → Run workflow** on the branch to test.
+Confirm that the workflow succeeds; inspect its artifacts if it fails.
+This workflow is manual and does not gate pull requests.
 
-[`test/browser/chrome-versions.json`](../test/browser/chrome-versions.json) locks one full patch
-version per major, from the manifest minimum to Stable. To test a locked major locally:
+#### Local compatibility tests
+
+To test a specific Chrome major locally, choose one from
+[`chrome-versions.json`](../test/browser/chrome-versions.json) whose version has a checksum
+for your platform in [`chrome-checksums.json`](../test/browser/chrome-checksums.json).
+For example, install Chrome 120 on Apple silicon macOS (`linux64` for Linux, `win64` for Windows):
 
 ```sh
-pnpm chrome:install 120 mac-arm64 # or linux64 / win64
-CHROME_EXECUTABLE_PATH='/path/printed/by/installer' CHROME_MAJOR=120 HEADED=1 pnpm test:browser:compat
+pnpm chrome:install 120 mac-arm64
 ```
 
-The compatibility command runs only `@compat` scenarios.
+Replace `/path/to/chrome` below with `executablePath` from the installer's JSON output:
 
-Refresh patches or extend the range when Stable advances with `pnpm chrome:update-lock`.
-Commit the lock diff as a separate maintenance change; tests and CI never select versions themselves.
+```sh
+CHROME_EXECUTABLE_PATH='/path/to/chrome' CHROME_MAJOR=120 HEADED=1 pnpm test:browser:compat
+```
+
+This runs the `@compat` scenarios, not the full browser suite.
+
+#### Update locked Chrome versions
+
+When Stable advances:
+
+```sh
+pnpm chrome:update-lock
+```
+
+Review and commit `test/browser/chrome-versions.json` and `test/browser/chrome-checksums.json`
+together as a separate maintenance change.
 
 ## Git hooks
 
@@ -89,12 +119,12 @@ Enable the optional hooks after installing dependencies:
 git config core.hooksPath .githooks
 ```
 
-Disable the hooks with `git config --unset core.hooksPath`.
+To disable the hooks:
+
+```sh
+git config --unset core.hooksPath
+```
 
 ## Releases
 
-1. Create `release/vX.Y.Z` and set that version in
-   [`src/assets/manifest.json`](../src/assets/manifest.json).
-2. Complete the tests and checks, including the manual Browser matrix workflow.
-3. Run `pnpm zip` to rebuild, validate and archive `dist/` as `dist.zip`.
-4. Inspect the extracted ZIP before uploading it to the Chrome Web Store.
+Maintainers publishing a release should follow the [release guide](releases.md).
