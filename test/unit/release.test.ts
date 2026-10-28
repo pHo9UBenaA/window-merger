@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { checkPush, checkRelease, createReleaseTag, releaseVersion } from '../../scripts/release';
+import { checkRelease, releaseVersion } from '../../scripts/lib/release-version';
+import { createReleaseTag } from '../../scripts/release';
 
 it.each(['release/v1.4.10', 'v1.4.10', 'refs/heads/release/v1.4.10', 'refs/tags/v1.4.10'])(
 	'recognizes %s',
@@ -62,19 +63,24 @@ describe('release Git integration', () => {
 		).toThrow('does not match');
 	});
 
-	it('checks the committed manifest and both sides of a push, including tags', async () => {
+	it('rejects the removed push-check option without publishing a tag', async () => {
+		const sha = await commit('1.4.10');
+		const script = fileURLToPath(new URL('../../scripts/release.ts', import.meta.url));
+		expect(() =>
+			execFileSync(process.execPath, ['--experimental-strip-types', script, '--check-push'], {
+				cwd: repository,
+				env: { ...process.env, RELEASE_BRANCH: 'release/v1.4.10', RELEASE_COMMIT: sha },
+				stdio: ['ignore', 'pipe', 'pipe'],
+			})
+		).toThrow('Use --check');
+		expect(git('ls-remote', '--tags', 'origin')).toBe('');
+	});
+
+	it('checks the committed manifest instead of the working tree', async () => {
 		const sha = await commit('1.4.10');
 		await writeFile(join(repository, 'src/assets/manifest.json'), '{"version":"9.9.9"}');
 		expect(checkRelease('release/v1.4.10', sha, repository)).toBe('1.4.10');
-		expect(() =>
-			checkPush(`refs/heads/main ${sha} refs/tags/v1.4.9 deadbeef`, repository)
-		).toThrow('does not match');
-		expect(() =>
-			checkPush(
-				'refs/heads/release/v1.4.9 00000000 refs/heads/release/v1.4.9 deadbeef',
-				repository
-			)
-		).not.toThrow();
+		expect(() => checkRelease('release/v1.4.9', sha, repository)).toThrow('does not match');
 	});
 	it('publishes only the requested tag at the exact commit and safely reruns', async () => {
 		const sha = await commit('1.4.10');

@@ -23,7 +23,8 @@ Add `--no-minify` for readable JavaScript.
 | `src/application/` | Merge orchestration through ports |
 | `src/ports/`, `src/adapters/chrome/` | API contracts and Chrome implementations |
 | `src/assets/` | Manifest, icons and translations |
-| `scripts/` | Build, packaging and maintenance tools |
+| `scripts/` | Build, packaging and maintenance entry points |
+| `scripts/lib/` | Supporting modules shared by scripts |
 | `test/unit/`, `test/browser/` | Unit and packaged-extension tests |
 
 ## Tests and checks
@@ -93,8 +94,4 @@ Disable the hooks with `git config --unset core.hooksPath`.
 
 ## Releases
 
-1. Create `release/vX.Y.Z` and set that version in
-   [`src/assets/manifest.json`](../src/assets/manifest.json).
-2. Complete the tests and checks, including the manual Browser matrix workflow.
-3. Run `pnpm zip` to rebuild, validate and archive `dist/` as `dist.zip`.
-4. Inspect the extracted ZIP before uploading it to the Chrome Web Store.
+Maintainers publishing a release should follow the [release guide](releases.md).
