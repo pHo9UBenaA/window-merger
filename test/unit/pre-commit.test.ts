@@ -21,7 +21,7 @@ it.each([
 	['README.md', false],
 	['example.ts', true],
 	['package.json', true],
-	['compose.yaml', true],
+	['config.yaml', true],
 	['icon.png', true],
 ])('selects code checks for staged %s: %s', async (name, expected) => {
 	await writeFile(join(root, name), 'staged');
