@@ -50,7 +50,6 @@ Before opening a pull request, [install Chromium](#browser-tests) if needed, the
 ```sh
 pnpm run ci
 pnpm typecheck
-pnpm typecheck:tsc
 pnpm test:coverage
 pnpm check:secrets
 pnpm check:dependencies

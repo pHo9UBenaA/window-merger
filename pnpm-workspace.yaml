@@ -14,7 +14,6 @@ catalog:
   '@secretlint/secretlint-rule-preset-recommend': 13.0.6
   '@types/chrome': 0.3.3
   '@types/node': 24.19.0
-  '@typescript/native-preview': 7.0.0-dev.20260707.2
   '@vitest/coverage-v8': 5.0.3
   esbuild: 0.28.2
   secretlint: 13.0.6
@@ -44,8 +43,6 @@ minimumReleaseAge: 10080
 
 minimumReleaseAgeExclude:
   - typescript
-  - '@typescript/native-preview'
-  - '@typescript/native-preview-*'
   # Only fixes GHSA-68fv-2mgg-jv7q; 1.2.2 is younger than minimumReleaseAge.
   - source-map-js
 

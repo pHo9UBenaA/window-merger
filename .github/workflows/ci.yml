@@ -37,7 +37,6 @@ jobs:
       - run: pnpm run ci --reporter=github
       - run: pnpm run check:secrets
       - run: pnpm run typecheck
-      - run: pnpm run typecheck:tsc
       - run: pnpm run test:coverage
       - run: pnpm run check:dependencies
       - run: pnpm run zip
