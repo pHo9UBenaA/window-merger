@@ -92,6 +92,37 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 		).toThrow('does not match');
 	});
 
+	it.each(['feature/example', 'release/v1.4.10'])(
+		'reads each committed version file once when checking %s',
+		async (branch) => {
+			const sha = await commit('1.4.10');
+			const trace = join(directory, 'version-check.jsonl');
+			const script = fileURLToPath(new URL('../../scripts/release.ts', import.meta.url));
+			execFileSync(process.execPath, ['--experimental-strip-types', script, '--check'], {
+				cwd: repository,
+				env: {
+					...process.env,
+					RELEASE_BRANCH: branch,
+					RELEASE_COMMIT: sha,
+					GIT_TRACE2_EVENT: trace,
+				},
+				stdio: ['ignore', 'pipe', 'pipe'],
+			});
+			const reads = (await readFile(trace, 'utf8'))
+				.trim()
+				.split('\n')
+				.map((line) => JSON.parse(line))
+				.filter(
+					(event) =>
+						event.event === 'start' &&
+						event.argv?.[0] === 'git' &&
+						event.argv[1] === 'show'
+				)
+				.map((event) => event.argv.slice(2));
+			expect(reads).toEqual([[`${sha}:package.json`], [`${sha}:src/assets/manifest.json`]]);
+		}
+	);
+
 	it('rejects the removed push-check option without publishing a tag', async () => {
 		const sha = await commit('1.4.10');
 		const script = fileURLToPath(new URL('../../scripts/release.ts', import.meta.url));
@@ -252,6 +283,25 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 		expect(() => createReleaseTag('release/v1.4.10', 'HEAD', repository)).toThrow(
 			'does not match manifest version'
 		);
+		expect(() =>
+			execFileSync(
+				process.execPath,
+				[
+					'--experimental-strip-types',
+					fileURLToPath(new URL('../../scripts/release.ts', import.meta.url)),
+					'--check',
+				],
+				{
+					cwd: repository,
+					env: {
+						...process.env,
+						RELEASE_BRANCH: 'feature/example',
+						RELEASE_COMMIT: 'HEAD',
+					},
+					stdio: ['ignore', 'pipe', 'pipe'],
+				}
+			)
+		).toThrow('does not match manifest version');
 		expect(git('ls-remote', '--tags', 'origin')).toBe('');
 	});
 

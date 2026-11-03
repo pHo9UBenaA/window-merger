@@ -178,23 +178,25 @@ export const createReleaseTag = (
 	}
 };
 
+const runCli = (): void => {
+	const args = process.argv.slice(2);
+	if (args.length > 1 || (args.length === 1 && args[0] !== '--check')) {
+		throw new Error('Use --check to validate or no arguments to publish a release tag');
+	}
+	if (args[0] === '--check') {
+		const commit = process.env.RELEASE_COMMIT ?? 'HEAD';
+		if (checkRelease(process.env.RELEASE_BRANCH ?? '', commit) === null) checkVersions(commit);
+		return;
+	}
+	const branch = process.env.RELEASE_BRANCH;
+	const commit = process.env.RELEASE_COMMIT;
+	if (!branch || !commit) throw new Error('RELEASE_BRANCH and RELEASE_COMMIT are required');
+	console.log(createReleaseTag(branch, commit));
+};
+
 if (import.meta.main) {
 	try {
-		const args = process.argv.slice(2);
-		if (args.length > 1 || (args.length === 1 && args[0] !== '--check')) {
-			throw new Error('Use --check to validate or no arguments to publish a release tag');
-		}
-		if (args[0] === '--check') {
-			const commit = process.env.RELEASE_COMMIT ?? 'HEAD';
-			checkVersions(commit);
-			checkRelease(process.env.RELEASE_BRANCH ?? '', commit);
-		} else {
-			const branch = process.env.RELEASE_BRANCH;
-			const commit = process.env.RELEASE_COMMIT;
-			if (!branch || !commit)
-				throw new Error('RELEASE_BRANCH and RELEASE_COMMIT are required');
-			console.log(createReleaseTag(branch, commit));
-		}
+		runCli();
 	} catch (error) {
 		console.error(error);
 		process.exitCode = 1;
