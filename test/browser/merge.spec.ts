@@ -196,8 +196,8 @@ test('respects incognito permission changes and never mixes normal and incognito
 			(window) => (window.tabs ?? []).map((tab) => ({ id: tab.id, incognito: tab.incognito }))
 		)
 	);
-	expect(after.sort((a, b) => (a.id ?? 0) - (b.id ?? 0))).toEqual(
-		before.sort((a, b) => (a.id ?? 0) - (b.id ?? 0))
+	expect(after.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0))).toEqual(
+		before.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0))
 	);
 	expect(await worker.evaluate(() => mergerTest.errors)).toEqual([]);
 	const denied = await restart(false);
@@ -265,8 +265,8 @@ test('merges a larger snapshot without losing tabs @stress', async ({
 		groups: (await chrome.tabGroups.query({})).map((group) => group.id),
 		errors: mergerTest.errors,
 	}));
-	expect(after.ids.sort()).toEqual(before.ids.sort());
-	expect(after.groups.sort()).toEqual(before.groups.sort());
+	expect(after.ids.toSorted()).toEqual(before.ids.toSorted());
+	expect(after.groups.toSorted()).toEqual(before.groups.toSorted());
 	expect(after.errors).toEqual([]);
 	await testInfo.attach('merge-duration', {
 		body: JSON.stringify({

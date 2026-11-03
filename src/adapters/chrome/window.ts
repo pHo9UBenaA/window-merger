@@ -43,7 +43,7 @@ const toTabSnapshot = (tab: chrome.tabs.Tab): TabSnapshot | null => {
 	};
 };
 
-// Tabs without a usable ID are dropped, so collect the survivors in one pass.
+// Keep a single pass instead of map/filter to limit temporary allocations on large snapshots.
 const toTabSnapshots = (tabs: chrome.tabs.Tab[] | undefined): TabSnapshot[] => {
 	const snapshots: TabSnapshot[] = [];
 	for (const tab of tabs ?? []) {
@@ -73,7 +73,6 @@ const toWindowSnapshot = (window: chrome.windows.Window): WindowSnapshot | null 
 	};
 };
 
-// Windows without a usable ID are dropped, so collect the survivors in one pass.
 const toWindowSnapshots = (windows: readonly chrome.windows.Window[]): WindowSnapshot[] => {
 	const snapshots: WindowSnapshot[] = [];
 	for (const window of windows) {

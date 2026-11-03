@@ -31,8 +31,9 @@ export const validateChromeVersions = (
 	versions: ChromeVersions,
 	minimumMajor: number
 ): ChromeVersions => {
-	const majors = Object.keys(versions).map(Number);
-	majors.sort((left, right) => left - right);
+	const majors = Object.keys(versions)
+		.map(Number)
+		.toSorted((left, right) => left - right);
 	if (majors.length === 0 || majors[0] !== minimumMajor)
 		throw new Error(`Chrome lock must start at manifest minimum ${minimumMajor}`);
 	for (const [index, major] of majors.entries()) {

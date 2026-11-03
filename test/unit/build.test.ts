@@ -61,8 +61,8 @@ describe('extension artifacts', () => {
 		const extracted = join(root, 'extracted');
 		execFileSync('unzip', ['-q', join(root, 'dist.zip'), '-d', extracted]);
 		const files = await collectFiles(extracted);
-		expect(files.map((file) => relative(extracted, file)).sort()).toEqual(
-			[...expected.keys()].sort()
+		expect(files.map((file) => relative(extracted, file)).toSorted()).toEqual(
+			[...expected.keys()].toSorted()
 		);
 		for (const [name, data] of expected) {
 			expect(await readFile(join(extracted, name))).toEqual(data);
@@ -365,8 +365,8 @@ describe('extension artifacts', () => {
 		}
 		await buildExtension({ root });
 		expect(
-			(await collectFiles(directory)).map((file) => relative(directory, file)).sort()
-		).toEqual([...watched.keys()].sort());
+			(await collectFiles(directory)).map((file) => relative(directory, file)).toSorted()
+		).toEqual([...watched.keys()].toSorted());
 		for (const [name, data] of watched) {
 			expect(await readFile(join(directory, name))).toEqual(data);
 		}

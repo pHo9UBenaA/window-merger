@@ -57,7 +57,7 @@ beforeEach(() => {
 	vi.stubGlobal(
 		'fetch',
 		vi.fn(async (url: string) => {
-			const reports = {
+			const reports: Record<string, unknown> = {
 				'latest-versions-per-milestone.json': {
 					milestones: { '120': { version }, '121': { version: nextVersion } },
 				},
@@ -71,7 +71,7 @@ beforeEach(() => {
 					})),
 				},
 			};
-			const report = reports[basename(url) as keyof typeof reports];
+			const report = reports[basename(url)];
 			if (!report) throw new Error(`Unexpected URL ${url}`);
 			return new Response(JSON.stringify(report));
 		})
