@@ -61,4 +61,6 @@ strictDepBuilds: true
 
 strictPeerDependencies: true
 
+tagVersionPrefix: v
+
 trustPolicy: no-downgrade

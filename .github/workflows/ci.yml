@@ -41,7 +41,7 @@ jobs:
       - run: pnpm run test:coverage
       - run: pnpm run check:dependencies
       - run: pnpm run zip
-      - name: Validate release branch version
+      - name: Validate package and extension versions
         env:
           RELEASE_BRANCH: ${{ github.head_ref || github.ref_name }}
           RELEASE_COMMIT: HEAD

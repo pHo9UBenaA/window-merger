@@ -30,6 +30,10 @@ describe('pre-push version checks', () => {
 		repository = await mkdtemp(join(tmpdir(), 'window-merger-pre-push-'));
 		await mkdir(join(repository, 'src/assets'), { recursive: true });
 		await writeFile(join(repository, 'src/assets/manifest.json'), '{"version":"1.4.10"}');
+		await writeFile(
+			join(repository, 'package.json'),
+			'{"name":"push-fixture","version":"1.4.10"}'
+		);
 		git('init', '-b', 'main');
 		git('config', 'user.name', 'Push Test');
 		git('config', 'user.email', 'test@example.invalid');

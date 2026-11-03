@@ -1,5 +1,6 @@
 {
 	"name": "window-merger",
+	"version": "1.5.0",
 	"private": true,
 	"type": "module",
 	"engines": {
@@ -31,6 +32,7 @@
 	"scripts": {
 		"build": "node --experimental-strip-types ./scripts/build.ts",
 		"zip": "node --experimental-strip-types ./scripts/package.ts",
+		"version": "node --experimental-strip-types ./scripts/sync-version.ts",
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
 		"test:browser": "pnpm zip && playwright test --project=chromium",
