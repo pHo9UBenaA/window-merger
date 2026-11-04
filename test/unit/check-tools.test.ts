@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
-import { operate } from '../../scripts/operations/check-tools';
+import { operate } from '../../scripts/lib/check-tools';
 
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn() }));
 afterEach(() => {

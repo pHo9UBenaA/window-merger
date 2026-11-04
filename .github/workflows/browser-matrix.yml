@@ -79,10 +79,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - id: plan
         run: |
-          matrix=$(node --permission \
-            --allow-fs-read=./package.json \
-            --allow-fs-read=./scripts/runtime \
-            --allow-child-process scripts/run.ts chrome-matrix)
+          matrix=$(pnpm --silent run chrome:matrix)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   compatibility:

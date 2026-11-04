@@ -29,12 +29,8 @@
 		"vitest": "catalog:"
 	},
 	"scripts": {
-		"build": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts build",
+		"build": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-fs-read=./src --allow-child-process ./scripts/build/main.ts",
 		"check": "biome check --write .",
-		"check:dependencies": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts check-dependencies",
-		"check:secrets": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts check-secrets",
-		"chrome:install": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts chrome-install",
-		"chrome:update-lock": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts chrome-update",
 		"ci": "biome ci . --error-on-warnings",
 		"format": "biome format --write .",
 		"lint": "biome lint --write . --error-on-warnings",
@@ -44,8 +40,19 @@
 		"test:coverage": "vitest run --coverage",
 		"test:stress": "pnpm zip && playwright test --project=stress",
 		"typecheck": "tsc --noEmit",
-		"version": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts sync-version && git add -- src/assets/manifest.json",
-		"zip": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts package"
+		"check:dependencies": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-child-process ./scripts/check-dependencies/collect.ts | node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts ./scripts/check-dependencies/check.ts",
+		"check:secrets": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-child-process ./scripts/check-secrets/main.ts",
+		"chrome:install": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-child-process ./scripts/chrome-install/main.ts",
+		"chrome:update-lock": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-child-process ./scripts/chrome-update/main.ts",
+		"chrome:matrix": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-fs-read=./src/assets/manifest.json --allow-fs-read=./test/browser/chrome-versions.json ./scripts/chrome-matrix/main.ts",
+		"hook:pre-commit": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-child-process ./scripts/pre-commit/main.ts",
+		"hook:pre-push": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-child-process ./scripts/pre-push/main.ts",
+		"release:check": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-child-process ./scripts/release/check.ts",
+		"release:publish": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-child-process ./scripts/release/main.ts",
+		"version": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts ./scripts/sync-version/read.ts | node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-fs-read=./src/assets/manifest.json --allow-fs-write=./src/assets/manifest.json ./scripts/sync-version/write.ts && git add -- src/assets/manifest.json",
+		"zip": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-child-process ./scripts/package/main.ts",
+		"scripts:generate": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --allow-fs-write=./package.json --allow-fs-write=./scripts/build/commands.generated.ts --allow-fs-write=./scripts/package/commands.generated.ts --allow-fs-write=./scripts/check-dependencies/commands.generated.ts --allow-fs-write=./scripts/check-secrets/commands.generated.ts --allow-fs-write=./scripts/chrome-install/commands.generated.ts --allow-fs-write=./scripts/chrome-update/commands.generated.ts --allow-fs-write=./scripts/chrome-matrix/commands.generated.ts --allow-fs-write=./scripts/pre-commit/commands.generated.ts --allow-fs-write=./scripts/pre-push/commands.generated.ts --allow-fs-write=./scripts/release/commands.generated.ts --allow-fs-write=./scripts/sync-version/commands.generated.ts --allow-fs-write=./scripts/lib/commands.generated.ts ./scripts/generate-commands.ts",
+		"scripts:check": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts ./scripts/generate-commands.ts --check"
 	},
 	"license": "MIT",
 	"packageManager": "pnpm@12.17.0+sha512.b8d223ebec04b580a89ed206daa71d1bccb6a1ee1d52efa95cc3b0db75271561df8f0d8e2c43add39c5ec08018af7a8a95108e7090f95a29f88727b7a40fd53d"

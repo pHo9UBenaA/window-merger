@@ -4,11 +4,11 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { hasCodeChanges, withIndexSnapshot } from '../../scripts/tasks/pre-commit';
+import { hasCodeChanges, withIndexSnapshot } from '../../scripts/pre-commit/main';
 import { useOperationRoot } from '../helpers/script-operations';
 
-vi.mock('../../scripts/runtime/client', async () => ({
-	callOperation: (await import('../helpers/script-operations')).runOperation,
+vi.mock('../../scripts/lib/run-node', async () => ({
+	runNode: (await import('../helpers/script-operations')).runScript,
 }));
 
 let root: string;

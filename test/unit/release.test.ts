@@ -5,11 +5,11 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkRelease, checkVersions, releaseVersion } from '../../scripts/lib/release-version';
-import { createReleaseTag } from '../../scripts/tasks/release';
+import { createReleaseTag } from '../../scripts/release/main';
 import { useOperationRoot } from '../helpers/script-operations';
 
-vi.mock('../../scripts/runtime/client', async () => ({
-	callOperation: (await import('../helpers/script-operations')).runOperation,
+vi.mock('../../scripts/lib/run-node', async () => ({
+	runNode: (await import('../helpers/script-operations')).runScript,
 }));
 
 it.each(['release/v1.4.10', 'v1.4.10', 'refs/heads/release/v1.4.10', 'refs/tags/v1.4.10'])(
@@ -48,7 +48,10 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 				private: true,
 				type: 'module',
 				packageManager,
-				scripts: { version: scripts.version },
+				scripts: {
+					version: scripts.version,
+					'release:publish': scripts['release:publish'],
+				},
 			})
 		);
 		await writeFile(join(repository, 'src/assets/manifest.json'), JSON.stringify({ version }));
@@ -88,9 +91,12 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 	it('runs CLI validation through a symlink instead of silently skipping it', async () => {
 		const sha = await commit('1.4.10');
 		const alias = join(directory, 'release-alias.ts');
-		await symlink(fileURLToPath(new URL('../../scripts/run.ts', import.meta.url)), alias);
+		await symlink(
+			fileURLToPath(new URL('../../scripts/release/check.ts', import.meta.url)),
+			alias
+		);
 		expect(() =>
-			execFileSync(process.execPath, [alias, 'release-check'], {
+			execFileSync(process.execPath, [alias], {
 				cwd: repository,
 				env: { ...process.env, RELEASE_BRANCH: 'release/v1.4.9', RELEASE_COMMIT: sha },
 				stdio: ['ignore', 'pipe', 'pipe'],
@@ -103,8 +109,10 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 		async (branch) => {
 			const sha = await commit('1.4.10');
 			const trace = join(directory, 'version-check.jsonl');
-			const script = fileURLToPath(new URL('../../scripts/run.ts', import.meta.url));
-			execFileSync(process.execPath, [script, 'release-check'], {
+			const script = fileURLToPath(
+				new URL('../../scripts/release/check.ts', import.meta.url)
+			);
+			execFileSync(process.execPath, [script], {
 				cwd: repository,
 				env: {
 					...process.env,
@@ -131,14 +139,14 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 
 	it('rejects the removed push-check option without publishing a tag', async () => {
 		const sha = await commit('1.4.10');
-		const script = fileURLToPath(new URL('../../scripts/run.ts', import.meta.url));
+		const script = fileURLToPath(new URL('../../scripts/release/main.ts', import.meta.url));
 		expect(() =>
-			execFileSync(process.execPath, [script, 'release', '--check-push'], {
+			execFileSync(process.execPath, [script, '--check-push'], {
 				cwd: repository,
 				env: { ...process.env, RELEASE_BRANCH: 'release/v1.4.10', RELEASE_COMMIT: sha },
 				stdio: ['ignore', 'pipe', 'pipe'],
 			})
-		).toThrow('Use release-check');
+		).toThrow('Use pnpm release:check');
 		expect(git('ls-remote', '--tags', 'origin')).toBe('');
 	});
 
@@ -189,7 +197,7 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 		);
 		const command = workflow
 			.replace(/\\\r?\n\s*/g, ' ')
-			.match(/pnpm --config\.verifyDepsBeforeRun=false exec [^\n]+/);
+			.match(/pnpm --silent --config\.verifyDepsBeforeRun=false run release:publish/);
 		if (!command) throw new Error('Missing release workflow command');
 		const [executable, ...args] = command[0].trim().split(/\s+/);
 		const env: NodeJS.ProcessEnv = {
@@ -225,11 +233,33 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 		delete env.npm_execpath;
 		const output = execFileSync(
 			process.execPath,
-			[fileURLToPath(new URL('../../scripts/run.ts', import.meta.url)), 'release'],
+			[fileURLToPath(new URL('../../scripts/release/main.ts', import.meta.url))],
 			{ cwd: repository, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
 		);
 		expect(output.trim()).toBe('created');
 		expect(remoteGit('rev-parse', 'refs/tags/v1.4.10^{commit}^')).toBe(sha);
+	});
+
+	it('starts the version reader without inherited write or child-process grants', async () => {
+		await writeFile(
+			join(repository, 'scripts/sync-version/read.ts'),
+			`
+import { readFileSync } from 'node:fs';
+if (process.permission.has('child') || process.permission.has('fs.write') || process.permission.has('fs.read')) {
+  throw new Error('The version reader inherited broader permissions');
+}
+console.log(JSON.stringify({ version: JSON.parse(readFileSync('package.json', 'utf8')).version }));`
+		);
+		const sha = await commit('1.4.10');
+		vi.stubEnv(
+			'NODE_OPTIONS',
+			'--permission --allow-fs-read=* --allow-fs-write=* --allow-child-process'
+		);
+		try {
+			expect(createReleaseTag('release/v1.4.10', sha, repository)).toBe('created');
+		} finally {
+			vi.unstubAllEnvs();
+		}
 	});
 
 	it('does not publish a version hook’s changes beyond the approved snapshot', async () => {
@@ -324,7 +354,7 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 		expect(() =>
 			execFileSync(
 				process.execPath,
-				[fileURLToPath(new URL('../../scripts/run.ts', import.meta.url)), 'release-check'],
+				[fileURLToPath(new URL('../../scripts/release/check.ts', import.meta.url))],
 				{
 					cwd: repository,
 					env: {

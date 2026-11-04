@@ -1,10 +1,7 @@
 #!/bin/sh
 set -e
 
-node --permission \
-  --allow-fs-read=./package.json \
-  --allow-fs-read=./scripts/runtime \
-  --allow-child-process scripts/run.ts pre-push
+pnpm --silent run hook:pre-push
 pnpm run ci
 pnpm run typecheck
 pnpm run test:coverage

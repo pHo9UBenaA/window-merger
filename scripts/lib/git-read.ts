@@ -1,0 +1,69 @@
+import { execFileSync } from 'node:child_process';
+import { choice, object, strings } from './input.ts';
+import { runJsonCli } from './json-cli.ts';
+import { checkedRef, gitDirectory } from './script-paths.ts';
+
+const validateArguments = (args: readonly string[]): void => {
+	const [command, ...rest] = args;
+	const signature = args.join(' ');
+	if (
+		[
+			'rev-parse --show-toplevel',
+			'rev-parse --local-env-vars',
+			'diff --cached --name-only --no-renames -z',
+			'ls-files -z',
+			'ls-remote --tags origin',
+			'remote get-url --push origin',
+			'status --porcelain',
+		].includes(signature)
+	)
+		return;
+	if (command === 'config' && rest.length === 1) {
+		choice(rest[0], ['user.name', 'user.email']);
+		return;
+	}
+	if (command === 'show' && rest.length === 1) {
+		const separator = rest[0].indexOf(':');
+		if (separator < 1) throw new Error('Expected committed version file');
+		checkedRef(rest[0].slice(0, separator));
+		choice(rest[0].slice(separator + 1), ['package.json', 'src/assets/manifest.json']);
+		return;
+	}
+	if (command === 'rev-parse' && rest.length === 1) {
+		checkedRef(rest[0]);
+		return;
+	}
+	if (
+		command === 'rev-list' &&
+		rest.length === 4 &&
+		rest.slice(0, 3).join(' ') === '--parents -n 1'
+	) {
+		checkedRef(rest[3]);
+		return;
+	}
+	if (command === 'log' && rest.length === 3 && rest.slice(0, 2).join(' ') === '-1 --format=%s') {
+		checkedRef(rest[2]);
+		return;
+	}
+	throw new Error('Unsupported Git read');
+};
+
+export const operate = (input: unknown): string => {
+	const request = object(input);
+	const args = strings(request.args);
+	validateArguments(args);
+	return execFileSync('git', args, {
+		cwd: gitDirectory(request.cwd),
+		encoding: 'utf8',
+		stdio: ['ignore', 'pipe', 'pipe'],
+		...(request.isolated === true
+			? {
+					env: Object.fromEntries(
+						Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))
+					),
+				}
+			: {}),
+	});
+};
+
+if (import.meta.main) await runJsonCli(operate);

@@ -1,9 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { callOperation } from '../runtime/client.ts';
 
-type ChromeVersions = Record<string, string>;
-type ChromeChecksums = Record<string, Record<string, string>>;
+export type ChromeVersions = Record<string, string>;
+export type ChromeChecksums = Record<string, Record<string, string>>;
+export type ChromeUpdatePlan = {
+	versions: ChromeVersions;
+	checksums: ChromeChecksums;
+	downloads: { version: string; platform: string }[];
+};
+export type ChromeInstallation = { readonly version: string; readonly expectedSha256: string };
 type KnownGoodVersion = {
 	version: string;
 	downloads?: { chrome?: { platform: string }[] };
@@ -100,29 +105,7 @@ const selectChromeVersions = (
 	return validateChromeVersions(versions, minimumMajor);
 };
 
-const collectChromeChecksums = async (
-	versions: ChromeVersions,
-	minimumMajor: number
-): Promise<ChromeChecksums> => {
-	const checksums: ChromeChecksums = JSON.parse(await readFile(checksumPath(), 'utf8'));
-	for (const { major, platform } of chromeMatrix(versions, minimumMajor).include) {
-		const version = versions[major];
-		const existingSha256 = checksums[version]?.[platform];
-		if (existingSha256 !== undefined) {
-			requireSha256(existingSha256);
-			continue;
-		}
-		const { sha256 } = await callOperation<{ sha256: string }>('chrome-download', {
-			purpose: 'hash',
-			version,
-			platform,
-		});
-		checksums[version] = { ...checksums[version], [platform]: requireSha256(sha256) };
-	}
-	return checksums;
-};
-
-export const updateLock = async (): Promise<void> => {
+export const prepareLockUpdate = async (): Promise<ChromeUpdatePlan> => {
 	const [milestoneVersions, channelVersions, downloadVersions] = await Promise.all([
 		fetchJson(
 			'https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone.json'
@@ -142,12 +125,21 @@ export const updateLock = async (): Promise<void> => {
 		minimumMajor,
 		stableMajor
 	);
-	const checksums = await collectChromeChecksums(versions, minimumMajor);
-
-	await callOperation('chrome-lock', { checksums, versions });
+	const checksums: ChromeChecksums = JSON.parse(await readFile(checksumPath(), 'utf8'));
+	const downloads: { version: string; platform: string }[] = [];
+	for (const { major, platform } of chromeMatrix(versions, minimumMajor).include) {
+		const version = versions[major];
+		const existing = checksums[version]?.[platform];
+		if (existing === undefined) downloads.push({ version, platform });
+		else requireSha256(existing);
+	}
+	return { checksums, versions, downloads };
 };
 
-export const installChrome = async (major: string, platform: string): Promise<void> => {
+export const readInstallation = async (
+	major: string,
+	platform: string
+): Promise<ChromeInstallation> => {
 	if (!Object.values(platformTargets).some((candidate) => candidate === platform))
 		throw new Error(`Unsupported Chrome for Testing platform: ${platform}`);
 	const versions = await readVersionLock(await readMinimumMajor());
@@ -156,26 +148,7 @@ export const installChrome = async (major: string, platform: string): Promise<vo
 	const checksums: ChromeChecksums = JSON.parse(await readFile(checksumPath(), 'utf8'));
 	const expectedSha256 = requireSha256(checksums[version]?.[platform]);
 
-	const { directory, sha256 } = await callOperation<{ directory: string; sha256: string }>(
-		'chrome-download',
-		{ purpose: 'install', version, platform }
-	);
-	try {
-		if (sha256 !== expectedSha256)
-			throw new Error(
-				`Chrome SHA-256 mismatch for ${version}/${platform}; refusing to extract`
-			);
-		await callOperation('chrome-extract', { directory, major, platform });
-		const executablePath = await callOperation<string>('chrome-environment', {
-			directory,
-			major,
-			platform,
-		});
-		console.log(JSON.stringify({ version, executablePath }));
-	} catch (error) {
-		await callOperation('chrome-download', { purpose: 'install', remove: directory });
-		throw error;
-	}
+	return { version, expectedSha256 };
 };
 
 export const readChromeMatrix = async () => {

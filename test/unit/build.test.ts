@@ -4,15 +4,15 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { build as esbuild } from 'esbuild';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildExtension, watchExtension } from '../../scripts/build/main';
+import { collectFiles } from '../../scripts/build/prepare-assets';
 import { PROJECT_ROOT } from '../../scripts/lib/project-root';
 import { validateExtension, validateVersion } from '../../scripts/lib/validate-extension';
-import { buildExtension, collectFiles, watchExtension } from '../../scripts/tasks/build';
-import { packageExtension } from '../../scripts/tasks/package';
+import { packageExtension } from '../../scripts/package/main';
 import { useOperationRoot } from '../helpers/script-operations';
 
-const WORKING_DIRECTORY = process.cwd();
-vi.mock('../../scripts/runtime/client', async () => ({
-	callOperation: (await import('../helpers/script-operations')).runOperation,
+vi.mock('../../scripts/lib/run-node', async () => ({
+	runNode: (await import('../helpers/script-operations')).runScript,
 }));
 
 // Observe the real compiler boundary without replacing compilation or packaging.
@@ -41,7 +41,7 @@ describe('extension artifacts', () => {
 		await writeFile(obsolete, 'old');
 		await packageExtension(root);
 		await rm(obsolete);
-		await packageExtension(relative(WORKING_DIRECTORY, root));
+		await packageExtension(root);
 		const archive = join(root, 'dist.zip');
 		execFileSync('unzip', ['-tq', archive]);
 		const entries = execFileSync('unzip', ['-Z1', archive], { encoding: 'utf8' }).split('\n');

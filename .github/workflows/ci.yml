@@ -40,6 +40,7 @@ jobs:
         with:
           run_install: false
       - run: pnpm install --frozen-lockfile
+      - run: pnpm scripts:check
       - run: pnpm run ci --reporter=github
       - run: pnpm run check:secrets
       - run: pnpm run typecheck
@@ -50,11 +51,7 @@ jobs:
         env:
           RELEASE_BRANCH: ${{ github.head_ref || github.ref_name }}
           RELEASE_COMMIT: HEAD
-        run: |
-          node --permission \
-            --allow-fs-read=./package.json \
-            --allow-fs-read=./scripts/runtime \
-            --allow-child-process scripts/run.ts release-check
+        run: pnpm release:check
       - run: pnpm exec playwright install --with-deps chromium
         env:
           PLAYWRIGHT_SKIP_BROWSER_GC: '1'

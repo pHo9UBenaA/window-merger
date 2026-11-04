@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { checkPush } from '../../scripts/tasks/pre-push';
+import { checkPush } from '../../scripts/pre-push/main';
 import { useOperationRoot } from '../helpers/script-operations';
 
-vi.mock('../../scripts/runtime/client', async () => ({
-	callOperation: (await import('../helpers/script-operations')).runOperation,
+vi.mock('../../scripts/lib/run-node', async () => ({
+	runNode: (await import('../helpers/script-operations')).runScript,
 }));
 
 it.each([
@@ -96,8 +96,11 @@ describe('pre-push version checks', () => {
 		{ version: '1.4.9', expectedStatus: 1 },
 	])('CLI reads stdin through a symlink: $version', async ({ version, expectedStatus }) => {
 		const alias = join(repository, 'pre-push-alias.ts');
-		await symlink(fileURLToPath(new URL('../../scripts/run.ts', import.meta.url)), alias);
-		const result = spawnSync(process.execPath, [alias, 'pre-push'], {
+		await symlink(
+			fileURLToPath(new URL('../../scripts/pre-push/main.ts', import.meta.url)),
+			alias
+		);
+		const result = spawnSync(process.execPath, [alias], {
 			cwd: repository,
 			encoding: 'utf8',
 			input: `refs/heads/main ${commitSha} refs/tags/v${version} deadbeef\n`,

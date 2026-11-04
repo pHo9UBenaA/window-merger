@@ -1,10 +1,7 @@
 import { type SpawnSyncReturns, spawnSync } from 'node:child_process';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { checkDependencies } from '../../scripts/tasks/check-dependencies';
-
-vi.mock('../../scripts/runtime/client', async () => ({
-	callOperation: (await import('../helpers/script-operations')).runOperation,
-}));
+import { checkDependencies } from '../../scripts/check-dependencies/check';
+import { collectReports } from '../../scripts/check-dependencies/collect';
 
 vi.mock('node:child_process', () => ({ spawnSync: vi.fn() }));
 const spawn = vi.mocked(spawnSync);
@@ -42,7 +39,7 @@ const result = (report: unknown, status = 0): SpawnSyncReturns<string> => ({
 });
 const check = (pnpm = result(cleanPnpm), list = result(packageList)) => {
 	spawn.mockReturnValueOnce(pnpm).mockReturnValueOnce(list);
-	return checkDependencies();
+	return checkDependencies(collectReports());
 };
 const requestBody = (index = 0) => JSON.parse(String(api.mock.calls[index][1]?.body));
 
@@ -370,7 +367,7 @@ it('gives incomplete OSV audits precedence over pnpm findings', async () => {
 
 it('requires the pnpm entry point without downloading any tools', async () => {
 	vi.stubEnv('npm_execpath', undefined);
-	expect(await checkDependencies()).toBe(2);
+	expect(() => collectReports()).toThrow('Run this check via pnpm check:dependencies');
 	expect(spawn).not.toHaveBeenCalled();
 	expect(api).not.toHaveBeenCalled();
 });

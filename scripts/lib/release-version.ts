@@ -1,25 +1,23 @@
-import { callOperation } from '../runtime/client.ts';
-import { validateReleaseVersion, validateVersion } from './version.ts';
+import { resolve } from 'node:path';
+import { validateVersionsCommand } from '../release/commands.generated.ts';
+import { gitReadCommand } from './commands.generated.ts';
+import { runNode } from './run-node.ts';
+import { releaseVersion } from './version.ts';
 
-export { validateReleaseVersion } from './version.ts';
+export { releaseVersion, validateReleaseVersion } from './version.ts';
 
-export const checkVersions = (commit: string, cwd = process.cwd()): string => {
-	const read = (path: string): { version?: unknown } =>
-		JSON.parse(callOperation<string>('git-read', { args: ['show', `${commit}:${path}`], cwd }));
-	const version = validateReleaseVersion(read('package.json').version);
-	const manifest = read('src/assets/manifest.json');
-	if (validateVersion(manifest.version) !== version) {
-		throw new Error(
-			`Package version ${version} does not match manifest version ${manifest.version}`
-		);
-	}
-	return version;
-};
-
-export const releaseVersion = (ref: string): string | null => {
-	const refName = ref.replace(/^refs\/(heads|tags)\//, '');
-	const match = /^(?:release\/)?v(\d+\.\d+\.\d+)$/.exec(refName);
-	return match ? validateVersion(match[1]) : null;
+export const checkVersions = (commit: string, directory = process.cwd()): string => {
+	const cwd = resolve(directory);
+	const read = (path: string): string =>
+		runNode<string>(gitReadCommand(cwd), { args: ['show', `${commit}:${path}`], cwd }, cwd);
+	return runNode<string>(
+		validateVersionsCommand(cwd),
+		{
+			packageJson: read('package.json'),
+			manifestJson: read('src/assets/manifest.json'),
+		},
+		cwd
+	);
 };
 
 export const checkRelease = (ref: string, commit: string, cwd = process.cwd()): string | null => {

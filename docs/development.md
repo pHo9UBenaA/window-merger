@@ -33,24 +33,31 @@ pnpm install --frozen-lockfile
 | `src/application/` | Merge orchestration through ports |
 | `src/ports/`, `src/adapters/chrome/` | API contracts and Chrome implementations |
 | `src/assets/` | Manifest, icons and translations |
-| `scripts/run.ts`, `scripts/runtime/` | Task launcher, permission policies and operation protocol |
-| `scripts/tasks/` | Read-only task orchestration |
-| `scripts/operations/` | Validated filesystem writes and fixed external commands |
-| `scripts/lib/` | Read-only helpers shared by tasks |
+| `scripts/build/`, `scripts/release/`, etc. | CLI entry points and supporting files grouped by command |
+| `scripts/lib/` | Shared helpers |
+| `scripts/commands.json` | Source for executable permissions and package commands |
+| `scripts/*/commands.generated.ts` | Generated Node arguments for dedicated scripts |
 | `test/unit/`, `test/browser/` | Unit and packaged-extension tests |
 
 ### Changing maintenance scripts
 
-Keep decisions and data transformations in `scripts/tasks/` or `scripts/lib/`.
-Tasks run without filesystem-write or child-process permissions. Use a named operation
-for effects; declare its permissions and permitted callers in
-[`scripts/runtime/policy.ts`](../scripts/runtime/policy.ts).
-Operations validate their inputs and cannot accept arbitrary commands or destinations.
-Temporary paths must belong to the current task execution.
+Group files by their public command. Keep readers and transformations in separate CLIs
+without write or child-process permissions; connect simple steps with pipes or `&&`.
+Use a dedicated script for branching, watching or cleanup.
 
-Review `scripts/operations/` and `scripts/runtime/` when changing privileged behavior.
-External tools and their dependencies remain trusted; Node permissions do not constrain
-native executables. Run `pnpm test` to check permission boundaries as well as task behavior.
+Edit [`scripts/commands.json`](../scripts/commands.json), then regenerate the commands:
+
+```sh
+pnpm scripts:generate
+pnpm scripts:check
+```
+
+Commit `commands.json`, `package.json` and the generated argument files together.
+CI rejects stale generated files. Temporary and environment paths are resolved by the
+generated arguments, not by a command registry at runtime.
+
+Review executables with `write` or `childProcess` grants and the helpers they import.
+External tools remain trusted; Node permissions do not constrain native executables.
 
 ## Tests and checks
 

@@ -4,12 +4,13 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installChrome, updateLock } from '../../scripts/lib/chrome-compat';
+import { installChrome } from '../../scripts/chrome-install/main';
+import { updateLock } from '../../scripts/chrome-update/main';
 import { useOperationRoot } from '../helpers/script-operations';
 
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn(), spawnSync: vi.fn() }));
-vi.mock('../../scripts/runtime/client', async () => ({
-	callOperation: (await import('../helpers/script-operations')).runOperation,
+vi.mock('../../scripts/lib/run-node', async () => ({
+	runNode: (await import('../helpers/script-operations')).runScript,
 }));
 const exec = vi.mocked(execFileSync);
 const version = '120.0.6099.109';

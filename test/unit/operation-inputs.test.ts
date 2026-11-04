@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { expect, it, vi } from 'vitest';
-import { operate as gitRead } from '../../scripts/operations/git-read';
-import { checkedRef, temporaryDirectory } from '../../scripts/runtime/paths';
-import { inside } from '../../scripts/runtime/validation';
+import { operate as gitRead } from '../../scripts/lib/git-read';
+import { inside } from '../../scripts/lib/input';
+import { checkedRef, temporaryDirectory } from '../../scripts/lib/script-paths';
 
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn() }));
 

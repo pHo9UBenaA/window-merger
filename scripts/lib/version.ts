@@ -7,6 +7,12 @@ export const validateVersion = (version: unknown): string => {
 	return version;
 };
 
+export const releaseVersion = (ref: string): string | null => {
+	const refName = ref.replace(/^refs\/(heads|tags)\//, '');
+	const match = /^(?:release\/)?v(\d+\.\d+\.\d+)$/.exec(refName);
+	return match ? validateVersion(match[1]) : null;
+};
+
 export const validateReleaseVersion = (version: unknown): string => {
 	const valid = validateVersion(version);
 	if (!/^\d+\.\d+\.\d+$/.test(valid))
