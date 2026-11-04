@@ -1,62 +1,57 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { appendFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installChrome, updateLock } from '../../scripts/chrome-compat';
+import { installChrome, updateLock } from '../../scripts/lib/chrome-compat';
+import { useOperationRoot } from '../helpers/script-operations';
 
-vi.mock('../../scripts/lib/project-root', () => ({ PROJECT_ROOT: '/project' }));
-vi.mock('node:child_process', () => ({ execFileSync: vi.fn() }));
-vi.mock('node:fs/promises', async (original) => ({
-	...(await original<typeof import('node:fs/promises')>()),
-	appendFile: vi.fn(),
-	mkdtemp: vi.fn(),
-	readFile: vi.fn(),
-	writeFile: vi.fn(),
-	rm: vi.fn((await original<typeof import('node:fs/promises')>()).rm),
+vi.mock('node:child_process', () => ({ execFileSync: vi.fn(), spawnSync: vi.fn() }));
+vi.mock('../../scripts/runtime/client', async () => ({
+	callOperation: (await import('../helpers/script-operations')).runOperation,
 }));
 const exec = vi.mocked(execFileSync);
 const version = '120.0.6099.109';
 const nextVersion = '121.0.6167.184';
 const platform = 'linux64';
-const checksumPath = join('/project', 'test/browser/chrome-checksums.json');
-const lockPath = join('/project', 'test/browser/chrome-versions.json');
 const content = Buffer.alloc(200000, 42);
 const sha256 = createHash('sha256').update(content).digest('hex');
 const allPlatforms = { linux64: sha256, win64: sha256, 'mac-arm64': sha256 };
 let checksums: Record<string, Record<string, unknown>>;
 let availablePlatforms: string[];
 let root: string;
+let downloads: string[];
+let downloadError: number | undefined;
+const checksumPath = () => join(root, 'test/browser/chrome-checksums.json');
+const lockPath = () => join(root, 'test/browser/chrome-versions.json');
+const saveChecksums = () => writeFile(checksumPath(), JSON.stringify(checksums));
 
-beforeEach(() => {
-	root = mkdtempSync(join(tmpdir(), 'window-merger-chrome-test-'));
+beforeEach(async () => {
+	root = await mkdtemp(join(tmpdir(), 'window-merger-chrome-test-'));
+	await mkdir(join(root, 'src/assets'), { recursive: true });
+	await mkdir(join(root, 'test/browser'), { recursive: true });
+	await writeFile(join(root, 'src/assets/manifest.json'), '{"minimum_chrome_version":"120"}');
+	await writeFile(lockPath(), JSON.stringify({ '120': version }));
 	checksums = { [version]: { ...allPlatforms } };
+	await saveChecksums();
 	availablePlatforms = Object.keys(allPlatforms);
-	vi.stubEnv('GITHUB_ENV', '/github-env');
+	downloads = [];
+	downloadError = undefined;
+	useOperationRoot(root);
+	vi.stubEnv('RUNNER_TEMP', root);
+	vi.stubEnv('GITHUB_ENV', join(root, 'github-env'));
 	vi.spyOn(console, 'log').mockImplementation(() => {});
-	vi.mocked(mkdtemp).mockImplementation(async (prefix) =>
-		mkdtempSync(join(root, basename(String(prefix))))
-	);
-	vi.mocked(readFile).mockImplementation(async (path) => {
-		if (String(path).endsWith('manifest.json'))
-			return JSON.stringify({ minimum_chrome_version: '120' });
-		if (String(path).endsWith('chrome-versions.json'))
-			return JSON.stringify({ '120': version });
-		if (String(path).endsWith('chrome-checksums.json')) return JSON.stringify(checksums);
-		throw new Error(`Unexpected file ${path}`);
-	});
-	exec.mockImplementation((command, args) => {
-		if (command === 'curl' && args) {
-			const output = args[args.indexOf('--output') + 1];
-			writeFileSync(output, content);
-		}
-		return Buffer.alloc(0);
-	});
+	exec.mockReturnValue(Buffer.alloc(0));
 	vi.stubGlobal(
 		'fetch',
-		vi.fn(async (url: string) => {
+		vi.fn(async (url: string, options?: RequestInit) => {
+			if (url.startsWith('https://storage.googleapis.com/')) {
+				expect(options?.redirect).toBe('error');
+				downloads.push(url);
+				if (downloads.length === downloadError) throw new Error('Download failed');
+				return new Response(content);
+			}
 			const reports: Record<string, unknown> = {
 				'latest-versions-per-milestone.json': {
 					milestones: { '120': { version }, '121': { version: nextVersion } },
@@ -65,48 +60,45 @@ beforeEach(() => {
 				'known-good-versions-with-downloads.json': {
 					versions: [version, nextVersion].map((value) => ({
 						version: value,
-						downloads: {
-							chrome: availablePlatforms.map((platform) => ({ platform })),
-						},
+						downloads: { chrome: availablePlatforms.map((platform) => ({ platform })) },
 					})),
 				},
 			};
 			const report = reports[basename(url)];
 			if (!report) throw new Error(`Unexpected URL ${url}`);
-			return new Response(JSON.stringify(report));
+			return Response.json(report);
 		})
 	);
 });
-afterEach(() => {
+afterEach(async () => {
 	vi.restoreAllMocks();
 	vi.unstubAllEnvs();
 	vi.unstubAllGlobals();
-	rmSync(root, { recursive: true, force: true });
+	await rm(root, { recursive: true, force: true });
 });
 
+const installDirectories = async () =>
+	(await readdir(root)).filter((name) => name.startsWith('window-merger-chrome-install-'));
+
 describe('Chrome installer', () => {
-	it('hashes the whole archive before extraction and publishing executable paths', async () => {
+	it('hashes the entire download before extracting and publishing the executable path', async () => {
 		await installChrome('120', platform);
-		expect(exec.mock.calls.map(([command]) => command)).toEqual(['curl', 'unzip']);
-		expect(exec).toHaveBeenNthCalledWith(
-			1,
-			'curl',
-			expect.arrayContaining([
-				'--proto',
-				'=https',
-				'--proto-redir',
-				'=https',
-				`https://storage.googleapis.com/chrome-for-testing-public/${version}/${platform}/chrome-${platform}.zip`,
-			]),
+		expect(downloads).toEqual([
+			`https://storage.googleapis.com/chrome-for-testing-public/${version}/${platform}/chrome-${platform}.zip`,
+		]);
+		expect(exec).toHaveBeenCalledExactlyOnceWith(
+			'unzip',
+			expect.arrayContaining(['-q', '-d']),
 			expect.any(Object)
 		);
-		expect(appendFile).toHaveBeenCalledWith(
-			'/github-env',
-			expect.stringContaining('CHROME_EXECUTABLE_PATH=')
+		const [directory] = await installDirectories();
+		expect(await readFile(join(root, 'github-env'), 'utf8')).toContain(
+			join(root, directory, 'chrome-linux64/chrome')
 		);
-		expect(writeFile).not.toHaveBeenCalled();
-		expect(rm).toHaveBeenCalledWith(expect.stringContaining('chrome.zip'), { force: true });
-		expect(rm).not.toHaveBeenCalledWith(expect.any(String), { recursive: true, force: true });
+		await expect(readFile(join(root, directory, 'chrome.zip'))).rejects.toMatchObject({
+			code: 'ENOENT',
+		});
+		expect(JSON.parse(await readFile(checksumPath(), 'utf8'))).toEqual(checksums);
 	});
 
 	it.each([
@@ -119,121 +111,101 @@ describe('Chrome installer', () => {
 		`${'0'.repeat(64)}\n`,
 	])('rejects an absent or invalid checksum before downloading: %j', async (checksum) => {
 		checksums[version][platform] = checksum;
+		await saveChecksums();
 		await expect(installChrome('120', platform)).rejects.toThrow(
 			'Missing or invalid Chrome SHA-256'
 		);
-		expect(mkdtemp).not.toHaveBeenCalled();
+		expect(downloads).toEqual([]);
 		expect(exec).not.toHaveBeenCalled();
-		expect(appendFile).not.toHaveBeenCalled();
 	});
 
 	it('rejects an unregistered version without downloading', async () => {
 		checksums = {};
+		await saveChecksums();
 		await expect(installChrome('120', platform)).rejects.toThrow('Missing or invalid');
-		expect(exec).not.toHaveBeenCalled();
+		expect(downloads).toEqual([]);
 	});
 
-	it('rejects modified archives without extraction, publishing paths or rewriting checksums', async () => {
+	it('rejects modified archives without extracting or publishing paths', async () => {
 		checksums[version][platform] = '0'.repeat(64);
+		await saveChecksums();
 		await expect(installChrome('120', platform)).rejects.toThrow('SHA-256 mismatch');
-		expect(exec.mock.calls.map(([command]) => command)).toEqual(['curl']);
-		expect(rm).toHaveBeenCalledWith(expect.any(String), { recursive: true, force: true });
-		expect(appendFile).not.toHaveBeenCalled();
-		expect(writeFile).not.toHaveBeenCalled();
+		expect(exec).not.toHaveBeenCalled();
+		expect(await installDirectories()).toEqual([]);
+		await expect(readFile(join(root, 'github-env'))).rejects.toMatchObject({ code: 'ENOENT' });
 	});
 
-	it('cleans up after a download failure without extracting', async () => {
-		exec.mockImplementation(() => {
-			throw new Error('Download failed');
-		});
+	it('cleans up failed downloads without extracting or publishing paths', async () => {
+		downloadError = 1;
 		await expect(installChrome('120', platform)).rejects.toThrow('Download failed');
-		expect(exec).toHaveBeenCalledTimes(1);
-		expect(rm).toHaveBeenCalledWith(expect.any(String), { recursive: true, force: true });
-		expect(appendFile).not.toHaveBeenCalled();
+		expect(exec).not.toHaveBeenCalled();
+		expect(await installDirectories()).toEqual([]);
 	});
 
-	it('does not extract an unreadable archive', async () => {
-		exec.mockReturnValue(Buffer.alloc(0));
-		await expect(installChrome('120', platform)).rejects.toThrow();
-		expect(exec).toHaveBeenCalledTimes(1);
-		expect(appendFile).not.toHaveBeenCalled();
+	it('cleans up failed extraction without publishing paths', async () => {
+		exec.mockImplementation(() => {
+			throw new Error('Extraction failed');
+		});
+		await expect(installChrome('120', platform)).rejects.toThrow('Extraction failed');
+		expect(await installDirectories()).toEqual([]);
+		await expect(readFile(join(root, 'github-env'))).rejects.toMatchObject({ code: 'ENOENT' });
 	});
 
 	it('rejects unsupported platforms and unlocked majors', async () => {
 		await expect(installChrome('120', '../../other')).rejects.toThrow('Unsupported');
 		await expect(installChrome('121', platform)).rejects.toThrow('not locked');
-		expect(exec).not.toHaveBeenCalled();
+		expect(downloads).toEqual([]);
 	});
 });
 
 describe('Chrome lock update', () => {
 	it.each(['linux64', 'win64', 'mac-arm64'])(
-		'rejects incomplete download metadata for %s without updating either lock',
-		async (missingPlatform) => {
-			availablePlatforms = availablePlatforms.filter(
-				(platform) => platform !== missingPlatform
-			);
-			await expect(updateLock()).rejects.toThrow(`for ${missingPlatform}; lock unchanged`);
-			expect(exec).not.toHaveBeenCalled();
-			expect(writeFile).not.toHaveBeenCalled();
+		'rejects incomplete metadata for %s without updating locks',
+		async (missing) => {
+			availablePlatforms = availablePlatforms.filter((platform) => platform !== missing);
+			await expect(updateLock()).rejects.toThrow(`for ${missing}; lock unchanged`);
+			expect(downloads).toEqual([]);
+			expect(JSON.parse(await readFile(lockPath(), 'utf8'))).toEqual({ '120': version });
 		}
 	);
 
-	it('collects missing matrix checksums without extraction before updating the version lock', async () => {
+	it('collects missing checksums without extraction before publishing the version lock', async () => {
 		await updateLock();
-		expect(exec.mock.calls.map(([command]) => command)).toEqual(['curl', 'curl', 'curl']);
-		expect(writeFile).toHaveBeenNthCalledWith(
-			1,
-			checksumPath,
-			`${JSON.stringify({ ...checksums, [nextVersion]: allPlatforms }, null, '\t')}\n`
-		);
-		expect(writeFile).toHaveBeenNthCalledWith(
-			2,
-			lockPath,
-			`${JSON.stringify({ '120': version, '121': nextVersion }, null, '\t')}\n`
-		);
-		expect(rm).toHaveBeenCalledTimes(3);
-		expect(appendFile).not.toHaveBeenCalled();
+		expect(downloads).toHaveLength(3);
+		expect(exec).not.toHaveBeenCalled();
+		expect(JSON.parse(await readFile(checksumPath(), 'utf8'))).toEqual({
+			...checksums,
+			[nextVersion]: allPlatforms,
+		});
+		expect(JSON.parse(await readFile(lockPath(), 'utf8'))).toEqual({
+			'120': version,
+			'121': nextVersion,
+		});
 	});
 
-	it('preserves existing checksums without downloading or replacing them', async () => {
+	it('preserves existing checksums instead of replacing or downloading them', async () => {
 		checksums[nextVersion] = { ...allPlatforms, linux64: 'b'.repeat(64) };
+		await saveChecksums();
 		await updateLock();
-		expect(exec).not.toHaveBeenCalled();
-		expect(writeFile).toHaveBeenCalledWith(
-			checksumPath,
-			`${JSON.stringify(checksums, null, '\t')}\n`
-		);
+		expect(downloads).toEqual([]);
+		expect(JSON.parse(await readFile(checksumPath(), 'utf8'))).toEqual(checksums);
 	});
 
 	it('rejects invalid existing checksums rather than replacing them', async () => {
 		checksums[version][platform] = 'invalid';
+		await saveChecksums();
 		await expect(updateLock()).rejects.toThrow('Missing or invalid');
-		expect(exec).not.toHaveBeenCalled();
-		expect(writeFile).not.toHaveBeenCalled();
+		expect(downloads).toEqual([]);
 	});
 
-	it('does not publish partially collected checksums when a later download fails', async () => {
-		let downloadCount = 0;
-		exec.mockImplementation((command, args) => {
-			if (command === 'curl' && args) {
-				downloadCount++;
-				if (downloadCount === 2) throw new Error('Second download failed');
-				writeFileSync(args[args.indexOf('--output') + 1], content);
-			}
-			return Buffer.alloc(0);
-		});
-		await expect(updateLock()).rejects.toThrow('Second download failed');
-		expect(writeFile).not.toHaveBeenCalled();
-		expect(rm).toHaveBeenCalledTimes(2);
-	});
-
-	it('keeps both locks unchanged and cleans up on download failure', async () => {
-		exec.mockImplementation(() => {
-			throw new Error('Download failed');
-		});
-		await expect(updateLock()).rejects.toThrow('Download failed');
-		expect(writeFile).not.toHaveBeenCalled();
-		expect(rm).toHaveBeenCalledWith(expect.any(String), { recursive: true, force: true });
-	});
+	it.each([1, 2])(
+		'keeps both locks unchanged after download %s fails',
+		async (failedDownload) => {
+			downloadError = failedDownload;
+			await expect(updateLock()).rejects.toThrow('Download failed');
+			expect(JSON.parse(await readFile(lockPath(), 'utf8'))).toEqual({ '120': version });
+			expect(JSON.parse(await readFile(checksumPath(), 'utf8'))).toEqual(checksums);
+			expect(exec).not.toHaveBeenCalled();
+		}
+	);
 });

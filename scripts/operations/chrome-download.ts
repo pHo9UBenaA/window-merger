@@ -1,0 +1,51 @@
+import { createHash } from 'node:crypto';
+import { createWriteStream } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { archivePath, temporaryDirectory } from '../runtime/paths.ts';
+import { choice, object, text } from '../runtime/validation.ts';
+
+export const operate = async (input: unknown) => {
+	const request = object(input);
+	const purpose = choice(request.purpose, ['install', 'hash']);
+	const base = purpose === 'install' ? (process.env.RUNNER_TEMP ?? tmpdir()) : tmpdir();
+	const prefix = `window-merger-chrome-${purpose}-`;
+	if (request.remove !== undefined) {
+		await rm(temporaryDirectory(request.remove, base, prefix), {
+			recursive: true,
+			force: true,
+		});
+		return;
+	}
+	const version = text(request.version);
+	const platform = choice(request.platform, ['linux64', 'win64', 'mac-arm64']);
+	if (!/^\d+\.\d+\.\d+\.\d+$/.test(version)) throw new Error('Invalid Chrome archive version');
+	const directory = await mkdtemp(join(base, prefix));
+	try {
+		const url = `https://storage.googleapis.com/chrome-for-testing-public/${version}/${platform}/chrome-${platform}.zip`;
+		const response = await fetch(url, {
+			redirect: 'error',
+			signal: AbortSignal.timeout(300_000),
+		});
+		if (!response.ok || !response.body)
+			throw new Error(`Chrome download failed (HTTP ${response.status})`);
+		const hash = createHash('sha256');
+		async function* hashChunks() {
+			if (!response.body) return;
+			for await (const chunk of response.body) {
+				hash.update(chunk);
+				yield chunk;
+			}
+		}
+		await pipeline(Readable.from(hashChunks()), createWriteStream(archivePath(directory)));
+		const sha256 = hash.digest('hex');
+		if (purpose === 'hash') await rm(directory, { recursive: true, force: true });
+		return { directory, sha256 };
+	} catch (error) {
+		await rm(directory, { recursive: true, force: true });
+		throw error;
+	}
+};

@@ -1,6 +1,10 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { isAbsolute, join, resolve, sep } from 'node:path';
 
+import { validateVersion } from './version.ts';
+
+export { validateVersion } from './version.ts';
+
 type LocaleMessages = Record<string, { message: string }>;
 
 const PNG_SIGNATURE = Buffer.from('89504e470d0a1a0a', 'hex');
@@ -9,19 +13,6 @@ const MANIFEST_TEXT_LIMITS = [
 	['description', 132],
 	['short_name', 12],
 ] as const;
-
-export const validateVersion = (version: unknown): string => {
-	if (typeof version !== 'string' || !/^(0|[1-9]\d*)(\.(0|[1-9]\d*)){0,3}$/.test(version)) {
-		throw new Error('Invalid Chrome extension version');
-	}
-	const parts = version.split('.').map(Number);
-	const isAllZero = parts.every((part) => part === 0);
-	const hasOversizedComponent = parts.some((part) => part > 65535);
-	if (isAllZero || hasOversizedComponent) {
-		throw new Error('Chrome version components must be 0..65535 and not all zero');
-	}
-	return version;
-};
 
 const requireAssetFile = async (directory: string, assetName: unknown): Promise<string> => {
 	if (typeof assetName !== 'string' || isAbsolute(assetName)) {

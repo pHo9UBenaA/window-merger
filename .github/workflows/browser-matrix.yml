@@ -81,10 +81,8 @@ jobs:
         run: |
           matrix=$(node --permission \
             --allow-fs-read=./package.json \
-            --allow-fs-read=./scripts/lib/project-root.ts \
-            --allow-fs-read=./src/assets/manifest.json \
-            --allow-fs-read=./test/browser/chrome-versions.json \
-            scripts/chrome-compat.ts --matrix)
+            --allow-fs-read=./scripts/runtime \
+            --allow-child-process scripts/run.ts chrome-matrix)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   compatibility:

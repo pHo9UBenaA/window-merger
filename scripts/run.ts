@@ -1,67 +1,130 @@
-import { spawnSync } from 'node:child_process';
-import { constants, tmpdir } from 'node:os';
+import { spawn } from 'node:child_process';
+import { constants } from 'node:os';
 import { join, resolve } from 'node:path';
+import { createInterface } from 'node:readline';
+import {
+	CODE_ROOT,
+	codePermissions,
+	operationPolicies,
+	taskPermissions,
+	taskPolicies,
+} from './runtime/policy.ts';
+import { createOperationScope } from './runtime/scope.ts';
+import { errorDetails, object, text } from './runtime/validation.ts';
 
-type PathContext = {
-	readonly cwd: string;
-	readonly temporaryDirectory: string;
-	readonly environment: Readonly<NodeJS.ProcessEnv>;
+const MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
+const environment = () => {
+	const { NODE_OPTIONS: _options, ...env } = process.env;
+	return env;
 };
 
-export const resolvePermissionArguments = (
-	args: readonly string[],
-	{ cwd, temporaryDirectory, environment }: PathContext
-): string[] => {
-	// Shell environment expansion is not portable between POSIX and Windows package scripts.
-	const paths: Readonly<Record<string, string | undefined>> = {
-		'@tmpdir': temporaryDirectory,
-		'@runner-temp': environment.RUNNER_TEMP ?? temporaryDirectory,
-		'@github-env': environment.GITHUB_ENV || undefined,
-	};
-	return args.flatMap((argument) => {
-		const match = /^(--allow-fs-(?:read|write)=)(.*)$/.exec(argument);
-		if (!match) return [argument];
-		const [, flag, value] = match;
-		if (value === '' || value === '*') return [argument];
-		const aliasMatch = /^(@[^/\\]+)(.*)$/.exec(value);
-		// Child tools may change cwd; relative grants must remain anchored to the caller.
-		if (!aliasMatch) return [`${flag}${resolve(cwd, value)}`];
-		const [, alias, suffix] = aliasMatch;
-		if (!(alias in paths)) throw new Error(`Unknown permission path: ${alias}`);
-		const path = paths[alias];
-		return path === undefined ? [] : [`${flag}${join(resolve(cwd, path), suffix)}`];
+const executeOperation = (
+	file: string,
+	flags: readonly string[],
+	input: unknown,
+	root: string
+): Promise<string> =>
+	new Promise((fulfill, reject) => {
+		const operation = spawn(
+			process.execPath,
+			[
+				...codePermissions,
+				...flags,
+				join(CODE_ROOT, 'scripts/runtime/operation.ts'),
+				join(CODE_ROOT, 'scripts/operations', `${file}.ts`),
+			],
+			{ cwd: root, env: environment(), stdio: ['pipe', 'pipe', 'inherit'] }
+		);
+		const chunks: Buffer[] = [];
+		let bytes = 0;
+		operation.stdout.on('data', (chunk: Buffer) => {
+			bytes += chunk.length;
+			if (bytes > MAX_MESSAGE_BYTES) {
+				operation.kill();
+				reject(new Error('Operation response exceeds 16 MiB'));
+			} else chunks.push(chunk);
+		});
+		operation.on('error', reject);
+		operation.stdin.on('error', reject);
+		operation.on('close', (status) => {
+			if (status !== 0) reject(new Error(`Operation ${file} failed (${status})`));
+			else fulfill(Buffer.concat(chunks).toString('utf8').trim());
+		});
+		operation.stdin.end(JSON.stringify(input));
 	});
-};
 
-const runCli = (): void => {
+const run = async (): Promise<void> => {
 	const args = process.argv.slice(2);
-	const separator = args.indexOf('--');
-	const flags = args.slice(0, separator);
-	if (separator < 1 || separator === args.length - 1 || !flags.includes('--permission')) {
-		throw new Error('Use explicit --permission flags, then -- <script> [arguments]');
+	const root = args[0] === '--root' ? resolve(args[1]) : process.cwd();
+	const [name, ...taskArgs] = args[0] === '--root' ? args.slice(2) : args;
+	const policies = taskPolicies(root);
+	if (!Object.hasOwn(policies, name)) throw new Error(`Unknown task: ${name}`);
+	const policy = policies[name];
+	const operations = operationPolicies(root);
+	const scope = createOperationScope(root, name);
+	const task = spawn(
+		process.execPath,
+		[
+			...taskPermissions(root, policy),
+			join(CODE_ROOT, 'scripts/tasks', `${name}.ts`),
+			...taskArgs,
+		],
+		{ cwd: root, env: environment(), stdio: ['inherit', 'inherit', 'inherit', 'pipe', 'pipe'] }
+	);
+	const interrupt = () => {
+		task.kill('SIGINT');
+	};
+	const terminate = () => {
+		task.kill('SIGTERM');
+	};
+	process.on('SIGINT', interrupt);
+	process.on('SIGTERM', terminate);
+	const requests = task.stdio[3];
+	const responses = task.stdio[4];
+	if (!requests || !('readable' in requests) || !responses || !('write' in responses))
+		throw new Error('Missing operation channels');
+	const completion = new Promise<void>((fulfill, reject) => {
+		task.on('error', reject);
+		task.on('exit', (status, signal) => {
+			process.exitCode = status ?? (signal ? 128 + (constants.signals[signal] ?? 0) : 1);
+			fulfill();
+		});
+	});
+	try {
+		for await (const line of createInterface({ input: requests })) {
+			try {
+				if (Buffer.byteLength(line) > MAX_MESSAGE_BYTES)
+					throw new Error('Operation request exceeds 16 MiB');
+				const request = object(JSON.parse(line));
+				const operationName = text(request.operation);
+				if (!policy.operations.includes(operationName))
+					throw new Error(`Operation not permitted: ${operationName}`);
+				scope.check(operationName, request.input);
+				const operation = operations[operationName];
+				const response = await executeOperation(
+					operation.file,
+					operation.flags,
+					request.input,
+					root
+				);
+				const result = object(JSON.parse(response));
+				if (!result.error) scope.record(operationName, request.input, result.value);
+				responses.write(`${response}\n`);
+			} catch (error) {
+				responses.write(`${JSON.stringify({ error: errorDetails(error) })}\n`);
+			}
+		}
+		await completion;
+	} finally {
+		process.off('SIGINT', interrupt);
+		process.off('SIGTERM', terminate);
+		if (task.exitCode === null) task.kill();
 	}
-	const nodeArgs = [
-		...resolvePermissionArguments(flags, {
-			cwd: process.cwd(),
-			temporaryDirectory: tmpdir(),
-			environment: process.env,
-		}),
-		'--',
-		...args.slice(separator + 1),
-	];
-	// A version hook must not inherit broader grants from its release process.
-	const { NODE_OPTIONS: _nodeOptions, ...environment } = process.env;
-	const result = spawnSync(process.execPath, nodeArgs, { env: environment, stdio: 'inherit' });
-	if (result.error) throw result.error;
-	process.exitCode =
-		result.status ?? (result.signal ? 128 + (constants.signals[result.signal] ?? 0) : 1);
 };
 
-if (import.meta.main) {
-	try {
-		runCli();
-	} catch (error) {
-		console.error(error);
-		process.exitCode = 1;
-	}
+try {
+	await run();
+} catch (error) {
+	console.error(error);
+	process.exitCode = 1;
 }

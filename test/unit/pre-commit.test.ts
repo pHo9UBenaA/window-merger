@@ -4,7 +4,12 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { hasCodeChanges, withIndexSnapshot } from '../../scripts/pre-commit';
+import { hasCodeChanges, withIndexSnapshot } from '../../scripts/tasks/pre-commit';
+import { useOperationRoot } from '../helpers/script-operations';
+
+vi.mock('../../scripts/runtime/client', async () => ({
+	callOperation: (await import('../helpers/script-operations')).runOperation,
+}));
 
 let root: string;
 const git = (...args: string[]) =>
@@ -13,9 +18,11 @@ beforeEach(async () => {
 	root = await mkdtemp(join(tmpdir(), 'window-merger-hook-test-'));
 	await mkdir(join(root, 'node_modules'));
 	git('init', '-b', 'main');
+	useOperationRoot(root);
 });
 afterEach(async () => {
 	vi.unstubAllEnvs();
+	vi.restoreAllMocks();
 	await rm(root, { recursive: true, force: true });
 });
 

@@ -1,23 +1,11 @@
-import { execFileSync } from 'node:child_process';
-import { validateVersion } from './validate-extension.ts';
+import { callOperation } from '../runtime/client.ts';
+import { validateReleaseVersion, validateVersion } from './version.ts';
 
-export const validateReleaseVersion = (version: unknown): string => {
-	const valid = validateVersion(version);
-	if (!/^\d+\.\d+\.\d+$/.test(valid)) {
-		throw new Error('Release versions must have three numeric components');
-	}
-	return valid;
-};
+export { validateReleaseVersion } from './version.ts';
 
 export const checkVersions = (commit: string, cwd = process.cwd()): string => {
 	const read = (path: string): { version?: unknown } =>
-		JSON.parse(
-			execFileSync('git', ['show', `${commit}:${path}`], {
-				cwd,
-				encoding: 'utf8',
-				stdio: ['ignore', 'pipe', 'pipe'],
-			})
-		);
+		JSON.parse(callOperation<string>('git-read', { args: ['show', `${commit}:${path}`], cwd }));
 	const version = validateReleaseVersion(read('package.json').version);
 	const manifest = read('src/assets/manifest.json');
 	if (validateVersion(manifest.version) !== version) {

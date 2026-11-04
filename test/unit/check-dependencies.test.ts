@@ -1,6 +1,10 @@
 import { type SpawnSyncReturns, spawnSync } from 'node:child_process';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { checkDependencies } from '../../scripts/check-dependencies';
+import { checkDependencies } from '../../scripts/tasks/check-dependencies';
+
+vi.mock('../../scripts/runtime/client', async () => ({
+	callOperation: (await import('../helpers/script-operations')).runOperation,
+}));
 
 vi.mock('node:child_process', () => ({ spawnSync: vi.fn() }));
 const spawn = vi.mocked(spawnSync);

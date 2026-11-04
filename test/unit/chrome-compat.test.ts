@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { chromeMatrix, validateChromeVersions } from '../../scripts/chrome-compat';
+import { chromeMatrix, validateChromeVersions } from '../../scripts/lib/chrome-compat';
 
 const lock = JSON.parse(
 	readFileSync(new URL('../browser/chrome-versions.json', import.meta.url), 'utf8')

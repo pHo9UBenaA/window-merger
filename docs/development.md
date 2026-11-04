@@ -33,9 +33,24 @@ pnpm install --frozen-lockfile
 | `src/application/` | Merge orchestration through ports |
 | `src/ports/`, `src/adapters/chrome/` | API contracts and Chrome implementations |
 | `src/assets/` | Manifest, icons and translations |
-| `scripts/` | Build, packaging and maintenance entry points |
-| `scripts/lib/` | Supporting modules shared by scripts |
+| `scripts/run.ts`, `scripts/runtime/` | Task launcher, permission policies and operation protocol |
+| `scripts/tasks/` | Read-only task orchestration |
+| `scripts/operations/` | Validated filesystem writes and fixed external commands |
+| `scripts/lib/` | Read-only helpers shared by tasks |
 | `test/unit/`, `test/browser/` | Unit and packaged-extension tests |
+
+### Changing maintenance scripts
+
+Keep decisions and data transformations in `scripts/tasks/` or `scripts/lib/`.
+Tasks run without filesystem-write or child-process permissions. Use a named operation
+for effects; declare its permissions and permitted callers in
+[`scripts/runtime/policy.ts`](../scripts/runtime/policy.ts).
+Operations validate their inputs and cannot accept arbitrary commands or destinations.
+Temporary paths must belong to the current task execution.
+
+Review `scripts/operations/` and `scripts/runtime/` when changing privileged behavior.
+External tools and their dependencies remain trusted; Node permissions do not constrain
+native executables. Run `pnpm test` to check permission boundaries as well as task behavior.
 
 ## Tests and checks
 

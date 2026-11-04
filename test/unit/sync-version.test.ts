@@ -2,8 +2,13 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { syncExtensionVersion } from '../../scripts/sync-version';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { syncExtensionVersion } from '../../scripts/tasks/sync-version';
+import { useOperationRoot } from '../helpers/script-operations';
+
+vi.mock('../../scripts/runtime/client', async () => ({
+	callOperation: (await import('../helpers/script-operations')).runOperation,
+}));
 
 describe('pnpm version hook', () => {
 	let repository: string;
@@ -38,13 +43,15 @@ describe('pnpm version hook', () => {
 			'-m',
 			'Initial version'
 		);
+		useOperationRoot(repository);
 	});
 
 	afterEach(async () => {
 		await rm(repository, { recursive: true, force: true });
+		vi.restoreAllMocks();
 	});
 
-	it('copies the package version, preserves other manifest fields, and stages only the manifest', async () => {
+	it('copies the package version without staging or modifying unrelated files', async () => {
 		await writeFile(join(repository, 'unrelated.txt'), 'not part of this release');
 		syncExtensionVersion(repository);
 		expect(
@@ -54,7 +61,7 @@ describe('pnpm version hook', () => {
 			name: 'Window Merger',
 			version: '1.5.0',
 		});
-		expect(git('diff', '--cached', '--name-only')).toBe('src/assets/manifest.json');
+		expect(git('diff', '--cached', '--name-only')).toBe('');
 	});
 
 	it('does not reformat an already synchronized manifest', async () => {

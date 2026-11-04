@@ -29,12 +29,12 @@
 		"vitest": "catalog:"
 	},
 	"scripts": {
-		"build": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/lib/project-root.ts --allow-fs-read=./node_modules --allow-fs-read=./src/assets --allow-fs-read=./LICENSE --allow-fs-read=./dist --allow-fs-write=./dist --allow-child-process ./scripts/build.ts",
+		"build": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts build",
 		"check": "biome check --write .",
-		"check:dependencies": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/lib/pnpm-command.ts --allow-child-process ./scripts/check-dependencies.ts",
-		"check:secrets": "node --permission --allow-fs-read=. --allow-child-process ./scripts/check-secrets.ts",
-		"chrome:install": "node --permission --allow-child-process ./scripts/run.ts --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/lib/project-root.ts --allow-fs-read=./src/assets/manifest.json --allow-fs-read=./test/browser/chrome-versions.json --allow-fs-read=./test/browser/chrome-checksums.json --allow-fs-read=@runner-temp/window-merger-chrome-install-* --allow-fs-write=@runner-temp/window-merger-chrome-install-* --allow-fs-write=@github-env --allow-child-process -- ./scripts/chrome-compat.ts --install",
-		"chrome:update-lock": "node --permission --allow-child-process ./scripts/run.ts --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/lib/project-root.ts --allow-fs-read=./src/assets/manifest.json --allow-fs-read=./test/browser/chrome-checksums.json --allow-fs-read=@tmpdir/window-merger-chrome-hash-* --allow-fs-write=./test/browser/chrome-checksums.json --allow-fs-write=./test/browser/chrome-versions.json --allow-fs-write=@tmpdir/window-merger-chrome-hash-* --allow-child-process -- ./scripts/chrome-compat.ts --update-lock",
+		"check:dependencies": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts check-dependencies",
+		"check:secrets": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts check-secrets",
+		"chrome:install": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts chrome-install",
+		"chrome:update-lock": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts chrome-update",
 		"ci": "biome ci . --error-on-warnings",
 		"format": "biome format --write .",
 		"lint": "biome lint --write . --error-on-warnings",
@@ -44,8 +44,8 @@
 		"test:coverage": "vitest run --coverage",
 		"test:stress": "pnpm zip && playwright test --project=stress",
 		"typecheck": "tsc --noEmit",
-		"version": "node --permission --allow-child-process ./scripts/run.ts --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/lib/release-version.ts --allow-fs-read=./scripts/lib/validate-extension.ts --allow-fs-read=./src/assets/manifest.json --allow-fs-write=./src/assets/manifest.json --allow-child-process -- ./scripts/sync-version.ts",
-		"zip": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/lib/project-root.ts --allow-fs-read=./scripts/build.ts --allow-fs-read=./scripts/lib/validate-extension.ts --allow-fs-read=./node_modules --allow-fs-read=./src/assets --allow-fs-read=./LICENSE --allow-fs-read=./dist* --allow-fs-write=./dist* --allow-child-process ./scripts/package.ts"
+		"version": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts sync-version && git add -- src/assets/manifest.json",
+		"zip": "node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts/runtime --allow-child-process ./scripts/run.ts package"
 	},
 	"license": "MIT",
 	"packageManager": "pnpm@12.17.0+sha512.b8d223ebec04b580a89ed206daa71d1bccb6a1ee1d52efa95cc3b0db75271561df8f0d8e2c43add39c5ec08018af7a8a95108e7090f95a29f88727b7a40fd53d"

@@ -4,9 +4,16 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { build as esbuild } from 'esbuild';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildExtension, collectFiles, PROJECT_ROOT, watchExtension } from '../../scripts/build';
+import { PROJECT_ROOT } from '../../scripts/lib/project-root';
 import { validateExtension, validateVersion } from '../../scripts/lib/validate-extension';
-import { packageExtension } from '../../scripts/package';
+import { buildExtension, collectFiles, watchExtension } from '../../scripts/tasks/build';
+import { packageExtension } from '../../scripts/tasks/package';
+import { useOperationRoot } from '../helpers/script-operations';
+
+const WORKING_DIRECTORY = process.cwd();
+vi.mock('../../scripts/runtime/client', async () => ({
+	callOperation: (await import('../helpers/script-operations')).runOperation,
+}));
 
 // Observe the real compiler boundary without replacing compilation or packaging.
 vi.mock('esbuild', async (importOriginal) => {
@@ -21,18 +28,20 @@ describe('extension artifacts', () => {
 		root = await mkdtemp(join(tmpdir(), 'window-merger-build-'));
 		await cp(join(PROJECT_ROOT, 'src'), join(root, 'src'), { recursive: true });
 		await cp(join(PROJECT_ROOT, 'LICENSE'), join(root, 'LICENSE'));
+		useOperationRoot(root);
 	});
 	afterEach(async () => {
 		await stop?.();
 		stop = undefined;
 		await rm(root, { recursive: true, force: true });
+		vi.restoreAllMocks();
 	});
 	it('packages the manifest at the root and never retains deleted files', async () => {
 		const obsolete = join(root, 'src/assets/obsolete.txt');
 		await writeFile(obsolete, 'old');
 		await packageExtension(root);
 		await rm(obsolete);
-		await packageExtension(relative(process.cwd(), root));
+		await packageExtension(relative(WORKING_DIRECTORY, root));
 		const archive = join(root, 'dist.zip');
 		execFileSync('unzip', ['-tq', archive]);
 		const entries = execFileSync('unzip', ['-Z1', archive], { encoding: 'utf8' }).split('\n');
@@ -287,7 +296,7 @@ describe('extension artifacts', () => {
 		const manifest = JSON.parse(await readFile(path, 'utf8'));
 		manifest.minimum_chrome_version = 'not-a-version';
 		await writeFile(path, JSON.stringify(manifest));
-		await expect(packageExtension(root)).rejects.toThrow('Invalid version');
+		await expect(packageExtension(root)).rejects.toThrow('Invalid compiler settings');
 	});
 
 	it('rejects invalid Chrome version components beyond the build target major', async () => {

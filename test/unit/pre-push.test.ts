@@ -3,8 +3,13 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { checkPush } from '../../scripts/pre-push';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { checkPush } from '../../scripts/tasks/pre-push';
+import { useOperationRoot } from '../helpers/script-operations';
+
+vi.mock('../../scripts/runtime/client', async () => ({
+	callOperation: (await import('../helpers/script-operations')).runOperation,
+}));
 
 it.each([
 	'',
@@ -40,10 +45,12 @@ describe('pre-push version checks', () => {
 		git('add', '.');
 		git('-c', 'commit.gpgsign=false', 'commit', '-m', 'chore: prepare release');
 		commitSha = git('rev-parse', 'HEAD');
+		useOperationRoot(repository);
 	});
 
 	afterEach(async () => {
 		await rm(repository, { recursive: true, force: true });
+		vi.restoreAllMocks();
 	});
 
 	it.each(['refs/heads/release/v1.4.10', 'refs/tags/v1.4.10'])(
@@ -89,8 +96,8 @@ describe('pre-push version checks', () => {
 		{ version: '1.4.9', expectedStatus: 1 },
 	])('CLI reads stdin through a symlink: $version', async ({ version, expectedStatus }) => {
 		const alias = join(repository, 'pre-push-alias.ts');
-		await symlink(fileURLToPath(new URL('../../scripts/pre-push.ts', import.meta.url)), alias);
-		const result = spawnSync(process.execPath, ['--experimental-strip-types', alias], {
+		await symlink(fileURLToPath(new URL('../../scripts/run.ts', import.meta.url)), alias);
+		const result = spawnSync(process.execPath, [alias, 'pre-push'], {
 			cwd: repository,
 			encoding: 'utf8',
 			input: `refs/heads/main ${commitSha} refs/tags/v${version} deadbeef\n`,

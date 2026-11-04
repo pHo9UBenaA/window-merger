@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { checkRelease } from './lib/release-version.ts';
+import { checkRelease } from '../lib/release-version.ts';
 
 export const checkPush = (input: string, cwd = process.cwd()): void => {
 	for (const line of input.trim().split('\n')) {

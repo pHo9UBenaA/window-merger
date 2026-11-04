@@ -1,6 +1,5 @@
-import { spawnSync } from 'node:child_process';
 import { stripVTControlCharacters } from 'node:util';
-import { pnpmCommand } from './lib/pnpm-command.ts';
+import { callOperation } from '../runtime/client.ts';
 
 type AuditReport = { findingCount: number; lines: string[] };
 type LockedPackage = { name: string; version: string };
@@ -12,7 +11,6 @@ type OsvQuery = {
 type OsvResult = { vulnerabilityIds: string[]; nextPageToken: string };
 
 const AUDIT_TIMEOUT_MS = 60_000;
-const MAX_COMMAND_OUTPUT_BYTES = 16 * 1024 * 1024;
 const MAX_OSV_RESPONSE_BYTES = 4 * 1024 * 1024;
 const OSV_BATCH_SIZE = 100;
 const MAX_OSV_PAGES = 100;
@@ -62,18 +60,14 @@ const parsePnpmReport = (value: unknown): AuditReport => {
 	return { findingCount: Math.max(findingCount, lines.length), lines };
 };
 
-const runPnpmJson = (
-	pnpmEntryPath: string,
-	args: string[]
-): { data: unknown; exitCode: number } => {
-	// npm_execpath can be a native executable, not a Node.js script.
-	const command = pnpmCommand(args, { ...process.env, npm_execpath: pnpmEntryPath });
-	const result = spawnSync(command.executable, command.args, {
-		encoding: 'utf8',
-		stdio: ['ignore', 'pipe', 'pipe'],
-		timeout: AUDIT_TIMEOUT_MS,
-		maxBuffer: MAX_COMMAND_OUTPUT_BYTES,
-	});
+const runPnpmJson = (kind: 'audit' | 'list'): { data: unknown; exitCode: number } => {
+	const result = callOperation<{
+		stdout: string;
+		stderr: string;
+		status: number | null;
+		signal: string | null;
+		error?: string;
+	}>('pnpm-report', { kind });
 	try {
 		if (result.error) throw result.error;
 		const exitCode = result.status;
@@ -100,15 +94,8 @@ const parseLockedPackage = (alias: string, entry: Record<string, unknown>): Lock
 	return { name, version };
 };
 
-const readLockedPackages = (pnpmEntryPath: string): LockedPackage[] => {
-	// Include transitive, development and other-platform optional dependencies, even if not installed.
-	const { data, exitCode } = runPnpmJson(pnpmEntryPath, [
-		'list',
-		'--lockfile-only',
-		'--depth',
-		'Infinity',
-		'--json',
-	]);
+const readLockedPackages = (): LockedPackage[] => {
+	const { data, exitCode } = runPnpmJson('list');
 	if (exitCode !== 0) throw new Error('pnpm list failed');
 
 	const pendingNodes = requireArray(data).map(requireObject);
@@ -210,8 +197,8 @@ const scanOsvBatch = async (
 	return findings;
 };
 
-const checkOsv = async (pnpmEntryPath: string): Promise<AuditReport> => {
-	const packages = readLockedPackages(pnpmEntryPath);
+const checkOsv = async (): Promise<AuditReport> => {
+	const packages = readLockedPackages();
 	const signal = AbortSignal.timeout(AUDIT_TIMEOUT_MS);
 	const findings = new Set<string>();
 	// Small sequential batches bound response size and avoid flooding the service.
@@ -257,13 +244,13 @@ export const checkDependencies = async (): Promise<number> => {
 		return 2;
 	}
 	const pnpmStatus = await runAudit('pnpm audit', () => {
-		const { data, exitCode } = runPnpmJson(pnpmEntryPath, ['audit', '--json']);
+		const { data, exitCode } = runPnpmJson('audit');
 		const report = parsePnpmReport(data);
 		if (exitCode !== 0 && report.findingCount === 0)
 			throw new Error('Command exited 1 without recognized findings');
 		return report;
 	});
-	const osvStatus = await runAudit('OSV API', () => checkOsv(pnpmEntryPath));
+	const osvStatus = await runAudit('OSV API', checkOsv);
 	return Math.max(pnpmStatus, osvStatus);
 };
 

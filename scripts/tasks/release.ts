@@ -1,34 +1,11 @@
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { isAbsolute, join, resolve } from 'node:path';
-import { pnpmCommand } from './lib/pnpm-command.ts';
-import {
-	checkRelease,
-	checkVersions,
-	releaseVersion,
-	validateReleaseVersion,
-} from './lib/release-version.ts';
+import { join } from 'node:path';
+import { checkRelease, releaseVersion, validateReleaseVersion } from '../lib/release-version.ts';
+import { callOperation } from '../runtime/client.ts';
 
-type RunGit = (args: string[]) => string;
+type RunGit = (args: readonly string[]) => string;
 
-const git = (args: string[], cwd: string, env = process.env): string =>
-	execFileSync('git', args, {
-		cwd,
-		env,
-		encoding: 'utf8',
-		stdio: ['ignore', 'pipe', 'pipe'],
-	}).trim();
-
-const pnpm = (args: string[], cwd: string, env: NodeJS.ProcessEnv): string => {
-	const command = pnpmCommand(args, env);
-	return execFileSync(command.executable, command.args, {
-		cwd,
-		env,
-		encoding: 'utf8',
-		stdio: ['ignore', 'pipe', 'pipe'],
-	}).trim();
-};
+const git = (args: readonly string[], cwd: string): string =>
+	callOperation<string>('git-read', { args, cwd }).trim();
 
 const compareVersions = (leftVersion: string, rightVersion: string): number => {
 	const leftParts = leftVersion.split('.').map(Number);
@@ -81,44 +58,40 @@ const isReleaseCommit = (
 export const createReleaseTag = (
 	ref: string,
 	commit: string,
-	cwd = process.cwd(),
-	remote = 'origin'
+	cwd = process.cwd()
 ): 'created' | 'existing' | 'skipped' => {
 	const version = checkRelease(ref, commit, cwd);
 	if (version === null) return 'skipped';
 	const base = git(['rev-parse', `${commit}^{commit}`], cwd);
-	const repository = git(['rev-parse', '--show-toplevel'], cwd);
-	const remoteUrl = git(['remote', 'get-url', '--push', remote], cwd);
-	const destination =
-		isAbsolute(remoteUrl) || remoteUrl.includes(':') ? remoteUrl : resolve(cwd, remoteUrl);
-	const environment = { ...process.env };
-	// Git-hook/index variables must not redirect sandbox commands to the caller.
-	for (const name of git(['rev-parse', '--local-env-vars'], cwd).split('\n')) {
-		delete environment[name];
-	}
-	const directory = mkdtempSync(join(tmpdir(), 'window-merger-release-'));
+	const directory = callOperation<string>('release-directory', { action: 'create' });
 	const checkout = join(directory, 'checkout');
-	const runGit: RunGit = (args) => git(args, checkout, environment);
+	const runGit: RunGit = (args) => {
+		const operation = [
+			'checkout',
+			'remote',
+			'config',
+			'check-ref-format',
+			'fetch',
+			'push',
+		].includes(args[0])
+			? 'release-git'
+			: 'git-read';
+		return callOperation<string>(operation, { args, cwd: checkout, isolated: true }).trim();
+	};
 	try {
-		// Isolate pnpm's commit/tag writes from the caller's checkout and local tags.
-		git(
-			['clone', '--no-local', '--no-checkout', '--no-tags', '--', repository, checkout],
-			cwd,
-			environment
-		);
+		callOperation('release-git', { args: ['clone'], cwd: checkout });
 		runGit(['checkout', '--detach', base]);
-		runGit(['remote', 'set-url', 'origin', destination]);
+		runGit(['remote', 'set-url', 'origin']);
 		for (const field of ['user.name', 'user.email']) {
-			runGit(['config', field, git(['config', field], cwd)]);
+			runGit(['config', field]);
 		}
 		runGit(['config', 'commit.gpgSign', 'false']);
 		runGit(['config', 'tag.gpgSign', 'false']);
 
-		const configuredPrefix = pnpm(
-			['config', 'get', 'tagVersionPrefix', '--json'],
-			checkout,
-			environment
-		);
+		const configuredPrefix = callOperation<string>('release-pnpm', {
+			action: 'prefix',
+			cwd: checkout,
+		});
 		const prefix: unknown = configuredPrefix ? JSON.parse(configuredPrefix) : 'v';
 		if (typeof prefix !== 'string') throw new Error('tagVersionPrefix must be a string');
 		const tagName = `${prefix}${version}`;
@@ -146,11 +119,7 @@ export const createReleaseTag = (
 
 		// The PR already bumped both manifests. pnpm creates an empty release marker
 		// commit and an annotated tag, honoring tagVersionPrefix and the version hook.
-		pnpm(
-			['version', version, '--allow-same-version', '--message', message],
-			checkout,
-			environment
-		);
+		callOperation('release-pnpm', { action: 'version', version, cwd: checkout });
 		const releaseCommit = runGit(['rev-parse', 'HEAD']);
 		if (
 			releaseCommit === base ||
@@ -172,20 +141,14 @@ export const createReleaseTag = (
 		}
 		return 'created';
 	} finally {
-		rmSync(directory, { recursive: true, force: true });
+		callOperation('release-directory', { action: 'remove', directory });
 	}
 };
 
 const runCli = (): void => {
 	const args = process.argv.slice(2);
-	if (args.length > 1 || (args.length === 1 && args[0] !== '--check')) {
-		throw new Error('Use --check to validate or no arguments to publish a release tag');
-	}
-	if (args[0] === '--check') {
-		const commit = process.env.RELEASE_COMMIT ?? 'HEAD';
-		if (checkRelease(process.env.RELEASE_BRANCH ?? '', commit) === null) checkVersions(commit);
-		return;
-	}
+	if (args.length > 0)
+		throw new Error('Use release-check to validate or release with no arguments to publish');
 	const branch = process.env.RELEASE_BRANCH;
 	const commit = process.env.RELEASE_COMMIT;
 	if (!branch || !commit) throw new Error('RELEASE_BRANCH and RELEASE_COMMIT are required');
