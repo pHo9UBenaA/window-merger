@@ -43,4 +43,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh auth setup-git
-          node --experimental-strip-types scripts/release.ts
+          # The restricted script needs pnpm's native entry, not a Corepack/installer shim.
+          pnpm --config.verifyDepsBeforeRun=false exec \
+            node --permission --allow-child-process scripts/run.ts \
+            --permission \
+            --allow-fs-read=./package.json \
+            --allow-fs-read=./scripts/lib/pnpm-command.ts \
+            --allow-fs-read=./scripts/lib/release-version.ts \
+            --allow-fs-read=./scripts/lib/validate-extension.ts \
+            --allow-fs-read=@tmpdir/window-merger-release-* \
+            --allow-fs-write=@tmpdir/window-merger-release-* \
+            --allow-child-process \
+            -- scripts/release.ts

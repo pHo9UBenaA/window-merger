@@ -1,14 +1,16 @@
 import { type FSWatcher, watch as watchDirectory } from 'node:fs';
 import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
 	type BuildOptions as EsbuildOptions,
 	build as esbuild,
 	context as esbuildContext,
 } from 'esbuild';
 
-export const PROJECT_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+import { PROJECT_ROOT } from './lib/project-root.ts';
+
+export { PROJECT_ROOT } from './lib/project-root.ts';
+
 type ExtensionBuildOptions = { root?: string; minify?: boolean };
 
 const isMissingFileError = (error: unknown): boolean =>

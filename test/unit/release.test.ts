@@ -32,7 +32,7 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 	const remoteGit = (...args: string[]) =>
 		execFileSync('git', ['--git-dir', remote, ...args], { encoding: 'utf8' }).trim();
 	const commit = async (version: string) => {
-		const { packageManager } = JSON.parse(
+		const { packageManager, scripts } = JSON.parse(
 			await readFile(new URL('../../package.json', import.meta.url), 'utf8')
 		);
 		await writeFile(
@@ -43,21 +43,28 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 				private: true,
 				type: 'module',
 				packageManager,
-				scripts: { version: 'node --experimental-strip-types scripts/sync-version.ts' },
+				scripts: { version: scripts.version },
 			})
 		);
 		await writeFile(join(repository, 'src/assets/manifest.json'), JSON.stringify({ version }));
+		execFileSync('pnpm', ['install', '--lockfile-only', '--no-frozen-lockfile'], {
+			cwd: repository,
+			stdio: ['ignore', 'pipe', 'pipe'],
+		});
 		git('add', '.');
 		git('-c', 'commit.gpgsign=false', 'commit', '-m', `chore: release ${version}`);
 		return git('rev-parse', 'HEAD');
 	};
 	beforeEach(async () => {
-		directory = await mkdtemp(join(tmpdir(), 'window-merger-release-'));
+		directory = await mkdtemp(join(tmpdir(), 'window-merger-tag-test-'));
 		repository = join(directory, 'repository');
 		remote = join(directory, 'remote.git');
 		await mkdir(join(repository, 'src/assets'), { recursive: true });
 		await mkdir(join(repository, 'scripts/lib'), { recursive: true });
 		for (const file of [
+			'scripts/run.ts',
+			'scripts/release.ts',
+			'scripts/lib/pnpm-command.ts',
 			'scripts/sync-version.ts',
 			'scripts/lib/release-version.ts',
 			'scripts/lib/validate-extension.ts',
@@ -173,6 +180,40 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 		expect(git('diff', '--cached', '--name-only')).toBe('src/assets/manifest.json');
 		expect(git('tag', '--list')).toBe('');
 		expect(git('rev-parse', 'HEAD')).toBe(sha);
+	});
+
+	it('publishes through the workflow command without modifying the caller or installing dependencies', async () => {
+		const sha = await commit('1.4.10');
+		const workflow = await readFile(
+			new URL('../../.github/workflows/create-tag-on-merge.yml', import.meta.url),
+			'utf8'
+		);
+		const command = workflow
+			.replace(/\\\r?\n\s*/g, ' ')
+			.match(/pnpm --config\.verifyDepsBeforeRun=false exec [^\n]+/);
+		if (!command) throw new Error('Missing release workflow command');
+		const [executable, ...args] = command[0].trim().split(/\s+/);
+		const env: NodeJS.ProcessEnv = {
+			...process.env,
+			RELEASE_BRANCH: 'release/v1.4.10',
+			RELEASE_COMMIT: sha,
+		};
+		delete env.npm_execpath;
+		const output = execFileSync(executable, args, {
+			cwd: repository,
+			env,
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'pipe'],
+		});
+		expect(output.trim()).toBe('created');
+		const marker = remoteGit('rev-parse', 'refs/tags/v1.4.10^{commit}');
+		expect(remoteGit('rev-parse', `${marker}^`)).toBe(sha);
+		expect(remoteGit('rev-parse', `${marker}^{tree}`)).toBe(git('rev-parse', `${sha}^{tree}`));
+		expect(git('rev-parse', 'HEAD')).toBe(sha);
+		expect(git('status', '--porcelain')).toBe('');
+		await expect(readFile(join(repository, 'node_modules'))).rejects.toMatchObject({
+			code: 'ENOENT',
+		});
 	});
 
 	it('runs the publishing CLI without an inherited npm executable', async () => {

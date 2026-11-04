@@ -4,7 +4,7 @@ import { createReadStream } from 'node:fs';
 import { appendFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PROJECT_ROOT } from './build.ts';
+import { PROJECT_ROOT } from './lib/project-root.ts';
 
 type ChromeVersions = Record<string, string>;
 type ChromeChecksums = Record<string, Record<string, string>>;
@@ -211,7 +211,7 @@ export const installChrome = async (major: string, platform: string): Promise<vo
 	const expectedSha256 = requireSha256(checksums[version]?.[platform]);
 
 	const installDirectory = await mkdtemp(
-		join(process.env.RUNNER_TEMP ?? tmpdir(), 'window-merger-chrome-')
+		join(process.env.RUNNER_TEMP ?? tmpdir(), 'window-merger-chrome-install-')
 	);
 	const archivePath = join(installDirectory, 'chrome.zip');
 	try {

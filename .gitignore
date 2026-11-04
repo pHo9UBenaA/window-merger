@@ -25,5 +25,8 @@ dist/
 # pnpm
 .pnpm-store/
 
+# Git hook snapshots
+/.window-merger-index-*/
+
 # macOS
 .DS_Store

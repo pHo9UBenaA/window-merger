@@ -78,7 +78,14 @@ jobs:
           run_install: false
       - run: pnpm install --frozen-lockfile
       - id: plan
-        run: echo "matrix=$(node --experimental-strip-types scripts/chrome-compat.ts --matrix)" >> "$GITHUB_OUTPUT"
+        run: |
+          matrix=$(node --permission \
+            --allow-fs-read=./package.json \
+            --allow-fs-read=./scripts/lib/project-root.ts \
+            --allow-fs-read=./src/assets/manifest.json \
+            --allow-fs-read=./test/browser/chrome-versions.json \
+            scripts/chrome-compat.ts --matrix)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   compatibility:
     name: compatibility (${{ matrix.os }}, Chrome ${{ matrix.major }})

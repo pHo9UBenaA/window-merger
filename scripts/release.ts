@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, isAbsolute, join, resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
+import { pnpmCommand } from './lib/pnpm-command.ts';
 import {
 	checkRelease,
 	checkVersions,
@@ -20,11 +21,8 @@ const git = (args: string[], cwd: string, env = process.env): string =>
 	}).trim();
 
 const pnpm = (args: string[], cwd: string, env: NodeJS.ProcessEnv): string => {
-	const inheritedCli = env.npm_execpath;
-	const cli =
-		inheritedCli && /^pnpm(?:[.-]|$)/i.test(basename(inheritedCli)) ? inheritedCli : 'pnpm';
-	const useNode = /\.[cm]?js$/.test(cli);
-	return execFileSync(useNode ? process.execPath : cli, useNode ? [cli, ...args] : args, {
+	const command = pnpmCommand(args, env);
+	return execFileSync(command.executable, command.args, {
 		cwd,
 		env,
 		encoding: 'utf8',

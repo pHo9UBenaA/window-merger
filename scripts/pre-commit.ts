@@ -1,6 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, rm, symlink } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { join, sep } from 'node:path';
 
 export const hasCodeChanges = (root: string): boolean => {
@@ -35,7 +34,9 @@ export const withIndexSnapshot = async (
 		environment: NodeJS.ProcessEnv
 	) => Promise<void>
 ): Promise<void> => {
-	const snapshotDirectory = await mkdtemp(join(tmpdir(), 'window-merger-index-'));
+	// Resolve installed rules without symlinks, which require unrestricted filesystem access.
+	// Nesting the snapshot inside node_modules breaks Biome's workspace scan.
+	const snapshotDirectory = await mkdtemp(join(root, '.window-merger-index-'));
 	try {
 		execFileSync('git', ['checkout-index', '--all', `--prefix=${snapshotDirectory}${sep}`], {
 			cwd: root,
@@ -47,11 +48,6 @@ export const withIndexSnapshot = async (
 			.split('\0')
 			.filter(Boolean);
 		const environment = createSnapshotEnvironment(root);
-		await symlink(
-			join(root, 'node_modules'),
-			join(snapshotDirectory, 'node_modules'),
-			'junction'
-		);
 		await verify(snapshotDirectory, trackedFiles, environment);
 	} finally {
 		await rm(snapshotDirectory, { recursive: true, force: true });
@@ -71,9 +67,24 @@ if (import.meta.main) {
 					env: environment,
 					stdio: 'inherit',
 				});
-			run('secretlint', ['--no-gitignore', '--no-glob', '--', ...trackedFiles]);
+			// Discovery could otherwise fall back to unstaged configuration in the parent checkout.
+			run('secretlint', [
+				'--secretlintrc',
+				join(snapshotDirectory, '.secretlintrc.json'),
+				'--no-gitignore',
+				'--no-glob',
+				'--',
+				...trackedFiles,
+			]);
 			if (!shouldCheckCode) return;
-			run('biome', ['ci', '--vcs-enabled=false', '.', '--error-on-warnings']);
+			run('biome', [
+				'ci',
+				'--config-path',
+				join(snapshotDirectory, 'biome.json'),
+				'--vcs-enabled=false',
+				'.',
+				'--error-on-warnings',
+			]);
 		});
 	} catch (error) {
 		console.error('Staged snapshot checks failed:', error);

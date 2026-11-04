@@ -43,7 +43,7 @@ const check = (pnpm = result(cleanPnpm), list = result(packageList)) => {
 const requestBody = (index = 0) => JSON.parse(String(api.mock.calls[index][1]?.body));
 
 beforeEach(() => {
-	vi.stubEnv('npm_execpath', '/tools/pnpm.cjs');
+	vi.stubEnv('npm_execpath', '/tools/pnpm-native');
 	vi.stubGlobal('fetch', api);
 	api.mockImplementation(async () => Response.json({ results: [{}] }));
 	vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -60,13 +60,13 @@ it('queries the fixed HTTPS API with only locked package identities, never proje
 	expect(await check()).toBe(0);
 	expect(spawn.mock.calls).toEqual([
 		[
-			process.execPath,
-			['/tools/pnpm.cjs', 'audit', '--json'],
+			'/tools/pnpm-native',
+			['audit', '--json'],
 			expect.objectContaining({ timeout: 60000, encoding: 'utf8' }),
 		],
 		[
-			process.execPath,
-			['/tools/pnpm.cjs', 'list', '--lockfile-only', '--depth', 'Infinity', '--json'],
+			'/tools/pnpm-native',
+			['list', '--lockfile-only', '--depth', 'Infinity', '--json'],
 			expect.any(Object),
 		],
 	]);

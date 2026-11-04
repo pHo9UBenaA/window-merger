@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { hasCodeChanges, withIndexSnapshot } from '../../scripts/pre-commit';
 
@@ -67,6 +68,20 @@ it('checks staged content without changing the working tree or index', async () 
 	expect(await readFile(file, 'utf8')).toBe('unstaged content');
 	expect(git('show', ':file [with spaces].txt')).toBe('staged content');
 	await expect(readFile(join(snapshotPath, 'file [with spaces].txt'))).rejects.toThrow();
+});
+
+it('keeps the snapshot beside node_modules and resolves installed rules without symlinks', async () => {
+	const rule = join(root, 'node_modules/test-rule/index.js');
+	await mkdir(join(root, 'node_modules/test-rule'));
+	await writeFile(rule, 'module.exports = {};');
+	await withIndexSnapshot(root, async (snapshot) => {
+		expect(dirname(snapshot)).toBe(root);
+		const require = createRequire(join(snapshot, 'config.cjs'));
+		expect(require.resolve('test-rule')).toBe(await realpath(rule));
+		await expect(readFile(join(snapshot, 'node_modules'))).rejects.toMatchObject({
+			code: 'ENOENT',
+		});
+	});
 });
 
 it('removes original Git paths from the snapshot environment but preserves other variables', async () => {

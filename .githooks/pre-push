@@ -1,7 +1,12 @@
 #!/bin/sh
 set -e
 
-node --experimental-strip-types scripts/pre-push.ts
+node --permission \
+  --allow-fs-read=./package.json \
+  --allow-fs-read=./scripts/lib/release-version.ts \
+  --allow-fs-read=./scripts/lib/validate-extension.ts \
+  --allow-child-process \
+  scripts/pre-push.ts
 pnpm run ci
 pnpm run typecheck
 pnpm run test:coverage

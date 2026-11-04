@@ -7,7 +7,7 @@ import { basename, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installChrome, updateLock } from '../../scripts/chrome-compat';
 
-vi.mock('../../scripts/build', () => ({ PROJECT_ROOT: '/project' }));
+vi.mock('../../scripts/lib/project-root', () => ({ PROJECT_ROOT: '/project' }));
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn() }));
 vi.mock('node:fs/promises', async (original) => ({
 	...(await original<typeof import('node:fs/promises')>()),

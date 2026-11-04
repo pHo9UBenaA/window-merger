@@ -2,4 +2,11 @@
 set -e
 
 # Verify the index without stashing, staging, or modifying working-tree changes.
-node --experimental-strip-types scripts/pre-commit.ts
+node --permission --allow-child-process scripts/run.ts \
+  --permission \
+  --allow-fs-read=./package.json \
+  --allow-fs-read=./node_modules \
+  --allow-fs-read=./.window-merger-index-* \
+  --allow-fs-write=./.window-merger-index-* \
+  --allow-child-process \
+  -- scripts/pre-commit.ts

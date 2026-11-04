@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { stripVTControlCharacters } from 'node:util';
+import { pnpmCommand } from './lib/pnpm-command.ts';
 
 type AuditReport = { findingCount: number; lines: string[] };
 type LockedPackage = { name: string; version: string };
@@ -65,8 +66,9 @@ const runPnpmJson = (
 	pnpmEntryPath: string,
 	args: string[]
 ): { data: unknown; exitCode: number } => {
-	// Use Node directly, avoiding shell / .cmd resolution on Windows.
-	const result = spawnSync(process.execPath, [pnpmEntryPath, ...args], {
+	// npm_execpath can be a native executable, not a Node.js script.
+	const command = pnpmCommand(args, { ...process.env, npm_execpath: pnpmEntryPath });
+	const result = spawnSync(command.executable, command.args, {
 		encoding: 'utf8',
 		stdio: ['ignore', 'pipe', 'pipe'],
 		timeout: AUDIT_TIMEOUT_MS,
