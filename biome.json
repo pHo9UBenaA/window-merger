@@ -33,11 +33,29 @@
 			"jsxQuoteStyle": "single"
 		}
 	},
+	"overrides": [
+		{
+			"includes": ["scripts/commands.json"],
+			"assist": {
+				"actions": {
+					"source": {
+						"useSortedKeys": {
+							"level": "on",
+							"options": {
+								"sortOrder": "lexicographic"
+							}
+						}
+					}
+				}
+			}
+		}
+	],
 	"assist": {
 		"enabled": true,
 		"actions": {
 			"source": {
-				"organizeImports": "on"
+				"organizeImports": "on",
+				"useSortedPackageJson": "on"
 			}
 		}
 	}

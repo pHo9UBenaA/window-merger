@@ -1,5 +1,6 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { object, strings, text } from './lib/input.ts';
 import { PROJECT_ROOT } from './lib/project-root.ts';
 
@@ -188,8 +189,11 @@ if (import.meta.main) {
 		const destination = join(PROJECT_ROOT, path);
 		if (process.argv.includes('--check')) {
 			const current = await readFile(destination, 'utf8').catch(() => '');
-			if (current.replaceAll('\r\n', '\n') !== content)
-				throw new Error(`${path} is stale; run pnpm scripts:generate`);
+			const matches =
+				path === 'package.json'
+					? isDeepStrictEqual(JSON.parse(current), JSON.parse(content))
+					: current.replaceAll('\r\n', '\n') === content;
+			if (!matches) throw new Error(`${path} is stale; run pnpm scripts:generate`);
 		} else await writeFile(destination, content);
 	}
 }

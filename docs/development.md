@@ -48,6 +48,7 @@ Use a dedicated script for branching, watching or cleanup.
 Edit [`scripts/commands.json`](../scripts/commands.json), then regenerate the commands:
 
 ```sh
+pnpm check
 pnpm scripts:generate
 pnpm scripts:check
 ```

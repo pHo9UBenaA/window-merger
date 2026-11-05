@@ -3,17 +3,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PROJECT_ROOT } from './project-root.ts';
 
-export const gitReadCommand = (root = process.cwd()): string[] => {
-	const flags = [
-		'--permission',
-		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-		`--allow-fs-read=${join(root, 'package.json')}`,
-		'--allow-child-process',
-	];
-	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/lib/git-read.ts')];
-};
-
 export const checkToolsCommand = (root = process.cwd()): string[] => {
 	const flags = [
 		'--permission',
@@ -36,4 +25,15 @@ export const chromeDownloadCommand = (root = process.cwd()): string[] => {
 		'--no-allow-child-process',
 	];
 	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/lib/chrome-download.ts')];
+};
+
+export const gitReadCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		'--allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/lib/git-read.ts')];
 };

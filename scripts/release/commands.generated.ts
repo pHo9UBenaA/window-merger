@@ -3,6 +3,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PROJECT_ROOT } from '../lib/project-root.ts';
 
+export const inspectReleaseCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		'--no-allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/release/inspect.ts')];
+};
+
 export const releaseDirectoryCommand = (root = process.cwd()): string[] => {
 	const flags = [
 		'--permission',
@@ -47,15 +58,4 @@ export const validateVersionsCommand = (root = process.cwd()): string[] => {
 		'--no-allow-child-process',
 	];
 	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/release/validate-versions.ts')];
-};
-
-export const inspectReleaseCommand = (root = process.cwd()): string[] => {
-	const flags = [
-		'--permission',
-		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-		`--allow-fs-read=${join(root, 'package.json')}`,
-		'--no-allow-child-process',
-	];
-	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/release/inspect.ts')];
 };

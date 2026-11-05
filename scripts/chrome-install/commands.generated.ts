@@ -3,18 +3,18 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PROJECT_ROOT } from '../lib/project-root.ts';
 
-export const readChromeInstallationCommand = (root = process.cwd()): string[] => {
+export const chromeEnvironmentCommand = (root = process.cwd()): string[] => {
 	const flags = [
 		'--permission',
 		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
 		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 		`--allow-fs-read=${join(root, 'package.json')}`,
-		`--allow-fs-read=${join(root, 'src/assets/manifest.json')}`,
-		`--allow-fs-read=${join(root, 'test/browser/chrome-versions.json')}`,
-		`--allow-fs-read=${join(root, 'test/browser/chrome-checksums.json')}`,
+		...(process.env.GITHUB_ENV
+			? [`--allow-fs-write=${resolve(root, process.env.GITHUB_ENV)}`]
+			: []),
 		'--no-allow-child-process',
 	];
-	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/chrome-install/read.ts')];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/chrome-install/environment.ts')];
 };
 
 export const chromeExtractCommand = (root = process.cwd()): string[] => {
@@ -32,16 +32,16 @@ export const chromeExtractCommand = (root = process.cwd()): string[] => {
 	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/chrome-install/extract.ts')];
 };
 
-export const chromeEnvironmentCommand = (root = process.cwd()): string[] => {
+export const readChromeInstallationCommand = (root = process.cwd()): string[] => {
 	const flags = [
 		'--permission',
 		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
 		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 		`--allow-fs-read=${join(root, 'package.json')}`,
-		...(process.env.GITHUB_ENV
-			? [`--allow-fs-write=${resolve(root, process.env.GITHUB_ENV)}`]
-			: []),
+		`--allow-fs-read=${join(root, 'src/assets/manifest.json')}`,
+		`--allow-fs-read=${join(root, 'test/browser/chrome-versions.json')}`,
+		`--allow-fs-read=${join(root, 'test/browser/chrome-checksums.json')}`,
 		'--no-allow-child-process',
 	];
-	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/chrome-install/environment.ts')];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/chrome-install/read.ts')];
 };

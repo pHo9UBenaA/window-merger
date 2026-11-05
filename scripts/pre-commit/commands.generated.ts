@@ -2,6 +2,17 @@
 import { join } from 'node:path';
 import { PROJECT_ROOT } from '../lib/project-root.ts';
 
+export const exportIndexCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		'--allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/pre-commit/export-index.ts')];
+};
+
 export const snapshotCommand = (root = process.cwd()): string[] => {
 	const flags = [
 		'--permission',
@@ -13,15 +24,4 @@ export const snapshotCommand = (root = process.cwd()): string[] => {
 		'--no-allow-child-process',
 	];
 	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/pre-commit/snapshot.ts')];
-};
-
-export const exportIndexCommand = (root = process.cwd()): string[] => {
-	const flags = [
-		'--permission',
-		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-		`--allow-fs-read=${join(root, 'package.json')}`,
-		'--allow-child-process',
-	];
-	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/pre-commit/export-index.ts')];
 };
