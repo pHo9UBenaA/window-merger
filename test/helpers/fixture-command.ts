@@ -1,6 +1,13 @@
 import { join } from 'node:path';
 import { PROJECT_ROOT } from '../../scripts/lib/project-root';
 
+export const fixtureEnvironment = (): NodeJS.ProcessEnv =>
+	Object.fromEntries(
+		Object.entries(process.env).filter(
+			([name]) => name !== 'NODE_OPTIONS' && !name.startsWith('GIT_')
+		)
+	);
+
 const quote = (value: string): string =>
 	process.platform === 'win32' ? `"${value}"` : `'${value.replaceAll("'", "'\\''")}'`;
 

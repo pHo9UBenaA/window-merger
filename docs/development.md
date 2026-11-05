@@ -53,6 +53,7 @@ pnpm scripts:check
 ```
 
 Commit `commands.json`, `package.json` and the generated argument files together.
+Set `launcher: true` only for executables launched programmatically, including integration tests.
 CI rejects stale generated files. Temporary and environment paths are resolved by the
 generated arguments, not by a command registry at runtime.
 

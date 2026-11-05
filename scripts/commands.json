@@ -1,12 +1,27 @@
 {
 	"executables": {
-		"buildMain": { "file": "build/main.ts", "read": ["src"], "childProcess": true },
-		"prepareAssets": { "file": "build/prepare-assets.ts", "read": ["src/assets", "LICENSE"] },
-		"writeAssets": { "file": "build/write-assets.ts", "read": ["dist"], "write": ["dist"] },
+		"buildMain": {
+			"file": "build/main.ts",
+			"read": ["src"],
+			"childProcess": true,
+			"launcher": true
+		},
+		"prepareAssets": {
+			"file": "build/prepare-assets.ts",
+			"read": ["src/assets", "LICENSE"],
+			"launcher": true
+		},
+		"writeAssets": {
+			"file": "build/write-assets.ts",
+			"read": ["dist"],
+			"write": ["dist"],
+			"launcher": true
+		},
 		"bundle": {
 			"file": "build/bundle.ts",
 			"read": ["$code/node_modules"],
-			"childProcess": true
+			"childProcess": true,
+			"launcher": true
 		},
 		"clearArchive": {
 			"file": "package/clear.ts",
@@ -26,7 +41,8 @@
 		"chromeInstall": { "file": "chrome-install/main.ts", "childProcess": true },
 		"readChromeInstallation": {
 			"file": "chrome-install/read.ts",
-			"read": ["src/assets/manifest.json", "test/browser"]
+			"read": ["src/assets/manifest.json", "test/browser"],
+			"launcher": true
 		},
 		"chromeExtract": {
 			"file": "chrome-install/extract.ts",
@@ -36,9 +52,14 @@
 				"test/browser/chrome-checksums.json"
 			],
 			"write": ["$runnerTemp/window-merger-chrome-install-*"],
-			"childProcess": true
+			"childProcess": true,
+			"launcher": true
 		},
-		"chromeEnvironment": { "file": "chrome-install/environment.ts", "write": ["$githubEnv"] },
+		"chromeEnvironment": {
+			"file": "chrome-install/environment.ts",
+			"write": ["$githubEnv"],
+			"launcher": true
+		},
 		"chromeUpdate": {
 			"file": "chrome-update/main.ts",
 			"read": [".window-merger-chrome-hash-*"],
@@ -46,15 +67,12 @@
 				".window-merger-chrome-hash-*",
 				"test/browser/chrome-checksums.json",
 				"test/browser/chrome-versions.json"
-			]
+			],
+			"launcher": true
 		},
 		"readChromeUpdate": {
 			"file": "chrome-update/read.ts",
 			"read": ["src/assets/manifest.json", "test/browser"]
-		},
-		"writeChromeLock": {
-			"file": "chrome-update/write-lock.ts",
-			"write": ["test/browser/chrome-checksums.json", "test/browser/chrome-versions.json"]
 		},
 		"chromeMatrix": {
 			"file": "chrome-matrix/main.ts",
@@ -64,9 +82,14 @@
 		"snapshot": {
 			"file": "pre-commit/snapshot.ts",
 			"read": [".window-merger-index-*"],
-			"write": [".window-merger-index-*"]
+			"write": [".window-merger-index-*"],
+			"launcher": true
 		},
-		"exportIndex": { "file": "pre-commit/export-index.ts", "childProcess": true },
+		"exportIndex": {
+			"file": "pre-commit/export-index.ts",
+			"childProcess": true,
+			"launcher": true
+		},
 		"prePush": { "file": "pre-push/main.ts" },
 		"planReleaseCheck": { "file": "release/plan-check.ts" },
 		"releaseCheck": { "file": "release/check.ts" },
@@ -74,20 +97,21 @@
 		"releaseDirectory": {
 			"file": "release/directory.ts",
 			"read": ["$tmp/window-merger-release-*"],
-			"write": ["$tmp/window-merger-release-*"]
+			"write": ["$tmp/window-merger-release-*"],
+			"launcher": true
 		},
-		"releaseGit": { "file": "release/git.ts", "childProcess": true },
-		"releasePnpm": { "file": "release/pnpm.ts", "childProcess": true },
-		"validateVersions": { "file": "release/validate-versions.ts" },
-		"inspectRelease": { "file": "release/inspect.ts" },
+		"releaseGit": { "file": "release/git.ts", "childProcess": true, "launcher": true },
+		"releasePnpm": { "file": "release/pnpm.ts", "childProcess": true, "launcher": true },
+		"validateVersions": { "file": "release/validate-versions.ts", "launcher": true },
+		"inspectRelease": { "file": "release/inspect.ts", "launcher": true },
 		"readVersion": { "file": "sync-version/read.ts" },
 		"writeVersion": {
 			"file": "sync-version/write.ts",
 			"read": ["src/assets/manifest.json"],
 			"write": ["src/assets/manifest.json"]
 		},
-		"gitRead": { "file": "lib/git-read.ts", "childProcess": true },
-		"checkTools": { "file": "lib/check-tools.ts", "childProcess": true },
+		"gitRead": { "file": "lib/git-read.ts", "childProcess": true, "launcher": true },
+		"checkTools": { "file": "lib/check-tools.ts", "childProcess": true, "launcher": true },
 		"chromeDownload": {
 			"file": "lib/chrome-download.ts",
 			"read": [
@@ -97,23 +121,18 @@
 			"write": [
 				"$runnerTemp/window-merger-chrome-install-*",
 				"$tmp/window-merger-chrome-hash-*"
-			]
+			],
+			"launcher": true
 		},
 		"generateCommands": {
 			"file": "generate-commands.ts",
 			"write": [
 				"package.json",
 				"scripts/build/commands.generated.ts",
-				"scripts/package/commands.generated.ts",
-				"scripts/check-dependencies/commands.generated.ts",
-				"scripts/check-secrets/commands.generated.ts",
 				"scripts/chrome-install/commands.generated.ts",
 				"scripts/chrome-update/commands.generated.ts",
-				"scripts/chrome-matrix/commands.generated.ts",
 				"scripts/pre-commit/commands.generated.ts",
-				"scripts/pre-push/commands.generated.ts",
 				"scripts/release/commands.generated.ts",
-				"scripts/sync-version/commands.generated.ts",
 				"scripts/lib/commands.generated.ts"
 			]
 		},

@@ -2,44 +2,52 @@
 import { join } from 'node:path';
 import { PROJECT_ROOT } from '../lib/project-root.ts';
 
-export const buildMainCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	`--allow-fs-read=${join(root, 'src')}`,
-	'--allow-child-process',
-	join(PROJECT_ROOT, 'scripts/build/main.ts'),
-];
+export const buildMainCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		`--allow-fs-read=${join(root, 'src')}`,
+		'--allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/build/main.ts')];
+};
 
-export const prepareAssetsCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	`--allow-fs-read=${join(root, 'src/assets')}`,
-	`--allow-fs-read=${join(root, 'LICENSE')}`,
-	'--no-allow-child-process',
-	join(PROJECT_ROOT, 'scripts/build/prepare-assets.ts'),
-];
+export const prepareAssetsCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		`--allow-fs-read=${join(root, 'src/assets')}`,
+		`--allow-fs-read=${join(root, 'LICENSE')}`,
+		'--no-allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/build/prepare-assets.ts')];
+};
 
-export const writeAssetsCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	`--allow-fs-read=${join(root, 'dist')}`,
-	`--allow-fs-write=${join(root, 'dist')}`,
-	'--no-allow-child-process',
-	join(PROJECT_ROOT, 'scripts/build/write-assets.ts'),
-];
+export const writeAssetsCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		`--allow-fs-read=${join(root, 'dist')}`,
+		`--allow-fs-write=${join(root, 'dist')}`,
+		'--no-allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/build/write-assets.ts')];
+};
 
-export const bundleCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'node_modules')}`,
-	'--allow-child-process',
-	join(PROJECT_ROOT, 'scripts/build/bundle.ts'),
-];
+export const bundleCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'node_modules')}`,
+		'--allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/build/bundle.ts')];
+};

@@ -3,76 +3,59 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PROJECT_ROOT } from '../lib/project-root.ts';
 
-export const planReleaseCheckCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--no-allow-child-process',
-	join(PROJECT_ROOT, 'scripts/release/plan-check.ts'),
-];
+export const releaseDirectoryCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		`--allow-fs-read=${join(tmpdir(), 'window-merger-release-*')}`,
+		`--allow-fs-write=${join(tmpdir(), 'window-merger-release-*')}`,
+		'--no-allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/release/directory.ts')];
+};
 
-export const releaseCheckCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--no-allow-child-process',
-	join(PROJECT_ROOT, 'scripts/release/check.ts'),
-];
+export const releaseGitCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		'--allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/release/git.ts')];
+};
 
-export const releaseMainCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--allow-child-process',
-	join(PROJECT_ROOT, 'scripts/release/main.ts'),
-];
+export const releasePnpmCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		'--allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/release/pnpm.ts')];
+};
 
-export const releaseDirectoryCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	`--allow-fs-read=${join(tmpdir(), 'window-merger-release-*')}`,
-	`--allow-fs-write=${join(tmpdir(), 'window-merger-release-*')}`,
-	'--no-allow-child-process',
-	join(PROJECT_ROOT, 'scripts/release/directory.ts'),
-];
+export const validateVersionsCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		'--no-allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/release/validate-versions.ts')];
+};
 
-export const releaseGitCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--allow-child-process',
-	join(PROJECT_ROOT, 'scripts/release/git.ts'),
-];
-
-export const releasePnpmCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--allow-child-process',
-	join(PROJECT_ROOT, 'scripts/release/pnpm.ts'),
-];
-
-export const validateVersionsCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--no-allow-child-process',
-	join(PROJECT_ROOT, 'scripts/release/validate-versions.ts'),
-];
-
-export const inspectReleaseCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--no-allow-child-process',
-	join(PROJECT_ROOT, 'scripts/release/inspect.ts'),
-];
+export const inspectReleaseCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		'--no-allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/release/inspect.ts')];
+};

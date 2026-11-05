@@ -3,33 +3,39 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PROJECT_ROOT } from './project-root.ts';
 
-export const gitReadCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--allow-child-process',
-	join(PROJECT_ROOT, 'scripts/lib/git-read.ts'),
-];
+export const gitReadCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		'--allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/lib/git-read.ts')];
+};
 
-export const checkToolsCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--allow-child-process',
-	join(PROJECT_ROOT, 'scripts/lib/check-tools.ts'),
-];
+export const checkToolsCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		'--allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/lib/check-tools.ts')];
+};
 
-export const chromeDownloadCommand = (root = process.cwd()): string[] => [
-	'--permission',
-	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
-	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
-	`--allow-fs-read=${join(root, 'package.json')}`,
-	`--allow-fs-read=${join(process.env.RUNNER_TEMP ?? tmpdir(), 'window-merger-chrome-install-*')}`,
-	`--allow-fs-read=${join(tmpdir(), 'window-merger-chrome-hash-*')}`,
-	`--allow-fs-write=${join(process.env.RUNNER_TEMP ?? tmpdir(), 'window-merger-chrome-install-*')}`,
-	`--allow-fs-write=${join(tmpdir(), 'window-merger-chrome-hash-*')}`,
-	'--no-allow-child-process',
-	join(PROJECT_ROOT, 'scripts/lib/chrome-download.ts'),
-];
+export const chromeDownloadCommand = (root = process.cwd()): string[] => {
+	const flags = [
+		'--permission',
+		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+		`--allow-fs-read=${join(root, 'package.json')}`,
+		`--allow-fs-read=${join(process.env.RUNNER_TEMP ?? tmpdir(), 'window-merger-chrome-install-*')}`,
+		`--allow-fs-read=${join(tmpdir(), 'window-merger-chrome-hash-*')}`,
+		`--allow-fs-write=${join(process.env.RUNNER_TEMP ?? tmpdir(), 'window-merger-chrome-install-*')}`,
+		`--allow-fs-write=${join(tmpdir(), 'window-merger-chrome-hash-*')}`,
+		'--no-allow-child-process',
+	];
+	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/lib/chrome-download.ts')];
+};
