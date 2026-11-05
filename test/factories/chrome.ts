@@ -1,62 +1,43 @@
 export const createMockChromeTab = (
 	id: number,
 	options: Partial<chrome.tabs.Tab> = {}
-): chrome.tabs.Tab => {
-	const tabBase: chrome.tabs.Tab = {
-		active: options.active ?? false,
-		audible: options.audible ?? false,
-		autoDiscardable: options.autoDiscardable ?? true,
-		discarded: options.discarded ?? false,
-		frozen: options.frozen ?? false,
-		groupId: options.groupId ?? -1,
-		height: options.height ?? 0,
-		highlighted: options.highlighted ?? false,
-		id,
-		incognito: options.incognito ?? false,
-		index: options.index ?? 0,
-		lastAccessed: options.lastAccessed ?? 0,
-		mutedInfo: options.mutedInfo ?? { muted: false },
-		pinned: options.pinned ?? false,
-		selected: options.selected ?? false,
-		status: options.status,
-		title: options.title ?? '',
-		url: options.url ?? 'about:blank',
-		width: options.width ?? 0,
-		windowId: options.windowId ?? 1,
-	};
-
-	return { ...tabBase, ...options, id };
-};
+): chrome.tabs.Tab => ({
+	active: false,
+	audible: false,
+	autoDiscardable: true,
+	discarded: false,
+	frozen: false,
+	groupId: -1,
+	highlighted: false,
+	incognito: false,
+	index: 0,
+	lastAccessed: 0,
+	mutedInfo: { muted: false },
+	pinned: false,
+	selected: false,
+	windowId: 1,
+	...options,
+	id,
+});
 
 export const createMockChromeWindow = (
 	id: number,
 	tabs: Array<Partial<chrome.tabs.Tab> & { id: number }> = [],
 	options: Partial<chrome.windows.Window> = {}
-): chrome.windows.Window => {
-	const windowBase: chrome.windows.Window = {
-		alwaysOnTop: options.alwaysOnTop ?? false,
-		focused: options.focused ?? false,
-		height: options.height ?? 0,
-		id,
-		incognito: options.incognito ?? false,
-		left: options.left ?? 0,
-		state: options.state ?? 'normal',
-		top: options.top ?? 0,
-		type: options.type ?? 'normal',
-		width: options.width ?? 0,
-	};
-
-	return {
-		...windowBase,
-		...options,
-		id,
-		tabs: tabs.map((tab, index) =>
-			createMockChromeTab(tab.id, {
-				index,
-				windowId: id,
-				incognito: options.incognito ?? false,
-				...tab,
-			})
-		),
-	};
-};
+): chrome.windows.Window => ({
+	alwaysOnTop: false,
+	focused: false,
+	incognito: false,
+	state: 'normal',
+	type: 'normal',
+	...options,
+	id,
+	tabs: tabs.map((tab, index) =>
+		createMockChromeTab(tab.id, {
+			index,
+			windowId: id,
+			incognito: options.incognito ?? false,
+			...tab,
+		})
+	),
+});

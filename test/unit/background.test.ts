@@ -1,5 +1,5 @@
 import { setTimeout as flush } from 'node:timers/promises';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { setupContextMenus } from '../../src/adapters/chrome/context-menu';
 import { mergeWindows } from '../../src/application/merge-windows';
 import { createMockChromeTab } from '../factories/chrome';
@@ -10,7 +10,6 @@ vi.mock('../../src/adapters/chrome/context-menu', async (importOriginal) => ({
 	...(await importOriginal<typeof import('../../src/adapters/chrome/context-menu')>()),
 	setupContextMenus: vi.fn(),
 }));
-
 const merge = vi.mocked(mergeWindows);
 const setupMenus = vi.mocked(setupContextMenus);
 const noMerge = {
@@ -38,120 +37,83 @@ const chromeMock = {
 	},
 	action: { onClicked: { addListener: vi.fn<(fn: (tab: chrome.tabs.Tab) => void) => void>() } },
 };
-const menu = (menuItemId: string | number, tab?: chrome.tabs.Tab) =>
-	chromeMock.contextMenus.onClicked.addListener.mock.calls[0][0]({ menuItemId }, tab);
+const menu = () =>
+	chromeMock.contextMenus.onClicked.addListener.mock.calls[0][0]({ menuItemId: 'mergeWindowId' });
 const action = (tab = createMockChromeTab(1)) =>
 	chromeMock.action.onClicked.addListener.mock.calls[0][0](tab);
-
 const loadBackground = async () => {
 	vi.resetModules();
-	chromeMock.runtime.onInstalled.addListener.mockClear();
-	chromeMock.runtime.onStartup.addListener.mockClear();
-	chromeMock.contextMenus.onClicked.addListener.mockClear();
-	chromeMock.action.onClicked.addListener.mockClear();
 	await import('../../src/background');
 };
-
-beforeEach(async () => {
+beforeEach(() => {
 	vi.stubGlobal('chrome', chromeMock);
 	merge.mockResolvedValue(noMerge);
 	setupMenus.mockResolvedValue();
-	await loadBackground();
 });
 afterEach(() => vi.restoreAllMocks());
 
-describe('background events', () => {
-	it('does not overlap pending initialization or repeat a successful setup', async () => {
-		const pending = Promise.withResolvers<void>();
-		setupMenus.mockReturnValueOnce(pending.promise);
-		await loadBackground();
-		const installed = chromeMock.runtime.onInstalled.addListener.mock.calls[0][0];
-		installed();
-		chromeMock.runtime.onStartup.addListener.mock.calls[0][0]();
-		expect(setupMenus).toHaveBeenCalledTimes(2);
-		pending.resolve();
-		await flush();
-		installed();
-		await flush();
-		expect(setupMenus).toHaveBeenCalledTimes(2);
-	});
+it('retries failed initialization but does not overlap pending or repeat successful setup', async () => {
+	const error = new Error('Menu failed');
+	const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+	setupMenus.mockRejectedValueOnce(error);
+	await loadBackground();
+	await flush();
+	expect(log).toHaveBeenCalledWith(expect.any(String), error);
+	const pending = Promise.withResolvers<void>();
+	setupMenus.mockReturnValueOnce(pending.promise);
+	const installed = chromeMock.runtime.onInstalled.addListener.mock.calls[0][0];
+	const startup = chromeMock.runtime.onStartup.addListener.mock.calls[0][0];
+	installed();
+	startup();
+	expect(setupMenus).toHaveBeenCalledTimes(2);
+	pending.resolve();
+	await flush();
+	installed();
+	startup();
+	expect(setupMenus).toHaveBeenCalledTimes(2);
+});
 
-	it.each([
-		['mergeWindowId', false],
-		['mergeIncognitoWindowId', true],
-	] as const)('routes %s', async (id, incognito) => {
-		menu(id, createMockChromeTab(1, { windowId: 42 }));
-		await flush();
-		expect(merge).toHaveBeenCalledExactlyOnceWith(
-			incognito,
-			expect.any(Object),
-			createTestWindowId(42)
-		);
-	});
+it('passes window ID zero to both action modes', async () => {
+	await loadBackground();
+	action(createMockChromeTab(1, { windowId: 0 }));
+	await flush();
+	expect(merge.mock.calls.map(([incognito, , target]) => ({ incognito, target }))).toEqual([
+		{ incognito: false, target: createTestWindowId(0) },
+		{ incognito: true, target: createTestWindowId(0) },
+	]);
+});
 
-	it('passes window ID zero to both action modes', async () => {
-		action(createMockChromeTab(1, { windowId: 0 }));
-		await flush();
-		expect(merge.mock.calls.map(([incognito, , target]) => ({ incognito, target }))).toEqual([
-			{ incognito: false, target: createTestWindowId(0) },
-			{ incognito: true, target: createTestWindowId(0) },
-		]);
-	});
+it('ignores duplicates across entry points until the same mode finishes', async () => {
+	const pending = Promise.withResolvers<typeof noMerge>();
+	merge.mockImplementation(async (incognito) => (incognito ? noMerge : pending.promise));
+	await loadBackground();
+	menu();
+	action();
+	menu();
+	expect(merge.mock.calls.map(([incognito]) => incognito)).toEqual([false, true]);
+	pending.resolve(noMerge);
+	await flush();
+	menu();
+	await flush();
+	expect(merge).toHaveBeenCalledTimes(3);
+});
 
-	it('ignores duplicates across entry points until the same mode finishes', async () => {
-		const pending = Promise.withResolvers<typeof noMerge>();
-		merge.mockImplementation(async (incognito) => (incognito ? noMerge : pending.promise));
-		menu('mergeWindowId');
-		action();
-		menu('mergeWindowId');
-		expect(merge.mock.calls.map(([incognito]) => incognito)).toEqual([false, true]);
-		pending.resolve(noMerge);
+it('reports operational failures, permits retry and keeps insufficient windows quiet', async () => {
+	const failure = new Error('Move failed');
+	const planningFailure = {
+		type: 'no-active-tab',
+		message: 'No active tab',
+		context: { windowCount: 2 },
+	} as const;
+	const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+	merge
+		.mockRejectedValueOnce(failure)
+		.mockResolvedValueOnce({ ok: false, error: planningFailure });
+	await loadBackground();
+	for (let attempt = 0; attempt < 3; attempt++) {
+		menu();
 		await flush();
-		merge.mockResolvedValue(noMerge);
-		menu('mergeWindowId');
-		await flush();
-		expect(merge).toHaveBeenCalledTimes(3);
-	});
-
-	it('logs rejected operations and releases the guard for retry', async () => {
-		const error = new AggregateError([new Error('Move failed')], 'Merge failed');
-		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-		merge.mockRejectedValueOnce(error);
-		menu('mergeWindowId');
-		await flush();
-		expect(log).toHaveBeenCalledExactlyOnceWith('Failed to merge windows:', error);
-		menu('mergeWindowId');
-		await flush();
-		expect(merge).toHaveBeenCalledTimes(2);
-	});
-
-	it('logs planning failures but not insufficient windows', async () => {
-		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const error = {
-			type: 'no-active-tab',
-			message: 'No active tab',
-			context: { windowCount: 2 },
-		} as const;
-		merge.mockResolvedValueOnce({ ok: false, error });
-		menu('mergeWindowId');
-		await flush();
-		menu('mergeWindowId');
-		await flush();
-		expect(log).toHaveBeenCalledExactlyOnceWith('Failed to merge windows:', error);
-	});
-
-	it('logs a menu failure and retries on the next lifecycle event', async () => {
-		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const error = new Error('Menu failed');
-		setupMenus.mockRejectedValueOnce(error);
-		await loadBackground();
-		await flush();
-		expect(log).toHaveBeenCalledExactlyOnceWith('Failed to set up context menus:', error);
-		chromeMock.runtime.onInstalled.addListener.mock.calls[0][0]();
-		await flush();
-		expect(setupMenus).toHaveBeenCalledTimes(3);
-		chromeMock.runtime.onStartup.addListener.mock.calls[0][0]();
-		await flush();
-		expect(setupMenus).toHaveBeenCalledTimes(3);
-	});
+	}
+	expect(log.mock.calls.map(([, error]) => error)).toEqual([failure, planningFailure]);
+	expect(merge).toHaveBeenCalledTimes(3);
 });

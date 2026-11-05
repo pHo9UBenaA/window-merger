@@ -132,38 +132,6 @@ const triggerMerge = async (
 	);
 };
 
-const waitForMergedWindows = async (worker: Worker, incognito: boolean) => {
-	await expect
-		.poll(() =>
-			worker.evaluate(
-				async (incognito) =>
-					(await chrome.windows.getAll({ windowTypes: ['normal'] })).filter(
-						(window) => window.incognito === incognito
-					).length,
-				incognito
-			)
-		)
-		.toBe(1);
-};
-
-const waitForMergedStrip = async (worker: Worker, incognito: boolean, expected: Expectation) => {
-	await expect
-		.poll(() =>
-			worker.evaluate(
-				async ({ incognito, active }) => {
-					const tabs = await chrome.tabs.query({ windowType: 'normal' });
-					const merged = tabs.filter((tab) => tab.incognito === incognito);
-					return {
-						pinned: merged.filter((tab) => tab.pinned).map((tab) => tab.id),
-						active: merged.find((tab) => tab.active)?.id === active,
-					};
-				},
-				{ incognito, active: expected.active }
-			)
-		)
-		.toEqual({ pinned: expected.pinned, active: true });
-};
-
 const readAfter = async (worker: Worker, fixture: Fixture, targetId: number) => {
 	const otherId = fixture.other.id;
 	const popupId = fixture.popup.id;
@@ -224,15 +192,16 @@ for (const { incognito, trigger, targetIndex } of CASES) {
 		const expected = readExpectation(fixture, targetIndex);
 
 		await triggerMerge(worker, trigger, expected.targetId, incognito);
-		await waitForMergedWindows(worker, incognito);
-		await waitForMergedStrip(worker, incognito, expected);
+		await expect(async () => {
+			const after = await readAfter(worker, fixture, expected.targetId);
+			expectPreserved(fixture, after, expected);
+			expect(after.errors).toEqual([]);
+		}).toPass({ timeout: 15000 });
 
 		const after = await readAfter(worker, fixture, expected.targetId);
 		await testInfo.attach('ordering-snapshot', {
 			body: JSON.stringify({ before: fixture, after }),
 			contentType: 'application/json',
 		});
-		expectPreserved(fixture, after, expected);
-		expect(after.errors).toEqual([]);
 	});
 }

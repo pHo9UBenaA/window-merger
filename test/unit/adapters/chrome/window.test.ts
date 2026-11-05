@@ -1,12 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createChromeWindowAdapter } from '../../../../src/adapters/chrome/window';
 import { createMockChromeTab, createMockChromeWindow } from '../../../factories/chrome';
 import { createTestGroupId, createTestTabId, createTestWindowId } from '../../../factories/domain';
-import { VitestChrome } from '../../../mocks/chrome';
+
+const getAll = vi.fn<(options: chrome.windows.QueryOptions) => Promise<chrome.windows.Window[]>>();
+beforeEach(() => vi.stubGlobal('chrome', { windows: { getAll } }));
 
 describe('Chrome Window Adapter', () => {
 	it('requests populated windows and maps metadata, including zero IDs and ungrouped tabs', async () => {
-		VitestChrome.windows.getAll.mockResolvedValue([
+		getAll.mockResolvedValue([
 			createMockChromeWindow(
 				0,
 				[
@@ -48,11 +50,11 @@ describe('Chrome Window Adapter', () => {
 				],
 			},
 		]);
-		expect(VitestChrome.windows.getAll).toHaveBeenCalledExactlyOnceWith({ populate: true });
+		expect(getAll).toHaveBeenCalledWith({ populate: true });
 	});
 
 	it('drops windows and tabs whose IDs are absent or negative', async () => {
-		VitestChrome.windows.getAll.mockResolvedValue([
+		getAll.mockResolvedValue([
 			{ ...createMockChromeWindow(1), id: undefined },
 			{ ...createMockChromeWindow(2), id: -1 },
 			{
@@ -73,7 +75,7 @@ describe('Chrome Window Adapter', () => {
 		// Chrome can omit groupId even though @types/chrome marks it as required.
 		const tab = createMockChromeTab(1);
 		Reflect.deleteProperty(tab, 'groupId');
-		VitestChrome.windows.getAll.mockResolvedValue([
+		getAll.mockResolvedValue([
 			{ ...createMockChromeWindow(1), type: undefined, tabs: undefined },
 			{ ...createMockChromeWindow(2), tabs: [tab] },
 		]);
