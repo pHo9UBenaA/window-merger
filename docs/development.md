@@ -132,8 +132,6 @@ pnpm chrome:update-lock
 
 Review and commit `test/browser/chrome-versions.json` and `test/browser/chrome-checksums.json`
 together as a separate maintenance change.
-After interrupting an update, remove any remaining `.window-merger-chrome-hash-*` directories
-from the repository root.
 
 ## Git hooks
 

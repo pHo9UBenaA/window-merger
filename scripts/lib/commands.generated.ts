@@ -32,9 +32,7 @@ export const chromeDownloadCommand = (root = process.cwd()): string[] => {
 		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 		`--allow-fs-read=${join(root, 'package.json')}`,
 		`--allow-fs-read=${join(process.env.RUNNER_TEMP ?? tmpdir(), 'window-merger-chrome-install-*')}`,
-		`--allow-fs-read=${join(tmpdir(), 'window-merger-chrome-hash-*')}`,
 		`--allow-fs-write=${join(process.env.RUNNER_TEMP ?? tmpdir(), 'window-merger-chrome-install-*')}`,
-		`--allow-fs-write=${join(tmpdir(), 'window-merger-chrome-hash-*')}`,
 		'--no-allow-child-process',
 	];
 	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/lib/chrome-download.ts')];

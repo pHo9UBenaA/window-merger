@@ -10,7 +10,8 @@ export const readChromeInstallationCommand = (root = process.cwd()): string[] =>
 		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 		`--allow-fs-read=${join(root, 'package.json')}`,
 		`--allow-fs-read=${join(root, 'src/assets/manifest.json')}`,
-		`--allow-fs-read=${join(root, 'test/browser')}`,
+		`--allow-fs-read=${join(root, 'test/browser/chrome-versions.json')}`,
+		`--allow-fs-read=${join(root, 'test/browser/chrome-checksums.json')}`,
 		'--no-allow-child-process',
 	];
 	return [...new Set(flags), join(PROJECT_ROOT, 'scripts/chrome-install/read.ts')];

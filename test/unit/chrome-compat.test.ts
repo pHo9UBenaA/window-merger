@@ -14,10 +14,6 @@ const manifest = JSON.parse(
 const minimum = Number(manifest.minimum_chrome_version.split('.')[0]);
 
 describe('Chrome compatibility lock', () => {
-	it('covers every supported major starting at the manifest minimum', () => {
-		expect(() => validateChromeVersions(lock, minimum)).not.toThrow();
-	});
-
 	it('runs only the oldest and newest Chrome on all three platforms', () => {
 		const versions = { '120': '120.0.1.1', '121': '121.0.1.1', '122': '122.0.1.1' };
 		const matrix = chromeMatrix(versions, 120).include;
@@ -34,7 +30,8 @@ describe('Chrome compatibility lock', () => {
 		);
 	});
 
-	it('has a valid pinned SHA-256 for every compatibility matrix download', () => {
+	it('locks every supported major and pins every boundary download', () => {
+		validateChromeVersions(lock, minimum);
 		for (const { major, platform } of chromeMatrix(lock, minimum).include) {
 			const pin = checksums[lock[major]]?.[platform];
 			expect(pin).toMatch(/^[a-f0-9]{64}$/);

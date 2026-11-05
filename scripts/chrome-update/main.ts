@@ -1,8 +1,7 @@
-import { join } from 'node:path';
-import { operate as downloadChrome } from '../lib/chrome-download.ts';
+import { hashChromeArchive } from '../lib/chrome-download.ts';
 import { object, text } from '../lib/input.ts';
 import { runJsonCli } from '../lib/json-cli.ts';
-import { operate as writeLock } from './write-lock.ts';
+import { writeChromeLock } from './write-lock.ts';
 
 export const applyLockUpdate = async (input: unknown): Promise<void> => {
 	const plan = object(input);
@@ -13,15 +12,10 @@ export const applyLockUpdate = async (input: unknown): Promise<void> => {
 		const entry = object(value);
 		const version = text(entry.version);
 		const platform = text(entry.platform);
-		// A project-local prefix avoids a launcher just to expand the temporary-directory grant.
-		const download = await downloadChrome(
-			{ purpose: 'hash', version, platform },
-			join(process.cwd(), '.window-merger-chrome-hash-')
-		);
-		if (!download) throw new Error('Chrome download did not return a checksum');
-		checksums[version] = { ...object(checksums[version] ?? {}), [platform]: download.sha256 };
+		const sha256 = await hashChromeArchive(version, platform);
+		checksums[version] = { ...object(checksums[version] ?? {}), [platform]: sha256 };
 	}
-	await writeLock({ checksums, versions });
+	await writeChromeLock(versions, checksums);
 };
 
 if (import.meta.main) await runJsonCli(applyLockUpdate);

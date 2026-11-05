@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-export type ChromeVersions = Record<string, string>;
-export type ChromeChecksums = Record<string, Record<string, string>>;
-export type ChromeUpdatePlan = {
+type ChromeVersions = Record<string, string>;
+type ChromeChecksums = Record<string, Record<string, string>>;
+type ChromeUpdatePlan = {
 	versions: ChromeVersions;
 	checksums: ChromeChecksums;
 	downloads: { version: string; platform: string }[];
@@ -77,7 +77,7 @@ const readVersionLock = async (minimumMajor: number): Promise<ChromeVersions> =>
 };
 
 const requireSha256 = (value: unknown): string => {
-	if (typeof value !== 'string' || value.length !== 64 || !/^[a-f0-9]+$/.test(value))
+	if (typeof value !== 'string' || !/^[a-f0-9]{64}$/.test(value))
 		throw new Error('Missing or invalid Chrome SHA-256 in chrome-checksums.json');
 	return value;
 };

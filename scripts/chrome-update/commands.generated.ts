@@ -8,8 +8,6 @@ export const chromeUpdateCommand = (root = process.cwd()): string[] => {
 		`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
 		`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 		`--allow-fs-read=${join(root, 'package.json')}`,
-		`--allow-fs-read=${join(root, '.window-merger-chrome-hash-*')}`,
-		`--allow-fs-write=${join(root, '.window-merger-chrome-hash-*')}`,
 		`--allow-fs-write=${join(root, 'test/browser/chrome-checksums.json')}`,
 		`--allow-fs-write=${join(root, 'test/browser/chrome-versions.json')}`,
 		'--no-allow-child-process',

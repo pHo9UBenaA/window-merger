@@ -1,19 +1,16 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { buildMainCommand, writeAssetsCommand } from '../../scripts/build/commands.generated';
 import { chromeUpdateCommand } from '../../scripts/chrome-update/commands.generated';
 import { runNode } from '../../scripts/lib/run-node';
+import { fixtureEnvironment as environment } from '../helpers/fixture-command';
 
 let directory: string;
 let root: string;
-const environment = () => {
-	const { NODE_OPTIONS: _options, ...env } = process.env;
-	return env;
-};
 beforeEach(async () => {
 	directory = await realpath(await mkdtemp(join(tmpdir(), 'window-merger-permission-test-')));
 	root = join(directory, 'project with spaces');
@@ -59,8 +56,13 @@ it('writes only approved assets without inheriting Node options', async () => {
 	expect(JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version).toBe('1.5.0');
 });
 
-it('downloads and writes Chrome hashes within its declared grants without subprocess permissions', async () => {
+it('hashes Chrome streams with only lock-file writes and no subprocess permissions', async () => {
 	const args = chromeUpdateCommand(root);
+	expect(args.filter((argument) => argument.startsWith('--allow-fs-write='))).toEqual([
+		`--allow-fs-write=${join(root, 'test/browser/chrome-checksums.json')}`,
+		`--allow-fs-write=${join(root, 'test/browser/chrome-versions.json')}`,
+	]);
+	expect(args).toContain('--no-allow-child-process');
 	const prelude = `globalThis.fetch = async () => new Response('archive fixture');`;
 	const version = '120.0.6099.109';
 	const result = spawnSync(
@@ -89,9 +91,6 @@ it('downloads and writes Chrome hashes within its declared grants without subpro
 	expect(
 		JSON.parse(await readFile(join(root, 'test/browser/chrome-versions.json'), 'utf8'))
 	).toEqual({ '120': version });
-	expect(
-		(await readdir(root)).filter((name) => name.startsWith('.window-merger-chrome-hash-'))
-	).toEqual([]);
 });
 
 it('watches optimized assets and source through the CLI and stops cleanly', async () => {

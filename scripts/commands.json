@@ -41,7 +41,11 @@
 		"chromeInstall": { "file": "chrome-install/main.ts", "childProcess": true },
 		"readChromeInstallation": {
 			"file": "chrome-install/read.ts",
-			"read": ["src/assets/manifest.json", "test/browser"],
+			"read": [
+				"src/assets/manifest.json",
+				"test/browser/chrome-versions.json",
+				"test/browser/chrome-checksums.json"
+			],
 			"launcher": true
 		},
 		"chromeExtract": {
@@ -62,17 +66,12 @@
 		},
 		"chromeUpdate": {
 			"file": "chrome-update/main.ts",
-			"read": [".window-merger-chrome-hash-*"],
-			"write": [
-				".window-merger-chrome-hash-*",
-				"test/browser/chrome-checksums.json",
-				"test/browser/chrome-versions.json"
-			],
+			"write": ["test/browser/chrome-checksums.json", "test/browser/chrome-versions.json"],
 			"launcher": true
 		},
 		"readChromeUpdate": {
 			"file": "chrome-update/read.ts",
-			"read": ["src/assets/manifest.json", "test/browser"]
+			"read": ["src/assets/manifest.json", "test/browser/chrome-checksums.json"]
 		},
 		"chromeMatrix": {
 			"file": "chrome-matrix/main.ts",
@@ -114,14 +113,8 @@
 		"checkTools": { "file": "lib/check-tools.ts", "childProcess": true, "launcher": true },
 		"chromeDownload": {
 			"file": "lib/chrome-download.ts",
-			"read": [
-				"$runnerTemp/window-merger-chrome-install-*",
-				"$tmp/window-merger-chrome-hash-*"
-			],
-			"write": [
-				"$runnerTemp/window-merger-chrome-install-*",
-				"$tmp/window-merger-chrome-hash-*"
-			],
+			"read": ["$runnerTemp/window-merger-chrome-install-*"],
+			"write": ["$runnerTemp/window-merger-chrome-install-*"],
 			"launcher": true
 		},
 		"generateCommands": {

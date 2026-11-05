@@ -7,7 +7,7 @@ import { choice, object, text } from '../lib/input.ts';
 import { runJsonCli } from '../lib/json-cli.ts';
 import { archivePath, chromeDirectory } from '../lib/script-paths.ts';
 
-export const operate = async (input: unknown): Promise<void> => {
+const operate = async (input: unknown): Promise<void> => {
 	const request = object(input);
 	const directory = chromeDirectory(request.directory);
 	const platform = choice(request.platform, ['linux64', 'win64', 'mac-arm64']);

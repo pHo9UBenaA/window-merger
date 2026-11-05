@@ -1,12 +1,11 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { object, text } from '../lib/input.ts';
-import { runJsonCli } from '../lib/json-cli.ts';
 
-export const operate = async (input: unknown): Promise<void> => {
-	const request = object(input);
-	const versions = object(request.versions);
-	const checksums = object(request.checksums);
+export const writeChromeLock = async (
+	versions: Readonly<Record<string, unknown>>,
+	checksums: Readonly<Record<string, unknown>>
+): Promise<void> => {
 	for (const [major, version] of Object.entries(versions)) {
 		if (
 			!/^[1-9]\d*$/.test(major) ||
@@ -29,5 +28,3 @@ export const operate = async (input: unknown): Promise<void> => {
 		`${JSON.stringify(versions, null, '\t')}\n`
 	);
 };
-
-if (import.meta.main) await runJsonCli(operate);

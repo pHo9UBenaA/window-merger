@@ -3,10 +3,6 @@ import { vi } from 'vitest';
 import { operate as bundle } from '../../scripts/build/bundle';
 import { prepareAssets } from '../../scripts/build/prepare-assets';
 import { operate as assets } from '../../scripts/build/write-assets';
-import { operate as chromeEnvironment } from '../../scripts/chrome-install/environment';
-import { operate as chromeExtract } from '../../scripts/chrome-install/extract';
-import { prepareInstallation } from '../../scripts/chrome-install/read';
-import { operate as chromeDownload } from '../../scripts/lib/chrome-download';
 import { operate as gitRead } from '../../scripts/lib/git-read';
 import { PROJECT_ROOT } from '../../scripts/lib/project-root';
 import { operate as exportIndex } from '../../scripts/pre-commit/export-index';
@@ -22,10 +18,6 @@ const executables: Readonly<Record<string, (input: unknown) => unknown>> = {
 	'scripts/build/prepare-assets.ts': prepareAssets,
 	'scripts/build/write-assets.ts': assets,
 	'scripts/lib/git-read.ts': gitRead,
-	'scripts/lib/chrome-download.ts': chromeDownload,
-	'scripts/chrome-install/read.ts': prepareInstallation,
-	'scripts/chrome-install/environment.ts': chromeEnvironment,
-	'scripts/chrome-install/extract.ts': chromeExtract,
 	'scripts/pre-commit/export-index.ts': exportIndex,
 	'scripts/pre-commit/snapshot.ts': snapshot,
 	'scripts/release/directory.ts': releaseDirectory,

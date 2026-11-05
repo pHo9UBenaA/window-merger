@@ -27,7 +27,6 @@ dist/
 
 # Temporary script output
 /.window-merger-index-*/
-/.window-merger-chrome-hash-*/
 
 # macOS
 .DS_Store
