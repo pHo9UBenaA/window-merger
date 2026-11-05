@@ -1,4 +1,5 @@
 import { stripVTControlCharacters } from 'node:util';
+import { object as requireObject } from '../lib/input.ts';
 import { readJsonInput } from '../lib/json-cli.ts';
 
 type ProcessReport = {
@@ -25,13 +26,6 @@ const OSV_BATCH_SIZE = 100;
 const MAX_OSV_PAGES = 100;
 const MAX_OSV_PAGE_TOKEN_CHARS = 4096;
 
-const isJsonObject = (value: unknown): value is Record<string, unknown> =>
-	typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const requireObject = (value: unknown): Record<string, unknown> => {
-	if (!isJsonObject(value)) throw new Error('Expected a JSON object');
-	return value;
-};
 const requireArray = (value: unknown): unknown[] => {
 	if (!Array.isArray(value)) throw new Error('Expected a JSON array');
 	return value;

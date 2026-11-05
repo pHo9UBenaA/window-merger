@@ -70,7 +70,7 @@ export const createReleaseTag = (
 			{
 				args,
 				cwd: checkout,
-				isolated: true,
+				...(mutating ? {} : { isolated: true }),
 			},
 			cwd
 		).trim();

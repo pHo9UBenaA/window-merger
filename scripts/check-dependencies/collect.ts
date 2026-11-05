@@ -1,8 +1,8 @@
-import { operate as pnpmReport } from './pnpm-report.ts';
+import { pnpmReport } from './pnpm-report.ts';
 
 export const collectReports = () => ({
-	audit: pnpmReport({ kind: 'audit' }),
-	list: pnpmReport({ kind: 'list' }),
+	audit: pnpmReport('audit'),
+	list: pnpmReport('list'),
 });
 
 if (import.meta.main) {

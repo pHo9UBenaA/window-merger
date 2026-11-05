@@ -1,10 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { choice, object } from '../lib/input.ts';
 import { pnpmCommand } from '../lib/pnpm-command.ts';
 import { toolEnvironment } from '../lib/tool-environment.ts';
 
-export const operate = (input: unknown) => {
-	const kind = choice(object(input).kind, ['audit', 'list']);
+export const pnpmReport = (kind: 'audit' | 'list') => {
 	if (!process.env.npm_execpath) throw new Error('Run this check via pnpm check:dependencies');
 	const args =
 		kind === 'audit'

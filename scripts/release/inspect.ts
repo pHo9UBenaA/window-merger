@@ -31,12 +31,14 @@ export const inspectRelease = (input: unknown) => {
 	}
 	const version = validateReleaseVersion(request.version);
 	const prefix = text(request.prefix);
-	for (const ref of strings(request.refs)) {
-		const name = ref.replace(/^refs\/tags\//, '').replace(/\^\{\}$/, '');
+	const names = new Set(
+		strings(request.refs).map((ref) => ref.replace(/^refs\/tags\//, '').replace(/\^\{\}$/, ''))
+	);
+	for (const name of names) {
 		const suffix = name.startsWith(prefix) ? name.slice(prefix.length) : '';
 		const previous = /^\d+\.\d+\.\d+$/.test(suffix)
 			? validateReleaseVersion(suffix)
-			: releaseVersion(ref);
+			: releaseVersion(name);
 		if (previous !== null && compareVersions(previous, version) >= 0)
 			throw new Error(`Release ${version} is not newer than published version ${previous}`);
 	}

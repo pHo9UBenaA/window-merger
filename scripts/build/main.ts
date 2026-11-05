@@ -4,45 +4,41 @@ import { runNode } from '../lib/run-node.ts';
 import { bundleCommand, prepareAssetsCommand, writeAssetsCommand } from './commands.generated.ts';
 
 type BuildOptions = { readonly root?: string; readonly minify?: boolean };
-type AssetPlan = { readonly names: string[]; readonly major: string };
-const synchronize = async (
-	root: string,
-	minify: boolean,
-	previous: readonly string[] = [],
-	watching = false
-): Promise<string[]> => {
-	const plan = await runNode<AssetPlan>(prepareAssetsCommand(root), { previous, watching }, root);
-	await runNode(writeAssetsCommand(root), plan, root);
-	await runNode(bundleCommand(root), { major: plan.major, minify }, root);
-	return plan.names;
+type AssetPlan = { readonly names?: readonly string[]; readonly major: string };
+const synchronize = (root: string, minify: boolean, previous?: readonly string[]): AssetPlan => {
+	const plan = runNode<AssetPlan>(
+		prepareAssetsCommand(root),
+		previous === undefined ? {} : { previous },
+		root
+	);
+	runNode(writeAssetsCommand(root), plan, root);
+	runNode(bundleCommand(root), { major: plan.major, minify }, root);
+	return plan;
 };
 
-export const buildExtension = async ({
+export const buildExtension = ({
 	root: directory = process.cwd(),
 	minify = true,
-}: BuildOptions = {}): Promise<void> => {
+}: BuildOptions): void => {
 	const root = resolve(directory);
-	await runNode(writeAssetsCommand(root), { action: 'reset' }, root);
-	await synchronize(root, minify);
+	runNode(writeAssetsCommand(root), { action: 'reset' }, root);
+	synchronize(root, minify);
 };
 
-export const watchExtension = async (
-	{ root: directory = process.cwd(), minify = true }: BuildOptions = {},
-	onError: (error: unknown) => void = console.error
-): Promise<() => Promise<void>> => {
-	const root = resolve(directory);
-	await runNode(writeAssetsCommand(root), { action: 'reset' }, root);
-	let previous: string[] = [];
+const watchExtension = (minify: boolean): (() => Promise<void>) => {
+	const root = process.cwd();
+	runNode(writeAssetsCommand(root), { action: 'reset' }, root);
+	let previous: readonly string[] = [];
 	let pending = Promise.resolve();
-	const rebuild = async () => {
-		previous = await synchronize(root, minify, previous, true);
+	const rebuild = () => {
+		previous = synchronize(root, minify, previous).names ?? [];
 	};
 	const watcher = watch(join(root, 'src'), { recursive: true }, () => {
-		pending = pending.then(rebuild).catch(onError);
+		pending = pending.then(rebuild).catch(console.error);
 	});
-	watcher.on('error', onError);
+	watcher.on('error', console.error);
 	try {
-		await rebuild();
+		rebuild();
 	} catch (error) {
 		watcher.close();
 		throw error;
@@ -57,14 +53,14 @@ if (import.meta.main) {
 	try {
 		const minify = !process.argv.includes('--no-minify');
 		if (process.argv.includes('--watch')) {
-			const dispose = await watchExtension({ minify });
+			const dispose = watchExtension(minify);
 			const stop = () => {
 				void dispose().catch(console.error);
 			};
 			process.once('SIGINT', stop);
 			process.once('SIGTERM', stop);
 			console.log('Watching source and assets. Reload the extension after changes.');
-		} else await buildExtension({ minify });
+		} else buildExtension({ minify });
 	} catch (error) {
 		console.error(error);
 		process.exitCode = 1;

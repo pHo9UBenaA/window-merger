@@ -5,17 +5,13 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { parseConfig, shellCommand } from '../../scripts/generate-commands';
 import { PROJECT_ROOT } from '../../scripts/lib/project-root';
-import { fixtureCommand } from '../helpers/fixture-command';
+import { fixtureEnvironment as environment, fixtureCommand } from '../helpers/fixture-command';
 
 const pkg = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
 const config = parseConfig(
 	JSON.parse(await readFile(new URL('../../scripts/commands.json', import.meta.url), 'utf8'))
 );
 let root: string;
-const environment = () => {
-	const { NODE_OPTIONS: _options, ...env } = process.env;
-	return Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith('GIT_')));
-};
 const run = (command: string, env = environment(), input?: string) => {
 	const result = spawnSync(fixtureCommand(command), {
 		cwd: root,
@@ -45,6 +41,8 @@ afterEach(async () => {
 const prepareExtension = async () => {
 	await cp(join(PROJECT_ROOT, 'src'), join(root, 'src'), { recursive: true });
 	await cp(join(PROJECT_ROOT, 'LICENSE'), join(root, 'LICENSE'));
+	await mkdir(join(root, 'dist'), { recursive: true });
+	await writeFile(join(root, 'dist/obsolete.txt'), 'removed source asset');
 	await writeFile(join(root, 'dist.zip'), 'old archive');
 	await writeFile(join(root, 'dist.tmp.zip'), 'interrupted archive');
 };
@@ -59,9 +57,9 @@ it('packages the extension through the generated sequence without a package runn
 	expect(result.status, result.stderr).toBe(0);
 	const archive = spawnSync('unzip', ['-Z1', join(root, 'dist.zip')], { encoding: 'utf8' });
 	expect(archive.status, archive.stderr).toBe(0);
-	expect(archive.stdout.split('\n')).toEqual(
-		expect.arrayContaining(['manifest.json', 'background.js', 'LICENSE'])
-	);
+	const files = archive.stdout.split('\n');
+	expect(files).toEqual(expect.arrayContaining(['manifest.json', 'background.js', 'LICENSE']));
+	expect(files).not.toContain('obsolete.txt');
 	await expect(readFile(join(root, 'dist.tmp.zip'))).rejects.toMatchObject({ code: 'ENOENT' });
 }, 20_000);
 
@@ -107,16 +105,12 @@ it('does not hide a failed Git producer behind an empty tracked-file list', () =
 	expect(result.stderr).toContain('not a git repository');
 });
 
-it('does not scan untracked files or load lint configuration in an empty repository', async () => {
+it('checks only tracked paths, preserves filenames and propagates checker errors', async () => {
 	git('init');
 	await writeFile(join(root, '.secretlintrc.json'), 'invalid configuration');
 	await writeFile(join(root, 'untracked.txt'), 'not included');
-	const result = run(pkg.scripts['check:secrets']);
-	expect(result.status, result.stderr).toBe(0);
-});
-
-it('passes tracked filenames to the checker without shell splitting', async () => {
-	git('init');
+	const empty = run(pkg.scripts['check:secrets']);
+	expect(empty.status, empty.stderr).toBe(0);
 	await symlink(join(PROJECT_ROOT, 'node_modules'), join(root, 'node_modules'), 'junction');
 	await cp(join(PROJECT_ROOT, '.secretlintrc.json'), join(root, '.secretlintrc.json'));
 	const files = [
@@ -129,16 +123,8 @@ it('passes tracked filenames to the checker without shell splitting', async () =
 	git('add', '--', ...files);
 	const result = run(pkg.scripts['check:secrets']);
 	expect(result.status, result.stderr).toBe(0);
-});
-
-it('propagates a checker failure after a successful tracked-file producer', async () => {
-	git('init');
-	await symlink(join(PROJECT_ROOT, 'node_modules'), join(root, 'node_modules'), 'junction');
 	await writeFile(join(root, '.secretlintrc.json'), 'invalid configuration');
-	await writeFile(join(root, 'tracked.md'), '# Safe fixture\n');
-	git('add', 'tracked.md');
-	const result = run(pkg.scripts['check:secrets']);
-	expect(result.status).not.toBe(0);
+	expect(run(pkg.scripts['check:secrets']).status).not.toBe(0);
 });
 
 it('accepts a push without release refs even outside a Git repository', () => {
@@ -170,7 +156,7 @@ it('does not hide a failed Git read in the release-check pipeline', () => {
 	expect(result.stderr).toContain('not a git repository');
 });
 
-it('checks package and manifest consistency on an ordinary CI branch', async () => {
+it('checks committed manifests on ordinary CI branches and enforces release branch versions', async () => {
 	await mkdir(join(root, 'src/assets'), { recursive: true });
 	await writeFile(join(root, 'package.json'), '{"version":"1.4.9"}');
 	await writeFile(join(root, 'src/assets/manifest.json'), '{"version":"1.4.10"}');
@@ -186,15 +172,14 @@ it('checks package and manifest consistency on an ordinary CI branch', async () 
 	});
 	expect(result.status).not.toBe(0);
 	expect(result.stderr).toContain('does not match manifest version');
-});
-
-it('keeps both Chrome locks unchanged when an upstream producer fails', async () => {
-	await mkdir(join(root, 'test/browser'), { recursive: true });
-	for (const file of ['chrome-versions.json', 'chrome-checksums.json'])
-		await writeFile(join(root, 'test/browser', file), 'unchanged');
-	const writer = shellCommand(config.executables.chromeUpdate);
-	const result = run(`node --permission --eval "process.exit(1)" | ${writer}`);
-	expect(result.status).not.toBe(0);
-	for (const file of ['chrome-versions.json', 'chrome-checksums.json'])
-		expect(await readFile(join(root, 'test/browser', file), 'utf8')).toBe('unchanged');
+	await writeFile(join(root, 'package.json'), '{"version":"1.4.10"}');
+	git('add', '.');
+	git('-c', 'commit.gpgsign=false', 'commit', '-m', 'chore: consistent versions');
+	const release = run(pkg.scripts['release:check'], {
+		...environment(),
+		RELEASE_BRANCH: 'release/v1.4.9',
+		RELEASE_COMMIT: 'HEAD',
+	});
+	expect(release.status).not.toBe(0);
+	expect(release.stderr).toContain('does not match package version');
 });

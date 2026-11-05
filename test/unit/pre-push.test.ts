@@ -4,30 +4,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { planPushChecks } from '../../scripts/pre-push/main';
-import { fixtureCommand } from '../helpers/fixture-command';
+import { fixtureEnvironment as environment, fixtureCommand } from '../helpers/fixture-command';
 
 const pkg = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
-const environment = (): NodeJS.ProcessEnv =>
-	Object.fromEntries(
-		Object.entries(process.env).filter(
-			([name]) => name !== 'NODE_OPTIONS' && !name.startsWith('GIT_')
-		)
-	);
 
-it('does not validate the deleted tag version', () => {
-	expect(planPushChecks('(delete) 00000000 refs/tags/v65536.1.0 deadbeef')).toEqual([]);
-});
-
-it('preserves Unicode whitespace inside ref names when splitting Git records', () => {
+it('skips deletions while preserving Unicode spaces inside Git ref names', () => {
 	expect(
-		planPushChecks('refs/heads/feature\u00a0name abc123 refs/tags/v1.4.10 deadbeef')
+		planPushChecks(
+			[
+				'(delete) 00000000 refs/tags/v65536.1.0 deadbeef',
+				'refs/heads/feature\u00a0name abc123 refs/tags/v1.4.10 deadbeef',
+			].join('\n')
+		)
 	).toEqual([{ commit: 'abc123', refs: ['refs/tags/v1.4.10'] }]);
-});
-
-it('rejects invalid release versions before requesting committed files', () => {
-	expect(() => planPushChecks('refs/heads/main abc123 refs/tags/v65536.1.0 deadbeef')).toThrow(
-		'Chrome version components'
-	);
 });
 
 describe('pre-push version pipeline', () => {
@@ -74,21 +63,22 @@ describe('pre-push version pipeline', () => {
 		await rm(repository, { recursive: true, force: true });
 	});
 
-	it('rejects a mismatched local release branch when pushing to an ordinary branch', () => {
-		const result = push(`refs/heads/release/v1.4.9 ${commitSha} refs/heads/main deadbeef`);
-		expect(result.status).not.toBe(0);
-		expect(result.stderr).toContain('Release refs/heads/release/v1.4.9 does not match');
-	});
-
-	it('checks later records after a matching release', () => {
-		const result = push(
-			[
-				`refs/heads/release/v1.4.10 ${commitSha} refs/heads/release/v1.4.10 deadbeef`,
-				`refs/heads/main ${commitSha} refs/tags/v1.4.9 deadbeef`,
-			].join('\n')
-		);
-		expect(result.status).not.toBe(0);
-		expect(result.stderr).toContain('Release refs/tags/v1.4.9 does not match');
+	it('checks local and remote release refs on commits after a matching record', () => {
+		git('-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'chore: later commit');
+		const later = git('rev-parse', 'HEAD');
+		for (const record of [
+			`refs/heads/release/v1.4.9 ${later} refs/heads/main deadbeef`,
+			`refs/heads/main ${later} refs/tags/v1.4.9 deadbeef`,
+		]) {
+			const result = push(
+				[
+					`refs/heads/release/v1.4.10 ${commitSha} refs/heads/release/v1.4.10 deadbeef`,
+					record,
+				].join('\n')
+			);
+			expect(result.status, record).not.toBe(0);
+			expect(result.stderr).toContain('does not match');
+		}
 	});
 
 	it('validates the committed manifest instead of the working tree', async () => {

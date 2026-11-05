@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { choice, inside, object, strings, text } from '../lib/input.ts';
 import { runJsonCli } from '../lib/json-cli.ts';
 
-export const operate = async (input: unknown): Promise<void> => {
+const operate = async (input: unknown): Promise<void> => {
 	const request = object(input);
 	const directory = join(process.cwd(), 'dist');
 	const action = choice(request.action, ['reset', 'sync']);

@@ -1,6 +1,6 @@
 import { runJsonCli } from '../lib/json-cli.ts';
 
-export const prepareSecretCheck = (trackedPaths: unknown) => {
+const prepareSecretCheck = (trackedPaths: unknown) => {
 	if (typeof trackedPaths !== 'string') throw new Error('Expected Git tracked paths');
 	return { tool: 'secretlint', files: trackedPaths.split('\0').filter(Boolean) };
 };

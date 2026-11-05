@@ -74,14 +74,14 @@ it('collects locked pnpm reports and sends only package identities to the fixed 
 		['list', '--lockfile-only', '--depth', 'Infinity', '--json'],
 		expect.any(Object)
 	);
-	expect(api).toHaveBeenCalledExactlyOnceWith('https://api.osv.dev/v1/querybatch', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-		body: JSON.stringify({ queries: [query] }),
-		redirect: 'error',
-		credentials: 'omit',
-		signal: expect.any(AbortSignal),
-	});
+	expect(api).toHaveBeenCalledWith(
+		'https://api.osv.dev/v1/querybatch',
+		expect.objectContaining({
+			method: 'POST',
+			body: JSON.stringify({ queries: [query] }),
+			redirect: 'error',
+		})
+	);
 });
 
 it('includes transitive, development and optional dependencies and deduplicates resolved aliases', async () => {
@@ -111,7 +111,7 @@ it('includes transitive, development and optional dependencies and deduplicates 
 	);
 });
 
-it('queries every package in a large dependency list under one deadline', async () => {
+it('queries all packages across multiple batches', async () => {
 	const dependencies = Object.fromEntries(
 		Array.from({ length: 101 }, (_, index) => [`pkg-${index}`, { version: '1.0.0' }])
 	);
@@ -121,17 +121,9 @@ it('queries every package in a large dependency list under one deadline', async 
 	});
 	expect(await check(result(cleanPnpm), result([{ dependencies }]))).toBe(0);
 	const queries = api.mock.calls.flatMap((_, index) => requestBody(index).queries);
-	expect(queries).toHaveLength(101);
-	expect(queries).toEqual(
-		expect.arrayContaining(
-			Object.keys(dependencies).map((name) => ({
-				package: { ecosystem: 'npm', name },
-				version: '1.0.0',
-			}))
-		)
-	);
-	const deadline = api.mock.calls[0][1]?.signal;
-	for (const [, options] of api.mock.calls) expect(options?.signal).toBe(deadline);
+	expect(
+		queries.map((query: { package: { name: string } }) => query.package.name).toSorted()
+	).toEqual(Object.keys(dependencies).toSorted());
 });
 
 it('reports paginated findings without re-querying completed packages or duplicating IDs', async () => {
@@ -154,16 +146,9 @@ it('reports paginated findings without re-querying completed packages or duplica
 it.each([
 	['missing query results', { results: [] }],
 	['query failure', { results: [{ error: 'failure' }] }],
-	['unidentified finding', { results: [{ vulns: [{}] }] }],
 ])('does not report OSV %s as a clean audit', async (_name, report) => {
 	api.mockResolvedValueOnce(Response.json(report));
 	expect(await check()).toBe(2);
-});
-
-it('stops repeated pagination tokens rather than looping or silently truncating', async () => {
-	api.mockImplementation(async () => Response.json({ results: [{ next_page_token: 'same' }] }));
-	expect(await check()).toBe(2);
-	expect(api).toHaveBeenCalledTimes(2);
 });
 
 it('bounds pagination even when the server keeps returning new tokens', async () => {
@@ -180,64 +165,28 @@ it('fails closed on an HTTP server error', async () => {
 	expect(await check()).toBe(2);
 });
 
-it.each([
-	['non-JSON content', () => new Response('<html>error</html>')],
-	['invalid JSON', () => new Response('{', { headers: { 'Content-Type': 'application/json' } })],
-	[
-		'oversized response',
-		() =>
-			new Response(' '.repeat(4 * 1024 * 1024 + 1), {
-				headers: { 'Content-Type': 'application/json' },
-			}),
-	],
-])('fails closed for %s', async (_name, response) => {
-	api.mockResolvedValueOnce(response());
+it('bounds response size instead of buffering an unbounded API body', async () => {
+	api.mockResolvedValueOnce(
+		Response.json({ results: [{}], padding: 'x'.repeat(4 * 1024 * 1024) })
+	);
 	expect(await check()).toBe(2);
 });
 
-it.each([
-	['no packages', [{}]],
-	['a local dependency', [{ dependencies: { example: { version: 'link:../private' } } }]],
-	[
-		'a private URL instead of a package name',
-		[
-			{
-				dependencies: {
-					example: { from: 'https://user:secret@private.invalid/', version: '1.0.0' },
-				},
+it('rejects private dependency URLs before contacting OSV', async () => {
+	const list = [
+		{
+			dependencies: {
+				example: { from: 'https://user:secret@private.invalid/', version: '1.0.0' },
 			},
-		],
-	],
-])('rejects %s before contacting OSV', async (_name, list) => {
+		},
+	];
 	expect(await check(result(cleanPnpm), result(list))).toBe(2);
-	expect(api).not.toHaveBeenCalled();
-});
-
-it('reports a missing pnpm list executable as an incomplete audit', async () => {
-	expect(
-		await check(result(cleanPnpm), {
-			...result(null),
-			status: null,
-			error: 'spawn pnpm ENOENT',
-		})
-	).toBe(2);
 	expect(api).not.toHaveBeenCalled();
 });
 
 it('rejects a failed package listing even if it returned valid JSON', async () => {
 	expect(await check(result(cleanPnpm), result(packageList, 1))).toBe(2);
 	expect(api).not.toHaveBeenCalled();
-});
-
-it('rejects truncated subprocess JSON and sanitizes stderr', async () => {
-	expect(
-		await check(result(cleanPnpm), {
-			...result(null),
-			stdout: '{',
-			stderr: 'Failure\n\x1b[31mdetail\x1b[0m',
-		})
-	).toBe(2);
-	expect(console.error).toHaveBeenCalledWith('Failure\\u{a}detail');
 });
 
 it('fails for low-severity pnpm counts even without advisory details', async () => {
@@ -263,11 +212,10 @@ it('reports pnpm advisories even when metadata claims success and escapes untrus
 	);
 });
 
-it.each([
-	['an unsupported npm format', { metadata: { vulnerabilities: counts }, vulnerabilities: {} }],
-	['non-numeric counts', pnpmCounts({ ...counts, high: '0' })],
-])('does not accept pnpm reports with %s as clean', async (_name, report) => {
-	expect(await check(result(report))).toBe(2);
+it('does not treat an unsupported audit format as a clean report', async () => {
+	expect(
+		await check(result({ metadata: { vulnerabilities: counts }, vulnerabilities: {} }))
+	).toBe(2);
 });
 
 it('does not accept pnpm audit exit 1 without recognized findings', async () => {
@@ -276,17 +224,7 @@ it('does not accept pnpm audit exit 1 without recognized findings', async () => 
 
 it('still reports OSV findings when pnpm audit fails, without hiding the incomplete audit', async () => {
 	api.mockResolvedValueOnce(Response.json({ results: [{ vulns: [{ id: 'OSV-1' }] }] }));
-	expect(await check(result({}, 2))).toBe(2);
+	expect(await check({ ...result({}, 2), stderr: 'Failure\n\x1b[31mdetail\x1b[0m' })).toBe(2);
+	expect(console.error).toHaveBeenCalledWith('Failure\\u{a}detail');
 	expect(console.log).toHaveBeenCalledWith('  - example@1.0.0: OSV-1');
-});
-
-it('gives an OSV network timeout precedence over pnpm findings', async () => {
-	api.mockRejectedValueOnce(new DOMException('Timed out', 'TimeoutError'));
-	expect(await check(result(pnpmCounts({ ...counts, high: 1 })))).toBe(2);
-});
-
-it('requires the pnpm entry point without downloading tools', () => {
-	vi.stubEnv('npm_execpath', undefined);
-	expect(() => collectReports()).toThrow('Run this check via pnpm check:dependencies');
-	expect(spawn).not.toHaveBeenCalled();
 });

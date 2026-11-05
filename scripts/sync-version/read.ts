@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { validateReleaseVersion } from '../lib/version.ts';
 
-export const readPackageVersion = (root = process.cwd()) => {
-	const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+const readPackageVersion = () => {
+	const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'));
 	return { version: validateReleaseVersion(pkg.version) };
 };
 

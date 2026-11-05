@@ -19,14 +19,10 @@ export const hasCodeChanges = (repository: string): boolean => {
 
 export const withIndexSnapshot = async (
 	repository: string,
-	verify: (
-		snapshotDirectory: string,
-		trackedFiles: string[],
-		environment: NodeJS.ProcessEnv
-	) => Promise<void>
+	verify: (snapshotDirectory: string, trackedFiles: string[]) => Promise<void>
 ): Promise<void> => {
 	const root = resolve(repository);
-	const directory = await runNode<string>(snapshotCommand(root), { action: 'create' }, root);
+	const directory = runNode<string>(snapshotCommand(root), { action: 'create' }, root);
 	try {
 		runNode(exportIndexCommand(root), { directory }, root);
 		const files = runNode<string>(
@@ -36,22 +32,9 @@ export const withIndexSnapshot = async (
 		)
 			.split('\0')
 			.filter(Boolean);
-		const variables = runNode<string>(
-			gitReadCommand(root),
-			{
-				args: ['rev-parse', '--local-env-vars'],
-				cwd: root,
-			},
-			root
-		)
-			.trim()
-			.split('\n');
-		const environment = Object.fromEntries(
-			Object.entries(process.env).filter(([name]) => !variables.includes(name))
-		);
-		await verify(directory, files, environment);
+		await verify(directory, files);
 	} finally {
-		await runNode(snapshotCommand(root), { action: 'remove', directory }, root);
+		runNode(snapshotCommand(root), { action: 'remove', directory }, root);
 	}
 };
 

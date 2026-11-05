@@ -3,8 +3,6 @@ import { isAbsolute, join, resolve, sep } from 'node:path';
 
 import { validateVersion } from './version.ts';
 
-export { validateVersion } from './version.ts';
-
 type LocaleMessages = Record<string, { message: string }>;
 
 const PNG_SIGNATURE = Buffer.from('89504e470d0a1a0a', 'hex');
@@ -121,12 +119,18 @@ export const validateExtension = async (directory: string): Promise<void> => {
 	);
 	const requiredMessageKeys = new Set([...Object.keys(defaultMessages), ...manifestMessageKeys]);
 	for (const locale of locales) {
-		const messages: LocaleMessages = {
-			...defaultMessages,
-			...JSON.parse(
-				await readFile(join(directory, '_locales', locale, 'messages.json'), 'utf8')
-			),
-		};
+		const messages: LocaleMessages =
+			locale === manifest.default_locale
+				? defaultMessages
+				: {
+						...defaultMessages,
+						...JSON.parse(
+							await readFile(
+								join(directory, '_locales', locale, 'messages.json'),
+								'utf8'
+							)
+						),
+					};
 		for (const key of requiredMessageKeys) {
 			const message = messages[key]?.message;
 			if (typeof message !== 'string' || message.trim() === '') {

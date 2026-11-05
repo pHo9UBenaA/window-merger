@@ -4,7 +4,7 @@ import { object } from '../lib/input.ts';
 import { runJsonCli } from '../lib/json-cli.ts';
 import { validateReleaseVersion } from '../lib/version.ts';
 
-export const operate = (input: unknown): void => {
+const operate = (input: unknown): void => {
 	const version = validateReleaseVersion(object(input).version);
 	const path = join(process.cwd(), 'src/assets/manifest.json');
 	const manifest = JSON.parse(readFileSync(path, 'utf8'));

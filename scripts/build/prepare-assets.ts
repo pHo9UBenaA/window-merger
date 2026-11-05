@@ -5,21 +5,18 @@ import { runJsonCli } from '../lib/json-cli.ts';
 
 const isMissing = (error: unknown) =>
 	error instanceof Error && 'code' in error && error.code === 'ENOENT';
-export const collectFiles = async (directory: string, ignoreMissing = false): Promise<string[]> => {
+async function* collectFiles(directory: string, ignoreMissing: boolean): AsyncGenerator<string> {
 	const entries = await readdir(directory, { withFileTypes: true }).catch((error: unknown) => {
 		if (ignoreMissing && isMissing(error)) return [];
 		throw error;
 	});
-	const reads: Promise<string[]>[] = [];
 	for (const entry of entries) {
 		if (entry.name === '.DS_Store') continue;
 		const path = join(directory, entry.name);
-		reads.push(
-			entry.isDirectory() ? collectFiles(path, ignoreMissing) : Promise.resolve([path])
-		);
+		if (entry.isDirectory()) yield* collectFiles(path, ignoreMissing);
+		else yield path;
 	}
-	return (await Promise.all(reads)).flat();
-};
+}
 
 const assetData = async (path: string, name: string): Promise<string> => {
 	const source = await readFile(path);
@@ -36,30 +33,33 @@ const assetData = async (path: string, name: string): Promise<string> => {
 	return Buffer.from(JSON.stringify(compact)).toString('base64');
 };
 
-export const prepareAssets = async (input: unknown) => {
+const prepareAssets = async (input: unknown) => {
 	const request = object(input);
 	const root = process.cwd();
 	const directory = join(root, 'src/assets');
+	const watching = request.previous !== undefined;
+	const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
 	const files = [
 		{ name: 'LICENSE', data: (await readFile(join(root, 'LICENSE'))).toString('base64') },
+		{ name: 'manifest.json', data: Buffer.from(JSON.stringify(manifest)).toString('base64') },
 	];
-	for (const path of await collectFiles(directory, request.watching === true)) {
+	for await (const path of collectFiles(directory, watching)) {
 		const name = relative(directory, path);
+		if (name === 'manifest.json') continue;
 		try {
 			files.push({ name, data: await assetData(path, name) });
 		} catch (error) {
-			if (request.watching !== true || !isMissing(error)) throw error;
+			if (!watching || !isMissing(error)) throw error;
 		}
 	}
+	const plan = { action: 'sync', files, major: manifest.minimum_chrome_version.split('.')[0] };
+	if (!watching) return { ...plan, removed: [] };
 	const names = files.map(({ name }) => name);
 	const current = new Set(names);
-	const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
 	return {
-		action: 'sync',
-		files,
+		...plan,
 		names,
-		major: manifest.minimum_chrome_version.split('.')[0],
-		removed: strings(request.previous ?? []).filter((name) => !current.has(name)),
+		removed: strings(request.previous).filter((name) => !current.has(name)),
 	};
 };
 

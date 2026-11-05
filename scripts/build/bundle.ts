@@ -3,7 +3,7 @@ import { build } from 'esbuild';
 import { object, text } from '../lib/input.ts';
 import { runJsonCli } from '../lib/json-cli.ts';
 
-export const operate = async (input: unknown): Promise<void> => {
+const operate = async (input: unknown): Promise<void> => {
 	const request = object(input);
 	const major = text(request.major);
 	if (!/^[1-9]\d*$/.test(major) || typeof request.minify !== 'boolean')

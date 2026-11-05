@@ -9,20 +9,13 @@ const validateArguments = (args: readonly string[]): void => {
 	const signature = args.join(' ');
 	if (
 		[
-			'rev-parse --show-toplevel',
-			'rev-parse --local-env-vars',
 			'diff --cached --name-only --no-renames -z',
 			'ls-files -z',
 			'ls-remote --tags origin',
-			'remote get-url --push origin',
 			'status --porcelain',
 		].includes(signature)
 	)
 		return;
-	if (command === 'config' && rest.length === 1) {
-		choice(rest[0], ['user.name', 'user.email']);
-		return;
-	}
 	if (command === 'show' && rest.length === 1) {
 		const separator = rest[0].indexOf(':');
 		if (separator < 1) throw new Error('Expected committed version file');

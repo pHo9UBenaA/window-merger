@@ -3,7 +3,7 @@ import { rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { runJsonCli } from '../lib/json-cli.ts';
 
-export const createArchive = async (): Promise<void> => {
+const createArchive = async (): Promise<void> => {
 	const archive = join(process.cwd(), 'dist.zip');
 	const temporary = join(process.cwd(), 'dist.tmp.zip');
 	try {

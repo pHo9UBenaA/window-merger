@@ -4,9 +4,7 @@ import { gitReadCommand } from './commands.generated.ts';
 import { runNode } from './run-node.ts';
 import { releaseVersion } from './version.ts';
 
-export { releaseVersion, validateReleaseVersion } from './version.ts';
-
-export const checkVersions = (commit: string, directory = process.cwd()): string => {
+const checkVersions = (commit: string, directory: string): string => {
 	const cwd = resolve(directory);
 	const read = (path: string): string =>
 		runNode<string>(gitReadCommand(cwd), { args: ['show', `${commit}:${path}`], cwd }, cwd);
@@ -20,7 +18,7 @@ export const checkVersions = (commit: string, directory = process.cwd()): string
 	);
 };
 
-export const checkRelease = (ref: string, commit: string, cwd = process.cwd()): string | null => {
+export const checkRelease = (ref: string, commit: string, cwd: string): string | null => {
 	const version = releaseVersion(ref);
 	if (version === null) return null;
 	const packageVersion = checkVersions(commit, cwd);

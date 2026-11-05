@@ -1,10 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-export const runNode = <T>(
-	args: readonly string[],
-	input: unknown = {},
-	cwd = process.cwd()
-): T => {
+export const runNode = <T>(args: readonly string[], input: unknown, cwd = process.cwd()): T => {
 	const { NODE_OPTIONS: _options, ...env } = process.env;
 	const output = execFileSync(process.execPath, args, {
 		cwd,
