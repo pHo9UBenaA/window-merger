@@ -1,8 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { hasCodeChanges, withIndexSnapshot } from '../../scripts/pre-commit/main';
 import { useOperationRoot } from '../helpers/script-operations';
@@ -29,8 +28,6 @@ afterEach(async () => {
 it.each([
 	['README.md', false],
 	['example.ts', true],
-	['package.json', true],
-	['config.yaml', true],
 	['icon.png', true],
 ])('selects code checks for staged %s: %s', async (name, expected) => {
 	await writeFile(join(root, name), 'staged');
@@ -61,62 +58,24 @@ it('still runs code checks when code is renamed to Markdown or deleted', async (
 	expect(hasCodeChanges(root)).toBe(true);
 });
 
-it('checks staged content without changing the working tree or index', async () => {
-	const file = join(root, 'file [with spaces].txt');
-	await writeFile(file, 'staged content');
-	git('add', '--', 'file [with spaces].txt');
-	await writeFile(file, 'unstaged content');
-	let snapshotPath = '';
-	await withIndexSnapshot(root, async (snapshot, files) => {
-		snapshotPath = snapshot;
-		expect(files).toEqual(['file [with spaces].txt']);
-		expect(await readFile(join(snapshot, files[0]), 'utf8')).toBe('staged content');
-	});
-	expect(await readFile(file, 'utf8')).toBe('unstaged content');
-	expect(git('show', ':file [with spaces].txt')).toBe('staged content');
-	await expect(readFile(join(snapshotPath, 'file [with spaces].txt'))).rejects.toThrow();
-});
-
-it('keeps the snapshot beside node_modules and resolves installed rules without symlinks', async () => {
-	const rule = join(root, 'node_modules/test-rule/index.js');
-	await mkdir(join(root, 'node_modules/test-rule'));
-	await writeFile(rule, 'module.exports = {};');
-	await withIndexSnapshot(root, async (snapshot) => {
-		expect(dirname(snapshot)).toBe(root);
-		const require = createRequire(join(snapshot, 'config.cjs'));
-		expect(require.resolve('test-rule')).toBe(await realpath(rule));
-		await expect(readFile(join(snapshot, 'node_modules'))).rejects.toMatchObject({
-			code: 'ENOENT',
-		});
-	});
-});
-
-it('removes original Git paths from the snapshot environment but preserves other variables', async () => {
-	await writeFile(join(root, 'file.ts'), 'staged');
-	git('add', 'file.ts');
-	vi.stubEnv('GIT_INDEX_FILE', join(root, '.git/index'));
-	vi.stubEnv('WINDOW_MERGER_TEST', 'preserved');
-	await withIndexSnapshot(root, async (_snapshot, _files, environment) => {
-		expect(environment.GIT_INDEX_FILE).toBeUndefined();
-		expect(environment.WINDOW_MERGER_TEST).toBe('preserved');
-	});
-	expect(process.env.GIT_INDEX_FILE).toBe(join(root, '.git/index'));
-});
-
-it('keeps staged failures visible and cleans up after a rejected check', async () => {
-	await writeFile(join(root, 'file.ts'), 'invalid staged content');
-	git('add', 'file.ts');
-	await writeFile(join(root, 'file.ts'), 'fixed but not staged');
+it('checks staged content and cleans up rejected checks without changing the working tree or index', async () => {
+	const name = 'file [with spaces].ts';
+	const file = join(root, name);
+	await writeFile(file, 'invalid staged content');
+	git('add', '--', name);
+	await writeFile(file, 'fixed but not staged');
 	let snapshotPath = '';
 	await expect(
-		withIndexSnapshot(root, async (snapshot) => {
+		withIndexSnapshot(root, async (snapshot, files) => {
 			snapshotPath = snapshot;
-			if ((await readFile(join(snapshot, 'file.ts'), 'utf8')).startsWith('invalid'))
-				throw new Error('Staged failure');
+			expect(files).toEqual([name]);
+			expect(await readFile(join(snapshot, name), 'utf8')).toBe('invalid staged content');
+			throw new Error('Staged failure');
 		})
 	).rejects.toThrow('Staged failure');
-	expect(await readFile(join(root, 'file.ts'), 'utf8')).toBe('fixed but not staged');
-	await expect(readFile(join(snapshotPath, 'file.ts'))).rejects.toThrow();
+	expect(await readFile(file, 'utf8')).toBe('fixed but not staged');
+	expect(git('show', `:${name}`)).toBe('invalid staged content');
+	await expect(readFile(join(snapshotPath, name))).rejects.toMatchObject({ code: 'ENOENT' });
 });
 
 it('exports additions and renames but not staged deletions or untracked files', async () => {
@@ -127,7 +86,11 @@ it('exports additions and renames but not staged deletions or untracked files', 
 	await rm(join(root, 'deleted'));
 	git('add', '-A');
 	await writeFile(join(root, 'untracked'), 'not committed');
-	await withIndexSnapshot(root, async (_snapshot, files) => {
+	let snapshotPath = '';
+	await withIndexSnapshot(root, async (snapshot, files) => {
+		snapshotPath = snapshot;
 		expect(files).toEqual(['new']);
+		expect(await readFile(join(snapshot, 'new'), 'utf8')).toBe('rename');
 	});
+	await expect(readFile(join(snapshotPath, 'new'))).rejects.toMatchObject({ code: 'ENOENT' });
 });

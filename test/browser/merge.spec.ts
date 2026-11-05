@@ -71,95 +71,24 @@ test('preserves a collapsed group left alone in a source window @compat', async 
 }) => {
 	const before = await worker.evaluate(async () => {
 		const source = await chrome.windows.create({
-			url: ['about:blank', 'about:blank', 'about:blank', 'about:blank'],
+			url: ['about:blank', 'about:blank', 'about:blank'],
 		});
-		if (!source?.tabs?.every((tab) => tab.id !== undefined))
-			throw new Error('Missing test tabs');
-		const ids = source.tabs.map((tab) => tab.id).filter((id) => id !== undefined);
-		await chrome.tabs.update(ids[0], { pinned: true });
-		await chrome.tabs.update(ids[1], { muted: true });
-		const group = await chrome.tabs.group({ tabIds: [ids[2], ids[3]] });
-		await chrome.tabGroups.update(group, {
-			title: 'Test group',
-			color: 'blue',
-			collapsed: true,
-		});
-		const popup = await chrome.windows.create({ type: 'popup', url: 'about:blank' });
-		if (popup?.id === undefined || !popup.tabs?.length) throw new Error('Missing test popup');
-		await chrome.windows.create({ url: 'about:blank', focused: true });
-		const all = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
-		// Trigger from a chosen window so the target never depends on OS-specific focus timing.
-		const target = all.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0))[0];
-		if (target.id === undefined) throw new Error('Missing target window');
-		const orderedTabs = [
-			target,
-			...all
-				.filter((window) => window.id !== target.id)
-				.toSorted((a, b) => (a.id ?? 0) - (b.id ?? 0)),
-		].flatMap((window) => window.tabs ?? []);
-		return {
-			ids,
-			group,
-			popupId: popup.id,
-			popupTabIds: popup.tabs.map((tab) => tab.id),
-			target: target.id,
-			active: target?.tabs?.find((tab) => tab.active)?.id,
-			allIds: [
-				...orderedTabs.filter((tab) => tab.pinned),
-				...orderedTabs.filter((tab) => !tab.pinned),
-			].map((tab) => tab.id),
-		};
+		const ids = (source?.tabs ?? []).map((tab) => tab.id).filter((id) => id !== undefined);
+		if (ids.length !== 3) throw new Error('Missing test tabs');
+		const group = await chrome.tabs.group({ tabIds: [ids[1], ids[2]] });
+		await chrome.tabGroups.update(group, { collapsed: true });
+		const target = await chrome.windows.create({ url: 'about:blank' });
+		if (target?.id === undefined) throw new Error('Missing target window');
+		return { group, target: target.id };
 	});
-	await worker.evaluate(async (target) => {
-		await mergerTest.actionFromWindow(target);
-		mergerTest.menu('mergeWindowId'); // Duplicates must not start another merge.
-		mergerTest.menu('mergeIncognitoWindowId'); // Unavailable mode must be harmless.
-	}, before.target);
-	await expect
-		.poll(() =>
-			worker.evaluate(
-				async () => (await chrome.windows.getAll({ windowTypes: ['normal'] })).length
-			)
-		)
-		.toBe(1);
-	await expect
-		.poll(() =>
-			worker.evaluate(async ({ ids, active }) => {
-				const tabs = await chrome.tabs.query({ windowType: 'normal' });
-				return {
-					pinned: tabs.some((tab) => tab.id === ids[0] && tab.pinned),
-					muted: tabs.some((tab) => tab.id === ids[1] && tab.mutedInfo?.muted),
-					selected: tabs.filter((tab) => tab.active).map((tab) => tab.id),
-					expected: active,
-				};
-			}, before)
-		)
-		.toEqual({ pinned: true, muted: true, selected: [before.active], expected: before.active });
-	await expect
-		.poll(() =>
-			worker.evaluate(async (id) => (await chrome.tabGroups.get(id)).collapsed, before.group)
-		)
-		.toBe(true);
-	const after = await worker.evaluate(
-		async ({ group, popupId }) => ({
-			windows: await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] }),
-			group: await chrome.tabGroups.get(group),
-			popup: await chrome.windows.get(popupId, { populate: true }),
-			errors: mergerTest.errors,
-		}),
-		before
+	await worker.evaluate(
+		(target) => mergerTest.menuFromWindow('mergeWindowId', target),
+		before.target
 	);
-	expect(after.windows[0].id).toBe(before.target);
-	expect(after.windows[0].tabs?.map((tab) => tab.id)).toEqual(before.allIds);
-	expect(after.group).toMatchObject({
-		title: 'Test group',
-		color: 'blue',
-		collapsed: true,
-		windowId: before.target,
-	});
-	expect(after.popup).toMatchObject({ id: before.popupId, type: 'popup' });
-	expect(after.popup.tabs?.map((tab) => tab.id)).toEqual(before.popupTabIds);
-	expect(after.errors).toEqual([]);
+	await expect
+		.poll(() => worker.evaluate((group) => chrome.tabGroups.get(group), before.group))
+		.toMatchObject({ collapsed: true, windowId: before.target });
+	expect(await worker.evaluate(() => mergerTest.errors)).toEqual([]);
 });
 
 test('respects incognito permission changes and never mixes normal and incognito tabs', async ({

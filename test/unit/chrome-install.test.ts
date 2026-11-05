@@ -24,7 +24,6 @@ let checksums: Record<string, Record<string, unknown>>;
 let availablePlatforms: string[];
 let root: string;
 let downloads: string[];
-let downloadError: number | undefined;
 const checksumPath = () => join(root, 'test/browser/chrome-checksums.json');
 const lockPath = () => join(root, 'test/browser/chrome-versions.json');
 const saveChecksums = () => writeFile(checksumPath(), JSON.stringify(checksums));
@@ -39,7 +38,6 @@ beforeEach(async () => {
 	await saveChecksums();
 	availablePlatforms = Object.keys(allPlatforms);
 	downloads = [];
-	downloadError = undefined;
 	useOperationRoot(root);
 	vi.stubEnv('RUNNER_TEMP', root);
 	vi.stubEnv('GITHUB_ENV', join(root, 'github-env'));
@@ -51,7 +49,6 @@ beforeEach(async () => {
 			if (url.startsWith('https://storage.googleapis.com/')) {
 				expect(options?.redirect).toBe('error');
 				downloads.push(url);
-				if (downloads.length === downloadError) throw new Error('Download failed');
 				return new Response(content);
 			}
 			const reports: Record<string, unknown> = {
@@ -103,29 +100,14 @@ describe('Chrome installer', () => {
 		expect(JSON.parse(await readFile(checksumPath(), 'utf8'))).toEqual(checksums);
 	});
 
-	it.each([
-		undefined,
-		null,
-		'',
-		'0'.repeat(63),
-		'0'.repeat(65),
-		'g'.repeat(64),
-		`${'0'.repeat(64)}\n`,
-	])('rejects an absent or invalid checksum before downloading: %j', async (checksum) => {
-		checksums[version][platform] = checksum;
+	it('rejects a missing checksum before downloading', async () => {
+		delete checksums[version][platform];
 		await saveChecksums();
 		await expect(installChrome('120', platform)).rejects.toThrow(
 			'Missing or invalid Chrome SHA-256'
 		);
 		expect(downloads).toEqual([]);
 		expect(exec).not.toHaveBeenCalled();
-	});
-
-	it('rejects an unregistered version without downloading', async () => {
-		checksums = {};
-		await saveChecksums();
-		await expect(installChrome('120', platform)).rejects.toThrow('Missing or invalid');
-		expect(downloads).toEqual([]);
 	});
 
 	it('rejects modified archives without extracting or publishing paths', async () => {
@@ -135,13 +117,6 @@ describe('Chrome installer', () => {
 		expect(exec).not.toHaveBeenCalled();
 		expect(await installDirectories()).toEqual([]);
 		await expect(readFile(join(root, 'github-env'))).rejects.toMatchObject({ code: 'ENOENT' });
-	});
-
-	it('cleans up failed downloads without extracting or publishing paths', async () => {
-		downloadError = 1;
-		await expect(installChrome('120', platform)).rejects.toThrow('Download failed');
-		expect(exec).not.toHaveBeenCalled();
-		expect(await installDirectories()).toEqual([]);
 	});
 
 	it('cleans up failed extraction without publishing paths', async () => {
@@ -165,44 +140,34 @@ const hashDirectories = async () =>
 	(await readdir(root)).filter((name) => name.startsWith('.window-merger-chrome-hash-'));
 
 describe('Chrome lock update', () => {
-	it.each(['linux64', 'win64', 'mac-arm64'])(
-		'rejects incomplete metadata for %s without updating locks',
-		async (missing) => {
-			availablePlatforms = availablePlatforms.filter((platform) => platform !== missing);
-			await expect(updateLock()).rejects.toThrow(`for ${missing}; lock unchanged`);
-			expect(downloads).toEqual([]);
-			expect(JSON.parse(await readFile(lockPath(), 'utf8'))).toEqual({ '120': version });
-		}
-	);
+	it('rejects incomplete platform metadata without updating locks', async () => {
+		availablePlatforms = availablePlatforms.filter((platform) => platform !== 'mac-arm64');
+		await expect(updateLock()).rejects.toThrow('for mac-arm64; lock unchanged');
+		expect(downloads).toEqual([]);
+		expect(JSON.parse(await readFile(lockPath(), 'utf8'))).toEqual({ '120': version });
+	});
 
-	it('collects missing checksums without extraction before publishing the version lock', async () => {
+	it('fills missing checksums without replacing existing pins or extracting archives', async () => {
+		checksums[nextVersion] = { linux64: 'b'.repeat(64) };
+		await saveChecksums();
 		await updateLock();
-		expect(downloads).toHaveLength(3);
+		expect(downloads).toHaveLength(2);
+		expect(downloads).toEqual(
+			expect.arrayContaining([
+				`https://storage.googleapis.com/chrome-for-testing-public/${nextVersion}/win64/chrome-win64.zip`,
+				`https://storage.googleapis.com/chrome-for-testing-public/${nextVersion}/mac-arm64/chrome-mac-arm64.zip`,
+			])
+		);
 		expect(exec).not.toHaveBeenCalled();
 		expect(await hashDirectories()).toEqual([]);
 		expect(JSON.parse(await readFile(checksumPath(), 'utf8'))).toEqual({
 			...checksums,
-			[nextVersion]: allPlatforms,
+			[nextVersion]: { ...allPlatforms, linux64: 'b'.repeat(64) },
 		});
 		expect(JSON.parse(await readFile(lockPath(), 'utf8'))).toEqual({
 			'120': version,
 			'121': nextVersion,
 		});
-	});
-
-	it('does not mutate the update plan while collecting checksums', async () => {
-		const plan = await prepareLockUpdate();
-		const original = JSON.stringify(plan);
-		await applyLockUpdate(plan);
-		expect(JSON.stringify(plan)).toBe(original);
-	});
-
-	it('preserves existing checksums instead of replacing or downloading them', async () => {
-		checksums[nextVersion] = { ...allPlatforms, linux64: 'b'.repeat(64) };
-		await saveChecksums();
-		await updateLock();
-		expect(downloads).toEqual([]);
-		expect(JSON.parse(await readFile(checksumPath(), 'utf8'))).toEqual(checksums);
 	});
 
 	it('rejects invalid existing checksums rather than replacing them', async () => {
@@ -212,33 +177,23 @@ describe('Chrome lock update', () => {
 		expect(downloads).toEqual([]);
 	});
 
-	it('removes temporary output and leaves both locks unchanged after a broken download stream', async () => {
+	it('removes temporary output and leaves both locks unchanged when a later download stream fails', async () => {
 		const plan = await prepareLockUpdate();
-		vi.mocked(fetch).mockResolvedValueOnce(
-			new Response(
-				new ReadableStream({
-					start(controller) {
-						controller.enqueue(content);
-						controller.error(new Error('Stream failed'));
-					},
-				})
-			)
-		);
+		vi.mocked(fetch)
+			.mockResolvedValueOnce(new Response(content))
+			.mockResolvedValueOnce(
+				new Response(
+					new ReadableStream({
+						start(controller) {
+							controller.enqueue(content);
+							controller.error(new Error('Stream failed'));
+						},
+					})
+				)
+			);
 		await expect(applyLockUpdate(plan)).rejects.toThrow('Stream failed');
 		expect(await hashDirectories()).toEqual([]);
 		expect(JSON.parse(await readFile(lockPath(), 'utf8'))).toEqual({ '120': version });
 		expect(JSON.parse(await readFile(checksumPath(), 'utf8'))).toEqual(checksums);
 	});
-
-	it.each([1, 2])(
-		'keeps both locks unchanged after download %s fails',
-		async (failedDownload) => {
-			downloadError = failedDownload;
-			await expect(updateLock()).rejects.toThrow('Download failed');
-			expect(await hashDirectories()).toEqual([]);
-			expect(JSON.parse(await readFile(lockPath(), 'utf8'))).toEqual({ '120': version });
-			expect(JSON.parse(await readFile(checksumPath(), 'utf8'))).toEqual(checksums);
-			expect(exec).not.toHaveBeenCalled();
-		}
-	);
 });

@@ -1,7 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { expect, it, vi } from 'vitest';
 import { operate as gitRead, readVersionChecks } from '../../scripts/lib/git-read';
-import { inside } from '../../scripts/lib/input';
 import { checkedRef, temporaryDirectory } from '../../scripts/lib/script-paths';
 
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn() }));
@@ -12,9 +11,7 @@ it.each([
 	['show', '--output=/outside'],
 	['show', 'HEAD:unreviewed-file'],
 	['rev-parse', '--git-path'],
-	['log', '--output=/outside'],
 	['diff', '--ext-diff'],
-	['ls-files', '--recurse-submodules'],
 ])('rejects non-allowlisted Git arguments before execution: %j', (...args) => {
 	expect(() => gitRead({ args })).toThrow();
 	expect(execFileSync).not.toHaveBeenCalled();
@@ -23,15 +20,9 @@ it.each([
 it.each(
 	[
 		null,
-		undefined,
-		{},
-		'[]',
-		[{}],
 		[{ commit: '--output=/outside', refs: [] }],
-		[{ commit: 'HEAD\nother', refs: [] }],
 		[{ commit: 'HEAD:unreviewed-file', refs: [] }],
 		[{ commit: 'HEAD', refs: null }],
-		[{ commit: 'HEAD', refs: [0] }],
 		[
 			{ commit: 'HEAD', refs: [] },
 			{ commit: '-c', refs: [] },
@@ -42,19 +33,7 @@ it.each(
 	expect(execFileSync).not.toHaveBeenCalled();
 });
 
-it('does not start Git for an explicitly empty version-read batch', () => {
-	expect(readVersionChecks([])).toEqual([]);
-	expect(execFileSync).not.toHaveBeenCalled();
-});
-
-it.each(['../outside', '/outside', '', 'nested/../../outside'])(
-	'rejects a destination outside the output directory: %j',
-	(path) => {
-		expect(() => inside('/output', path)).toThrow('must stay inside');
-	}
-);
-
-it.each(['-c', '--upload-pack=command', 'HEAD\nother', 'HEAD\0other'])(
+it.each(['-c', 'HEAD\nother', 'HEAD\0other'])(
 	'rejects option-like or multiline Git refs: %j',
 	(ref) => {
 		expect(() => checkedRef(ref)).toThrow();

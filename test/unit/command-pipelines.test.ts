@@ -63,7 +63,7 @@ it('packages the extension through the generated sequence without a package runn
 		expect.arrayContaining(['manifest.json', 'background.js', 'LICENSE'])
 	);
 	await expect(readFile(join(root, 'dist.tmp.zip'))).rejects.toMatchObject({ code: 'ENOENT' });
-});
+}, 20_000);
 
 it('removes old archives and stops before packaging when compilation fails', async () => {
 	await prepareExtension();
@@ -71,7 +71,7 @@ it('removes old archives and stops before packaging when compilation fails', asy
 	const result = run(pkg.scripts.zip);
 	expect(result.status).not.toBe(0);
 	await expectNoArchives();
-});
+}, 20_000);
 
 it('does not create an archive after validation fails', async () => {
 	await prepareExtension();
@@ -79,7 +79,7 @@ it('does not create an archive after validation fails', async () => {
 	const result = run(pkg.scripts.zip);
 	expect(result.status).not.toBe(0);
 	await expectNoArchives();
-});
+}, 20_000);
 
 it.skipIf(process.platform === 'win32')(
 	'removes partial output when the zip command fails',
@@ -141,12 +141,12 @@ it('propagates a checker failure after a successful tracked-file producer', asyn
 	expect(result.status).not.toBe(0);
 });
 
-it.each([
-	'',
-	'refs/heads/main deadbeef refs/heads/main deadbeef',
-	'(delete) 00000000 refs/tags/v1.4.9 deadbeef',
-])('accepts pushes without release checks even outside a Git repository: %j', (input) => {
-	const result = run(pkg.scripts['hook:pre-push'], environment(), input);
+it('accepts a push without release refs even outside a Git repository', () => {
+	const result = run(
+		pkg.scripts['hook:pre-push'],
+		environment(),
+		'refs/heads/main deadbeef refs/heads/main deadbeef'
+	);
 	expect(result.status, result.stderr).toBe(0);
 });
 

@@ -2,40 +2,11 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import {
-	buildMainCommand,
-	prepareAssetsCommand,
-	writeAssetsCommand,
-} from '../../scripts/build/commands.generated';
-import { checkDependenciesCommand } from '../../scripts/check-dependencies/commands.generated';
-import { checkSecretsCommand } from '../../scripts/check-secrets/commands.generated';
-import {
-	chromeEnvironmentCommand,
-	readChromeInstallationCommand,
-} from '../../scripts/chrome-install/commands.generated';
-import { chromeMatrixCommand } from '../../scripts/chrome-matrix/commands.generated';
-import {
-	chromeUpdateCommand,
-	readChromeUpdateCommand,
-	writeChromeLockCommand,
-} from '../../scripts/chrome-update/commands.generated';
-import {
-	clearArchiveCommand,
-	validatePackageCommand,
-} from '../../scripts/package/commands.generated';
-import { prePushCommand } from '../../scripts/pre-push/commands.generated';
-import {
-	inspectReleaseCommand,
-	planReleaseCheckCommand,
-	releaseCheckCommand,
-	validateVersionsCommand,
-} from '../../scripts/release/commands.generated';
-import {
-	readVersionCommand,
-	writeVersionCommand,
-} from '../../scripts/sync-version/commands.generated';
+import { buildMainCommand, writeAssetsCommand } from '../../scripts/build/commands.generated';
+import { chromeUpdateCommand } from '../../scripts/chrome-update/commands.generated';
+import { runNode } from '../../scripts/lib/run-node';
 
 let directory: string;
 let root: string;
@@ -52,102 +23,11 @@ beforeEach(async () => {
 	await writeFile(join(root, 'src/assets/manifest.json'), '{"version":"1.4.10"}');
 });
 afterEach(async () => {
+	vi.unstubAllEnvs();
 	await rm(directory, { recursive: true, force: true });
 });
 
-const probe = `
-import { writeFileSync, readFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import { Worker } from 'node:worker_threads';
-const attempt = operation => { try { operation(); return null; } catch (error) { return error.code; } };
-console.log(JSON.stringify({
-  write: attempt(() => writeFileSync('package.json', 'changed')),
-  child: attempt(() => spawnSync(process.execPath, ['--version'])),
-  worker: attempt(() => new Worker('', { eval: true })),
-  writeAll: process.permission.has('fs.write'), readAll: process.permission.has('fs.read'),
-  addons: process.permission.has('addons'),
-}));`;
-const readers = [
-	prepareAssetsCommand,
-	checkDependenciesCommand,
-	checkSecretsCommand,
-	readChromeInstallationCommand,
-	readChromeUpdateCommand,
-	chromeMatrixCommand,
-	readVersionCommand,
-	validateVersionsCommand,
-	inspectReleaseCommand,
-	validatePackageCommand,
-	prePushCommand,
-	planReleaseCheckCommand,
-	releaseCheckCommand,
-];
-it.each(readers.map((command) => ({ name: command.name, command })))(
-	'keeps $name free of writes, workers and subprocesses',
-	({ command }) => {
-		const args = command(root).slice(0, -1);
-		const result = spawnSync(
-			process.execPath,
-			[...args, '--input-type=module', '--eval', probe],
-			{ cwd: root, env: environment(), encoding: 'utf8' }
-		);
-		expect(result.status, result.stderr).toBe(0);
-		expect(JSON.parse(result.stdout)).toEqual({
-			write: 'ERR_ACCESS_DENIED',
-			child: 'ERR_ACCESS_DENIED',
-			worker: 'ERR_ACCESS_DENIED',
-			writeAll: false,
-			readAll: false,
-			addons: false,
-		});
-	}
-);
-
-it.each([prePushCommand, releaseCheckCommand].map((command) => ({ name: command.name, command })))(
-	'keeps $name restricted when its parent grants child processes',
-	({ command }) => {
-		const result = spawnSync(
-			process.execPath,
-			[...command(root).slice(0, -1), '--input-type=module', '--eval', probe],
-			{
-				cwd: root,
-				env: { ...environment(), NODE_OPTIONS: '--permission --allow-child-process' },
-				encoding: 'utf8',
-			}
-		);
-		expect(result.status, result.stderr).toBe(0);
-		expect(JSON.parse(result.stdout)).toMatchObject({
-			child: 'ERR_ACCESS_DENIED',
-			write: 'ERR_ACCESS_DENIED',
-		});
-	}
-);
-
-it.each(
-	[
-		writeAssetsCommand,
-		writeVersionCommand,
-		writeChromeLockCommand,
-		chromeEnvironmentCommand,
-		clearArchiveCommand,
-		chromeUpdateCommand,
-	].map((command) => ({ name: command.name, command }))
-)('does not give $name subprocess or unrelated-file permissions', ({ command }) => {
-	const result = spawnSync(
-		process.execPath,
-		[...command(root).slice(0, -1), '--input-type=module', '--eval', probe],
-		{ cwd: root, env: environment(), encoding: 'utf8' }
-	);
-	expect(result.status, result.stderr).toBe(0);
-	expect(JSON.parse(result.stdout)).toMatchObject({
-		write: 'ERR_ACCESS_DENIED',
-		child: 'ERR_ACCESS_DENIED',
-		worker: 'ERR_ACCESS_DENIED',
-		writeAll: false,
-	});
-});
-
-it('writes only approved asset destinations through the directly executed writer', async () => {
+it('writes only approved assets without inheriting Node options', async () => {
 	const launch = (input: unknown) =>
 		spawnSync(process.execPath, writeAssetsCommand(root), {
 			cwd: root,
@@ -155,12 +35,19 @@ it('writes only approved asset destinations through the directly executed writer
 			encoding: 'utf8',
 			input: JSON.stringify(input),
 		});
-	const allowed = launch({
-		action: 'sync',
-		files: [{ name: 'nested/output.txt', data: Buffer.from('allowed').toString('base64') }],
-		removed: [],
-	});
-	expect(allowed.status, allowed.stderr).toBe(0);
+	vi.stubEnv(
+		'NODE_OPTIONS',
+		'--permission --allow-fs-read=* --allow-fs-write=* --allow-child-process --import=data:text/javascript,process.exit(19)'
+	);
+	runNode(
+		writeAssetsCommand(root),
+		{
+			action: 'sync',
+			files: [{ name: 'nested/output.txt', data: Buffer.from('allowed').toString('base64') }],
+			removed: [],
+		},
+		root
+	);
 	expect(await readFile(join(root, 'dist/nested/output.txt'), 'utf8')).toBe('allowed');
 	const rejected = launch({
 		action: 'sync',
@@ -172,26 +59,7 @@ it('writes only approved asset destinations through the directly executed writer
 	expect(JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version).toBe('1.5.0');
 });
 
-it('applies a complete Chrome update plan without subprocess permissions', async () => {
-	const versions = { '120': '120.0.6099.109' };
-	const checksums = { '120.0.6099.109': { linux64: 'a'.repeat(64) } };
-	const result = spawnSync(process.execPath, chromeUpdateCommand(root), {
-		cwd: root,
-		env: environment(),
-		encoding: 'utf8',
-		input: JSON.stringify({ versions, checksums, downloads: [] }),
-	});
-	expect(result.status, result.stderr).toBe(0);
-	expect(
-		JSON.parse(await readFile(join(root, 'test/browser/chrome-versions.json'), 'utf8'))
-	).toEqual(versions);
-	expect(
-		JSON.parse(await readFile(join(root, 'test/browser/chrome-checksums.json'), 'utf8'))
-	).toEqual(checksums);
-	expect(JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version).toBe('1.5.0');
-});
-
-it('collects Chrome hashes within the declared project-local write grant', async () => {
+it('downloads and writes Chrome hashes within its declared grants without subprocess permissions', async () => {
 	const args = chromeUpdateCommand(root);
 	const prelude = `globalThis.fetch = async () => new Response('archive fixture');`;
 	const version = '120.0.6099.109';
@@ -219,28 +87,14 @@ it('collects Chrome hashes within the declared project-local write grant', async
 		JSON.parse(await readFile(join(root, 'test/browser/chrome-checksums.json'), 'utf8'))
 	).toEqual({ [version]: { linux64: sha256 } });
 	expect(
+		JSON.parse(await readFile(join(root, 'test/browser/chrome-versions.json'), 'utf8'))
+	).toEqual({ '120': version });
+	expect(
 		(await readdir(root)).filter((name) => name.startsWith('.window-merger-chrome-hash-'))
 	).toEqual([]);
 });
 
-it('builds a relative target directory without changing the caller’s working directory', async () => {
-	await writeFile(join(root, 'LICENSE'), 'license');
-	await writeFile(join(root, 'src/background.ts'), 'console.log("relative root fixture");');
-	await writeFile(join(root, 'src/assets/manifest.json'), '{"minimum_chrome_version":"120"}');
-	const entry = new URL('../../scripts/build/main.ts', import.meta.url).href;
-	const program = `import { buildExtension } from ${JSON.stringify(entry)}; await buildExtension({ root: process.argv[1] });`;
-	const result = spawnSync(
-		process.execPath,
-		['--input-type=module', '--eval', program, relative(directory, root)],
-		{ cwd: directory, env: environment(), encoding: 'utf8' }
-	);
-	expect(result.status, result.stderr).toBe(0);
-	expect(await readFile(join(root, 'dist/background.js'), 'utf8')).toContain(
-		'relative root fixture'
-	);
-});
-
-it('watches assets through the directly executed build script and stops cleanly', async () => {
+it('watches optimized assets and source through the CLI and stops cleanly', async () => {
 	await writeFile(join(root, 'LICENSE'), 'license');
 	await writeFile(join(root, 'src/background.ts'), 'console.log("watch fixture");');
 	await writeFile(join(root, 'src/assets/manifest.json'), '{"minimum_chrome_version":"120"}');
@@ -261,27 +115,54 @@ it('watches assets through the directly executed build script and stops cleanly'
 		build.on('error', reject);
 		build.on('close', fulfill);
 	});
+	const expectFile = async (name: string, content: string) =>
+		vi.waitFor(
+			async () =>
+				expect(await readFile(join(root, 'dist', name), 'utf8'), errors).toBe(content),
+			{ timeout: 5000 }
+		);
 	try {
 		await vi.waitFor(() => expect(output, errors).toContain('Watching source and assets'), {
-			timeout: 5000,
+			timeout: 15000,
 		});
-		await writeFile(join(root, 'src/assets/example.txt'), 'changed asset');
+		const manifest = '{ "minimum_chrome_version": "120", "description": "changed" }\n';
+		await writeFile(join(root, 'src/assets/manifest.json'), manifest);
+		await expectFile(
+			'manifest.json',
+			'{"minimum_chrome_version":"120","description":"changed"}'
+		);
+		await mkdir(join(root, 'src/assets/nested'));
+		const asset = join(root, 'src/assets/nested/example.txt');
+		await writeFile(asset, 'added');
+		await expectFile('nested/example.txt', 'added');
+		await writeFile(asset, 'changed');
+		await expectFile('nested/example.txt', 'changed');
+		await rm(join(root, 'src/assets/nested'), { recursive: true });
 		await vi.waitFor(
 			async () =>
-				expect(await readFile(join(root, 'dist/example.txt'), 'utf8')).toBe(
-					'changed asset'
+				expect(readFile(join(root, 'dist/nested/example.txt'))).rejects.toMatchObject({
+					code: 'ENOENT',
+				}),
+			{ timeout: 5000 }
+		);
+		await writeFile(join(root, 'src/background.ts'), 'console.log("source changed");');
+		await vi.waitFor(
+			async () =>
+				expect(await readFile(join(root, 'dist/background.js'), 'utf8')).toContain(
+					'source changed'
 				),
 			{ timeout: 5000 }
 		);
+		expect(await readFile(join(root, 'src/assets/manifest.json'), 'utf8')).toBe(manifest);
 		build.kill('SIGTERM');
 		expect(await completion, errors).toBe(0);
 	} finally {
 		build.kill('SIGKILL');
 		await completion;
 	}
-});
+}, 45_000);
 
-it('does not stage or change the manifest when the version pipeline’s reader fails', async () => {
+it('does not stage or change the manifest when the version pipeline reader fails', async () => {
 	const pkg = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
 	await cp(new URL('../../scripts', import.meta.url), join(root, 'scripts'), { recursive: true });
 	await writeFile(

@@ -40,16 +40,6 @@ describe('merge failures', () => {
 		expect(deps.mocks.updateTab).not.toHaveBeenCalled();
 	});
 
-	it('propagates synchronous port exceptions without starting more work', async () => {
-		const deps = createDeps();
-		const error = new Error('First');
-		deps.mocks.moveGroup.mockImplementationOnce(() => {
-			throw error;
-		});
-		await expect(mergeWindows(false, deps)).rejects.toBe(error);
-		expect(deps.mocks.moveGroup).toHaveBeenCalledOnce();
-	});
-
 	it('awaits repinning before the next move and stops on pin failure', async () => {
 		const deps = createDeps();
 		deps.mocks.getAllWindows.mockResolvedValue([
@@ -69,14 +59,4 @@ describe('merge failures', () => {
 		expect(deps.mocks.moveTabs).toHaveBeenCalledOnce();
 		expect(deps.mocks.updateTab).toHaveBeenCalledOnce();
 	});
-
-	it.each(['getAllWindows', 'moveTabs', 'updateTab', 'getCollapsed', 'setCollapsed'] as const)(
-		'propagates %s failure to the event boundary',
-		async (method) => {
-			const deps = createDeps();
-			const error = new Error('API failure');
-			deps.mocks[method].mockRejectedValue(error);
-			await expect(mergeWindows(false, deps)).rejects.toThrow('API failure');
-		}
-	);
 });

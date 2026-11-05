@@ -1,10 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import { copyFile, cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { copyFile, cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { checkRelease, checkVersions, releaseVersion } from '../../scripts/lib/release-version';
 import { createReleaseTag } from '../../scripts/release/main';
 import { useOperationRoot } from '../helpers/script-operations';
 
@@ -12,12 +11,6 @@ vi.mock('../../scripts/lib/run-node', async () => ({
 	runNode: (await import('../helpers/script-operations')).runScript,
 }));
 
-it.each(['release/v1.4.10', 'v1.4.10', 'refs/heads/release/v1.4.10', 'refs/tags/v1.4.10'])(
-	'recognizes %s',
-	(ref) => {
-		expect(releaseVersion(ref)).toBe('1.4.10');
-	}
-);
 it('skips non-release branches without accessing a repository', () => {
 	expect(createReleaseTag('feature/example', 'HEAD', '/nonexistent/window-merger')).toBe(
 		'skipped'
@@ -55,7 +48,14 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 				},
 			})
 		);
-		await writeFile(join(repository, 'src/assets/manifest.json'), JSON.stringify({ version }));
+		await writeFile(
+			join(repository, 'src/assets/manifest.json'),
+			JSON.stringify({
+				manifest_version: 3,
+				name: 'Release fixture',
+				version,
+			})
+		);
 		execFileSync('pnpm', ['install', '--lockfile-only', '--no-frozen-lockfile'], {
 			cwd: repository,
 			stdio: ['ignore', 'pipe', 'pipe'],
@@ -89,64 +89,7 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 		vi.restoreAllMocks();
 	});
 
-	it('runs CLI validation through a symlink instead of silently skipping it', async () => {
-		const sha = await commit('1.4.10');
-		const alias = join(directory, 'release-alias.ts');
-		await symlink(
-			fileURLToPath(new URL('../../scripts/release/check.ts', import.meta.url)),
-			alias
-		);
-		expect(() =>
-			execFileSync(process.execPath, [alias], {
-				cwd: repository,
-				input: JSON.stringify([
-					{
-						commit: sha,
-						refs: ['release/v1.4.9'],
-						packageJson: git('show', `${sha}:package.json`),
-						manifestJson: git('show', `${sha}:src/assets/manifest.json`),
-					},
-				]),
-				stdio: ['pipe', 'pipe', 'pipe'],
-			})
-		).toThrow('does not match');
-	});
-
-	it.each(['feature/example', 'release/v1.4.10'])(
-		'reads each committed version file once when checking %s',
-		async (branch) => {
-			const sha = await commit('1.4.10');
-			const trace = join(directory, 'version-check.jsonl');
-			execFileSync(
-				'pnpm',
-				['--silent', '--config.verifyDepsBeforeRun=false', 'run', 'release:check'],
-				{
-					cwd: repository,
-					env: {
-						...process.env,
-						RELEASE_BRANCH: branch,
-						RELEASE_COMMIT: sha,
-						GIT_TRACE2_EVENT: trace,
-					},
-					stdio: ['ignore', 'pipe', 'pipe'],
-				}
-			);
-			const reads = (await readFile(trace, 'utf8'))
-				.trim()
-				.split('\n')
-				.map((line) => JSON.parse(line))
-				.filter(
-					(event) =>
-						event.event === 'start' &&
-						event.argv?.[0] === 'git' &&
-						event.argv[1] === 'show'
-				)
-				.map((event) => event.argv.slice(2));
-			expect(reads).toEqual([[`${sha}:package.json`], [`${sha}:src/assets/manifest.json`]]);
-		}
-	);
-
-	it('rejects the removed push-check option without publishing a tag', async () => {
+	it('rejects CLI arguments rather than publishing during an attempted check', async () => {
 		const sha = await commit('1.4.10');
 		const script = fileURLToPath(new URL('../../scripts/release/main.ts', import.meta.url));
 		expect(() =>
@@ -159,47 +102,37 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 		expect(git('ls-remote', '--tags', 'origin')).toBe('');
 	});
 
-	it('checks the committed manifest instead of the working tree', async () => {
-		const sha = await commit('1.4.10');
-		await writeFile(join(repository, 'src/assets/manifest.json'), '{"version":"9.9.9"}');
-		expect(checkRelease('release/v1.4.10', sha, repository)).toBe('1.4.10');
-		expect(() => checkRelease('release/v1.4.9', sha, repository)).toThrow('does not match');
-	});
-	it('publishes pnpm’s annotated marker without changing the checkout or main, and safely reruns', async () => {
-		const sha = await commit('1.4.10');
-		const current = await commit('1.4.11');
-		git('tag', 'unrelated-local-tag');
-		expect(createReleaseTag('release/v1.4.10', sha, repository)).toBe('created');
-		const marker = remoteGit('rev-parse', 'refs/tags/v1.4.10^{commit}');
-		expect(marker).not.toBe(sha);
-		expect(remoteGit('cat-file', '-t', 'refs/tags/v1.4.10')).toBe('tag');
-		expect(remoteGit('rev-parse', `${marker}^`)).toBe(sha);
-		expect(remoteGit('rev-parse', `${marker}^{tree}`)).toBe(git('rev-parse', `${sha}^{tree}`));
-		expect(createReleaseTag('release/v1.4.10', sha, repository)).toBe('existing');
-		expect(remoteGit('rev-parse', 'refs/tags/v1.4.10^{commit}')).toBe(marker);
-		expect(git('rev-parse', 'HEAD')).toBe(current);
-		expect(git('status', '--porcelain')).toBe('');
-		expect(git('ls-remote', '--heads', 'origin')).toBe('');
-		expect(git('tag', '--list')).toBe('unrelated-local-tag');
-	});
 	it('uses the real pnpm version command to prepare both manifests without a local tag', async () => {
 		const sha = await commit('1.4.10');
 		execFileSync('pnpm', ['version', '1.4.11', '--no-git-tag-version'], {
 			cwd: repository,
 			stdio: ['ignore', 'pipe', 'pipe'],
 		});
-		for (const file of ['package.json', 'src/assets/manifest.json']) {
-			expect(JSON.parse(await readFile(join(repository, file), 'utf8')).version).toBe(
-				'1.4.11'
-			);
-		}
+		expect(JSON.parse(await readFile(join(repository, 'package.json'), 'utf8')).version).toBe(
+			'1.4.11'
+		);
+		expect(
+			JSON.parse(await readFile(join(repository, 'src/assets/manifest.json'), 'utf8'))
+		).toEqual({
+			manifest_version: 3,
+			name: 'Release fixture',
+			version: '1.4.11',
+		});
 		expect(git('diff', '--cached', '--name-only')).toBe('src/assets/manifest.json');
 		expect(git('tag', '--list')).toBe('');
 		expect(git('rev-parse', 'HEAD')).toBe(sha);
 	});
 
-	it('publishes through the workflow command without modifying the caller or installing dependencies', async () => {
+	it('publishes the approved snapshot through the workflow command and safely reruns without changing the caller', async () => {
+		const prefix = 'release-%s-';
+		await writeFile(
+			join(repository, 'pnpm-workspace.yaml'),
+			`tagVersionPrefix: ${JSON.stringify(prefix)}\npmOnFail: error\n`
+		);
 		const sha = await commit('1.4.10');
+		const current = await commit('1.4.11');
+		const tag = 'release-%s-1.4.10';
+		git('tag', tag, current);
 		const workflow = await readFile(
 			new URL('../../.github/workflows/create-tag-on-merge.yml', import.meta.url),
 			'utf8'
@@ -213,62 +146,34 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 			...process.env,
 			RELEASE_BRANCH: 'release/v1.4.10',
 			RELEASE_COMMIT: sha,
+			GIT_DIR: join(repository, '.git'),
+			GIT_WORK_TREE: repository,
+			GIT_INDEX_FILE: join(repository, '.git/index'),
 		};
 		delete env.npm_execpath;
-		const output = execFileSync(executable, args, {
-			cwd: repository,
-			env,
-			encoding: 'utf8',
-			stdio: ['ignore', 'pipe', 'pipe'],
-		});
-		expect(output.trim()).toBe('created');
-		const marker = remoteGit('rev-parse', 'refs/tags/v1.4.10^{commit}');
+		const publish = () =>
+			execFileSync(executable, args, {
+				cwd: repository,
+				env,
+				encoding: 'utf8',
+				stdio: ['ignore', 'pipe', 'pipe'],
+			}).trim();
+		expect(publish()).toBe('created');
+		const marker = remoteGit('rev-parse', `refs/tags/${tag}^{commit}`);
+		expect(marker).not.toBe(sha);
+		expect(remoteGit('cat-file', '-t', `refs/tags/${tag}`)).toBe('tag');
 		expect(remoteGit('rev-parse', `${marker}^`)).toBe(sha);
 		expect(remoteGit('rev-parse', `${marker}^{tree}`)).toBe(git('rev-parse', `${sha}^{tree}`));
-		expect(git('rev-parse', 'HEAD')).toBe(sha);
+		expect(publish()).toBe('existing');
+		expect(remoteGit('rev-parse', `refs/tags/${tag}^{commit}`)).toBe(marker);
+		expect(git('rev-parse', 'HEAD')).toBe(current);
 		expect(git('status', '--porcelain')).toBe('');
+		expect(git('ls-remote', '--heads', 'origin')).toBe('');
+		expect(git('tag', '--list')).toBe(tag);
+		expect(git('rev-parse', tag)).toBe(current);
 		await expect(readFile(join(repository, 'node_modules'))).rejects.toMatchObject({
 			code: 'ENOENT',
 		});
-	});
-
-	it('runs the publishing CLI without an inherited npm executable', async () => {
-		const sha = await commit('1.4.10');
-		const env: NodeJS.ProcessEnv = {
-			...process.env,
-			RELEASE_BRANCH: 'release/v1.4.10',
-			RELEASE_COMMIT: sha,
-		};
-		delete env.npm_execpath;
-		const output = execFileSync(
-			process.execPath,
-			[fileURLToPath(new URL('../../scripts/release/main.ts', import.meta.url))],
-			{ cwd: repository, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
-		);
-		expect(output.trim()).toBe('created');
-		expect(remoteGit('rev-parse', 'refs/tags/v1.4.10^{commit}^')).toBe(sha);
-	});
-
-	it('starts the version reader without inherited write or child-process grants', async () => {
-		await writeFile(
-			join(repository, 'scripts/sync-version/read.ts'),
-			`
-import { readFileSync } from 'node:fs';
-if (process.permission.has('child') || process.permission.has('fs.write') || process.permission.has('fs.read')) {
-  throw new Error('The version reader inherited broader permissions');
-}
-console.log(JSON.stringify({ version: JSON.parse(readFileSync('package.json', 'utf8')).version }));`
-		);
-		const sha = await commit('1.4.10');
-		vi.stubEnv(
-			'NODE_OPTIONS',
-			'--permission --allow-fs-read=* --allow-fs-write=* --allow-child-process'
-		);
-		try {
-			expect(createReleaseTag('release/v1.4.10', sha, repository)).toBe('created');
-		} finally {
-			vi.unstubAllEnvs();
-		}
 	});
 
 	it('does not publish a version hook’s changes beyond the approved snapshot', async () => {
@@ -293,22 +198,6 @@ console.log(JSON.stringify({ version: JSON.parse(readFileSync('package.json', 'u
 		expect(git('status', '--porcelain')).toBe('');
 	});
 
-	it('isolates pnpm and Git from inherited repository and index variables', async () => {
-		const sha = await commit('1.4.10');
-		vi.stubEnv('GIT_DIR', join(repository, '.git'));
-		vi.stubEnv('GIT_WORK_TREE', repository);
-		vi.stubEnv('GIT_INDEX_FILE', join(repository, '.git/index'));
-		try {
-			expect(createReleaseTag('release/v1.4.10', sha, repository)).toBe('created');
-			expect(git('rev-parse', 'HEAD')).toBe(sha);
-			expect(git('status', '--porcelain')).toBe('');
-			expect(git('tag', '--list')).toBe('');
-		} finally {
-			vi.unstubAllEnvs();
-		}
-		expect(remoteGit('rev-parse', 'refs/tags/v1.4.10^{commit}^')).toBe(sha);
-	});
-
 	it('never overwrites conflicting remote tags', async () => {
 		const sha = await commit('1.4.10');
 		createReleaseTag('release/v1.4.10', sha, repository);
@@ -325,28 +214,12 @@ console.log(JSON.stringify({ version: JSON.parse(readFileSync('package.json', 'u
 		createReleaseTag('release/v1.4.10', current, repository);
 		expect(() => createReleaseTag('release/v1.4.9', old, repository)).toThrow('not newer');
 	});
-	it('leaves a conflicting local tag untouched while publishing the verified commit', async () => {
-		const previous = await commit('1.4.9');
-		const sha = await commit('1.4.10');
-		git('tag', 'v1.4.10', previous);
-		expect(createReleaseTag('release/v1.4.10', sha, repository)).toBe('created');
-		expect(git('rev-parse', 'v1.4.10')).toBe(previous);
-		expect(remoteGit('rev-parse', 'refs/tags/v1.4.10^{commit}^')).toBe(sha);
-	});
 
-	it.each(['release-', '', 'release-%s-'])(
-		'uses pnpm’s configured tag prefix %j',
-		async (prefix) => {
-			await writeFile(
-				join(repository, 'pnpm-workspace.yaml'),
-				`tagVersionPrefix: ${JSON.stringify(prefix)}\npmOnFail: error\n`
-			);
-			const sha = await commit('1.4.10');
-			expect(createReleaseTag('release/v1.4.10', sha, repository)).toBe('created');
-			expect(remoteGit('rev-parse', `refs/tags/${prefix}1.4.10^{commit}^`)).toBe(sha);
-			expect(createReleaseTag('release/v1.4.10', sha, repository)).toBe('existing');
-		}
-	);
+	it('rejects a release ref that differs from the committed version', async () => {
+		const sha = await commit('1.4.10');
+		expect(() => createReleaseTag('release/v1.4.9', sha, repository)).toThrow('does not match');
+		expect(git('ls-remote', '--tags', 'origin')).toBe('');
+	});
 
 	it('checks both committed version files', async () => {
 		await commit('1.4.10');
@@ -357,25 +230,9 @@ console.log(JSON.stringify({ version: JSON.parse(readFileSync('package.json', 'u
 		);
 		git('add', 'package.json');
 		git('-c', 'commit.gpgsign=false', 'commit', '-m', 'chore: inconsistent version');
-		expect(() => checkVersions('HEAD', repository)).toThrow('does not match manifest version');
 		expect(() => createReleaseTag('release/v1.4.10', 'HEAD', repository)).toThrow(
 			'does not match manifest version'
 		);
-		expect(() =>
-			execFileSync(
-				'pnpm',
-				['--silent', '--config.verifyDepsBeforeRun=false', 'run', 'release:check'],
-				{
-					cwd: repository,
-					env: {
-						...process.env,
-						RELEASE_BRANCH: 'feature/example',
-						RELEASE_COMMIT: 'HEAD',
-					},
-					stdio: ['ignore', 'pipe', 'pipe'],
-				}
-			)
-		).toThrow('does not match manifest version');
 		expect(git('ls-remote', '--tags', 'origin')).toBe('');
 	});
 

@@ -67,7 +67,6 @@ console.error = (...values: unknown[]) => {
 
 declare global {
 	var mergerTest: {
-		menu: (id: string) => void;
 		actionFromWindow: (windowId: number) => Promise<void>;
 		menuFromWindow: (id: string, windowId: number) => Promise<void>;
 		action: () => Promise<void>;
@@ -95,9 +94,6 @@ globalThis.mergerTest = {
 		const [tab] = await chrome.tabs.query({ active: true, windowType: 'normal' });
 		if (!tab) throw new Error('No active tab in a normal window');
 		for (const listener of actionListeners) listener(tab);
-	},
-	menu: (menuItemId) => {
-		for (const listener of menuListeners) listener({ menuItemId, editable: false });
 	},
 	errors,
 	menuOperations,

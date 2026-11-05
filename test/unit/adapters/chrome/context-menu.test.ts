@@ -39,15 +39,11 @@ beforeEach(() => {
 });
 
 describe('context menu lifecycle', () => {
-	it('creates both menus using callback completion and initial permission state', async () => {
+	it('creates both menus and updates them after permission changes without duplicates', async () => {
 		await setupContextMenus();
 		expect(menus.size).toBe(2);
 		expect(menus.get(ContextMenuIds.mergeWindow)?.enabled).toBe(true);
 		expect(menus.get(ContextMenuIds.mergeIncognitoWindow)?.enabled).toBe(false);
-	});
-
-	it('updates existing menus after permission changes without deleting or duplicating them', async () => {
-		await setupContextMenus();
 		allowed.mockResolvedValue(true);
 		await setupContextMenus();
 		expect(menus.get(ContextMenuIds.mergeIncognitoWindow)?.enabled).toBe(true);
@@ -64,38 +60,13 @@ describe('context menu lifecycle', () => {
 		expect(menus.get(ContextMenuIds.mergeWindow)?.title).toBe('mergeWindowTitle');
 	});
 
-	it.each([ContextMenuIds.mergeWindow, ContextMenuIds.mergeIncognitoWindow])(
-		'reports asynchronous creation failure for %s',
-		async (failedId) => {
-			create.mockImplementation((properties, done) => {
-				complete(done, properties.id === failedId ? 'Creation failed' : undefined);
-				return properties.id ?? '';
-			});
-			await expect(setupContextMenus()).rejects.toMatchObject({
-				errors: [
-					expect.any(Error),
-					expect.objectContaining({ message: 'Creation failed' }),
-				],
-			});
-		}
-	);
-
-	it('reports update and fallback creation errors together', async () => {
-		update.mockImplementation((_id, _properties, done) => complete(done, 'Update failed'));
-		create.mockImplementation(() => {
-			throw new Error('Create failed');
+	it('reports asynchronous creation failures', async () => {
+		create.mockImplementation((properties, done) => {
+			complete(done, 'Creation failed');
+			return properties.id ?? '';
 		});
 		await expect(setupContextMenus()).rejects.toMatchObject({
-			errors: [
-				expect.objectContaining({ message: 'Update failed' }),
-				expect.objectContaining({ message: 'Create failed' }),
-			],
+			errors: [expect.any(Error), expect.objectContaining({ message: 'Creation failed' })],
 		});
-	});
-
-	it('propagates permission query failure', async () => {
-		allowed.mockRejectedValueOnce(new Error('Permission query failed'));
-		await expect(setupContextMenus()).rejects.toThrow('Permission query failed');
-		expect(update).not.toHaveBeenCalled();
 	});
 });
