@@ -22,7 +22,7 @@ const packageList = [
 			example: {
 				...dependency,
 				path: '/private/node_modules/example',
-				resolved: 'https://user:secret@registry.invalid/example.tgz',
+				resolved: 'https://user:secret@registry.invalid/example.tgz', // betterleaks:allow
 			},
 		},
 	},
@@ -176,7 +176,7 @@ it('rejects private dependency URLs before contacting OSV', async () => {
 	const list = [
 		{
 			dependencies: {
-				example: { from: 'https://user:secret@private.invalid/', version: '1.0.0' },
+				example: { from: 'https://user:secret@private.invalid/', version: '1.0.0' }, // betterleaks:allow
 			},
 		},
 	];

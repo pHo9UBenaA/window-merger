@@ -26,6 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Verify workflow dependency lockfile
         env:
@@ -42,7 +43,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm scripts:check
       - run: pnpm run ci --reporter=github
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: '1.26'
+          cache: false
+      - run: go install github.com/betterleaks/betterleaks@v1.10.0
       - run: pnpm run check:secrets
+      - name: Scan pull request commits for secrets
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          betterleaks git . --no-banner --verbose --redact \
+            --log-opts="--diff-merges=first-parent ${BASE_SHA}..${HEAD_SHA}"
       - run: pnpm run typecheck
       - run: pnpm run test:coverage
       - run: pnpm run check:dependencies

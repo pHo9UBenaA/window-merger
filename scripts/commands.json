@@ -20,7 +20,7 @@
 		},
 		"checkDependencies": { "file": "check-dependencies/check.ts" },
 		"checkGeneratedCommands": { "file": "generate-commands.ts" },
-		"checkSecrets": { "file": "check-secrets/main.ts" },
+		"checkSecrets": { "childProcess": true, "file": "check-secrets/main.ts" },
 		"checkTools": { "childProcess": true, "file": "lib/check-tools.ts", "launcher": true },
 		"chromeDownload": {
 			"file": "lib/chrome-download.ts",
@@ -135,7 +135,7 @@
 		"build": "{{buildMain}}",
 		"check": "biome check --write .",
 		"check:dependencies": "{{collectDependencies}} | {{checkDependencies}}",
-		"check:secrets": "{{gitRead}} --tracked-files | {{checkSecrets}} | {{checkTools}}",
+		"check:secrets": "{{gitRead}} --tracked-files | {{checkSecrets}}",
 		"chrome:install": "{{chromeInstall}}",
 		"chrome:matrix": "{{chromeMatrix}}",
 		"chrome:update-lock": "{{readChromeUpdate}} | {{chromeUpdate}}",

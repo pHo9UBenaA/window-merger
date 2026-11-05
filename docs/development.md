@@ -69,7 +69,8 @@ For a quick unit-test pass:
 pnpm test
 ```
 
-Before opening a pull request, [install Chromium](#browser-tests) if needed, then run:
+Before opening a pull request, install [Betterleaks](https://github.com/betterleaks/betterleaks#installation)
+on `PATH` and [Chromium](#browser-tests) if needed, then run:
 
 ```sh
 pnpm run ci

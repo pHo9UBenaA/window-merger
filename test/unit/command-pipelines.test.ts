@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
@@ -105,27 +105,43 @@ it('does not hide a failed Git producer behind an empty tracked-file list', () =
 	expect(result.stderr).toContain('not a git repository');
 });
 
-it('checks only tracked paths, preserves filenames and propagates checker errors', async () => {
-	git('init');
-	await writeFile(join(root, '.secretlintrc.json'), 'invalid configuration');
-	await writeFile(join(root, 'untracked.txt'), 'not included');
-	const empty = run(pkg.scripts['check:secrets']);
-	expect(empty.status, empty.stderr).toBe(0);
-	await symlink(join(PROJECT_ROOT, 'node_modules'), join(root, 'node_modules'), 'junction');
-	await cp(join(PROJECT_ROOT, '.secretlintrc.json'), join(root, '.secretlintrc.json'));
-	const files = [
-		process.platform === 'win32'
-			? 'file [with spaces].md'
-			: 'file [with spaces]\nand newline.md',
-		'--leading-dash.md',
-	];
-	for (const file of files) await writeFile(join(root, file), '# Safe fixture\n');
-	git('add', '--', ...files);
-	const result = run(pkg.scripts['check:secrets']);
-	expect(result.status, result.stderr).toBe(0);
-	await writeFile(join(root, '.secretlintrc.json'), 'invalid configuration');
-	expect(run(pkg.scripts['check:secrets']).status).not.toBe(0);
+it('warns and fails when Betterleaks is missing, even with no tracked files', () => {
+	const result = run(
+		shellCommand(config.executables.checkSecrets),
+		{ ...environment(), PATH: root },
+		JSON.stringify('')
+	);
+	expect(result.status).not.toBe(0);
+	expect(result.stderr).toContain('Warning: betterleaks is not installed or not on PATH');
 });
+
+it.skipIf(spawnSync('betterleaks', ['--help']).error)(
+	'checks only tracked paths, preserves filenames and propagates Betterleaks findings',
+	async () => {
+		git('init');
+		const secret = ['ghp_', 'aB3dE5fG7hI9jK1mN3pQ5rS7tU9vW1xY3zA5'].join('');
+		await writeFile(join(root, 'untracked.txt'), secret);
+		const empty = run(pkg.scripts['check:secrets']);
+		expect(empty.status, empty.stderr).toBe(0);
+		const files = [
+			process.platform === 'win32'
+				? 'file [with spaces].md'
+				: 'file [with spaces]\nand newline.md',
+			'--leading-dash.md',
+		];
+		for (const file of files) await writeFile(join(root, file), '# Safe fixture\n');
+		git('add', '--', ...files);
+		const result = run(pkg.scripts['check:secrets']);
+		expect(result.status, result.stderr).toBe(0);
+		await writeFile(join(root, files[1]), secret);
+		const finding = run(pkg.scripts['check:secrets']);
+		const output = finding.stdout + finding.stderr;
+		expect(finding.status).toBe(1);
+		expect(output).toContain('github-pat');
+		expect(output).toContain(files[1]);
+		expect(output).not.toContain(secret);
+	}
+);
 
 it('accepts a push without release refs even outside a Git repository', () => {
 	const result = run(
