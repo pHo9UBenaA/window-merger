@@ -25,8 +25,11 @@ import {
 	clearArchiveCommand,
 	validatePackageCommand,
 } from '../../scripts/package/commands.generated';
+import { prePushCommand } from '../../scripts/pre-push/commands.generated';
 import {
 	inspectReleaseCommand,
+	planReleaseCheckCommand,
+	releaseCheckCommand,
 	validateVersionsCommand,
 } from '../../scripts/release/commands.generated';
 import {
@@ -75,6 +78,9 @@ const readers = [
 	validateVersionsCommand,
 	inspectReleaseCommand,
 	validatePackageCommand,
+	prePushCommand,
+	planReleaseCheckCommand,
+	releaseCheckCommand,
 ];
 it.each(readers.map((command) => ({ name: command.name, command })))(
 	'keeps $name free of writes, workers and subprocesses',
@@ -93,6 +99,26 @@ it.each(readers.map((command) => ({ name: command.name, command })))(
 			writeAll: false,
 			readAll: false,
 			addons: false,
+		});
+	}
+);
+
+it.each([prePushCommand, releaseCheckCommand].map((command) => ({ name: command.name, command })))(
+	'keeps $name restricted when its parent grants child processes',
+	({ command }) => {
+		const result = spawnSync(
+			process.execPath,
+			[...command(root).slice(0, -1), '--input-type=module', '--eval', probe],
+			{
+				cwd: root,
+				env: { ...environment(), NODE_OPTIONS: '--permission --allow-child-process' },
+				encoding: 'utf8',
+			}
+		);
+		expect(result.status, result.stderr).toBe(0);
+		expect(JSON.parse(result.stdout)).toMatchObject({
+			child: 'ERR_ACCESS_DENIED',
+			write: 'ERR_ACCESS_DENIED',
 		});
 	}
 );

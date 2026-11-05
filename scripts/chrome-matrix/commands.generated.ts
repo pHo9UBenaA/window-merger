@@ -9,5 +9,6 @@ export const chromeMatrixCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(root, 'package.json')}`,
 	`--allow-fs-read=${join(root, 'src/assets/manifest.json')}`,
 	`--allow-fs-read=${join(root, 'test/browser/chrome-versions.json')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/chrome-matrix/main.ts'),
 ];

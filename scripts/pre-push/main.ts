@@ -1,22 +1,29 @@
 import { readFileSync } from 'node:fs';
-import { checkRelease } from '../lib/release-version.ts';
+import { text } from '../lib/input.ts';
+import { runJsonCli } from '../lib/json-cli.ts';
+import { releaseVersion, type VersionCheckRequest } from '../lib/version.ts';
 
-export const checkPush = (input: string, cwd = process.cwd()): void => {
+export const planPushChecks = (input: string): VersionCheckRequest[] => {
+	const refsByCommit = new Map<string, Set<string>>();
 	for (const line of input.trim().split('\n')) {
 		if (!line) continue;
-		const [localRef, commit, remoteRef] = line.split(/\s+/);
-		// A zero local commit denotes a deletion, not a release to validate.
+		// Unicode spaces can belong to a Git ref; only ASCII separators divide fields.
+		const fields = line.trim().split(/[ \t]+/);
+		if (fields.length !== 4) throw new Error('Invalid pre-push record');
+		const [localRef, commit, remoteRef] = fields;
+		// A deletion has no local commit to validate.
 		if (/^0+$/.test(commit)) continue;
-		checkRelease(localRef, commit, cwd);
-		checkRelease(remoteRef, commit, cwd);
+		const refs = [localRef, remoteRef].filter((ref) => releaseVersion(ref) !== null);
+		if (refs.length === 0) continue;
+		const collected = refsByCommit.get(commit) ?? new Set<string>();
+		for (const ref of refs) collected.add(ref);
+		refsByCommit.set(commit, collected);
 	}
+	return [...refsByCommit].map(([commit, refs]) => ({ commit, refs: [...refs] }));
 };
 
-if (import.meta.main) {
-	try {
-		checkPush(readFileSync(0, 'utf8'));
-	} catch (error) {
-		console.error(error);
-		process.exitCode = 1;
-	}
-}
+if (import.meta.main)
+	await runJsonCli(
+		(input) => planPushChecks(text(input)),
+		() => readFileSync(0, 'utf8')
+	);

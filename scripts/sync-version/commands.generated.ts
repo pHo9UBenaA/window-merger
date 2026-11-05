@@ -7,6 +7,7 @@ export const readVersionCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
 	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 	`--allow-fs-read=${join(root, 'package.json')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/sync-version/read.ts'),
 ];
 
@@ -17,5 +18,6 @@ export const writeVersionCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(root, 'package.json')}`,
 	`--allow-fs-read=${join(root, 'src/assets/manifest.json')}`,
 	`--allow-fs-write=${join(root, 'src/assets/manifest.json')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/sync-version/write.ts'),
 ];

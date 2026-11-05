@@ -1,3 +1,13 @@
+export type VersionCheckRequest = {
+	readonly commit: string;
+	readonly refs: readonly string[];
+};
+
+export type VersionCheckSnapshot = VersionCheckRequest & {
+	readonly packageJson: string;
+	readonly manifestJson: string;
+};
+
 export const validateVersion = (version: unknown): string => {
 	if (typeof version !== 'string' || !/^(0|[1-9]\d*)(\.(0|[1-9]\d*)){0,3}$/.test(version))
 		throw new Error('Invalid Chrome extension version');

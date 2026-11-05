@@ -19,6 +19,7 @@ export const prepareAssetsCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(root, 'package.json')}`,
 	`--allow-fs-read=${join(root, 'src/assets')}`,
 	`--allow-fs-read=${join(root, 'LICENSE')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/build/prepare-assets.ts'),
 ];
 
@@ -29,6 +30,7 @@ export const writeAssetsCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(root, 'package.json')}`,
 	`--allow-fs-read=${join(root, 'dist')}`,
 	`--allow-fs-write=${join(root, 'dist')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/build/write-assets.ts'),
 ];
 

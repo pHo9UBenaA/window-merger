@@ -16,11 +16,12 @@ const environment = () => {
 	const { NODE_OPTIONS: _options, ...env } = process.env;
 	return Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith('GIT_')));
 };
-const run = (command: string, env = environment()) => {
+const run = (command: string, env = environment(), input?: string) => {
 	const result = spawnSync(fixtureCommand(command), {
 		cwd: root,
 		env,
 		shell: true,
+		input,
 		encoding: 'utf8',
 		timeout: 20_000,
 	});
@@ -140,12 +141,59 @@ it('propagates a checker failure after a successful tracked-file producer', asyn
 	expect(result.status).not.toBe(0);
 });
 
+it.each([
+	'',
+	'refs/heads/main deadbeef refs/heads/main deadbeef',
+	'(delete) 00000000 refs/tags/v1.4.9 deadbeef',
+])('accepts pushes without release checks even outside a Git repository: %j', (input) => {
+	const result = run(pkg.scripts['hook:pre-push'], environment(), input);
+	expect(result.status, result.stderr).toBe(0);
+});
+
+it('does not accept an empty release-check result as a successful CI check', () => {
+	const reader = shellCommand(config.executables.gitRead);
+	const checker = shellCommand(config.executables.releaseCheck);
+	const result = run(
+		`node --permission --eval "console.log('[]')" | ${reader} --version-checks | ${checker}`
+	);
+	expect(result.status).not.toBe(0);
+	expect(result.stderr).toContain('Expected at least one committed version check');
+});
+
+it('does not hide a failed Git read in the release-check pipeline', () => {
+	const result = run(pkg.scripts['release:check'], {
+		...environment(),
+		RELEASE_BRANCH: 'release/v1.4.10',
+		RELEASE_COMMIT: 'HEAD',
+	});
+	expect(result.status).not.toBe(0);
+	expect(result.stderr).toContain('not a git repository');
+});
+
+it('checks package and manifest consistency on an ordinary CI branch', async () => {
+	await mkdir(join(root, 'src/assets'), { recursive: true });
+	await writeFile(join(root, 'package.json'), '{"version":"1.4.9"}');
+	await writeFile(join(root, 'src/assets/manifest.json'), '{"version":"1.4.10"}');
+	git('init');
+	git('config', 'user.name', 'Version Test');
+	git('config', 'user.email', 'test@example.invalid');
+	git('add', '.');
+	git('-c', 'commit.gpgsign=false', 'commit', '-m', 'chore: inconsistent versions');
+	const result = run(pkg.scripts['release:check'], {
+		...environment(),
+		RELEASE_BRANCH: 'feature/example',
+		RELEASE_COMMIT: 'HEAD',
+	});
+	expect(result.status).not.toBe(0);
+	expect(result.stderr).toContain('does not match manifest version');
+});
+
 it('keeps both Chrome locks unchanged when an upstream producer fails', async () => {
 	await mkdir(join(root, 'test/browser'), { recursive: true });
 	for (const file of ['chrome-versions.json', 'chrome-checksums.json'])
 		await writeFile(join(root, 'test/browser', file), 'unchanged');
 	const writer = shellCommand(config.executables.chromeUpdate);
-	const result = run(`node --eval "process.exit(1)" | ${writer}`);
+	const result = run(`node --permission --eval "process.exit(1)" | ${writer}`);
 	expect(result.status).not.toBe(0);
 	for (const file of ['chrome-versions.json', 'chrome-checksums.json'])
 		expect(await readFile(join(root, 'test/browser', file), 'utf8')).toBe('unchanged');

@@ -51,6 +51,7 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 				scripts: {
 					version: scripts.version,
 					'release:publish': scripts['release:publish'],
+					'release:check': scripts['release:check'],
 				},
 			})
 		);
@@ -98,8 +99,15 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 		expect(() =>
 			execFileSync(process.execPath, [alias], {
 				cwd: repository,
-				env: { ...process.env, RELEASE_BRANCH: 'release/v1.4.9', RELEASE_COMMIT: sha },
-				stdio: ['ignore', 'pipe', 'pipe'],
+				input: JSON.stringify([
+					{
+						commit: sha,
+						refs: ['release/v1.4.9'],
+						packageJson: git('show', `${sha}:package.json`),
+						manifestJson: git('show', `${sha}:src/assets/manifest.json`),
+					},
+				]),
+				stdio: ['pipe', 'pipe', 'pipe'],
 			})
 		).toThrow('does not match');
 	});
@@ -109,19 +117,20 @@ describe('release Git integration', { timeout: 30_000 }, () => {
 		async (branch) => {
 			const sha = await commit('1.4.10');
 			const trace = join(directory, 'version-check.jsonl');
-			const script = fileURLToPath(
-				new URL('../../scripts/release/check.ts', import.meta.url)
+			execFileSync(
+				'pnpm',
+				['--silent', '--config.verifyDepsBeforeRun=false', 'run', 'release:check'],
+				{
+					cwd: repository,
+					env: {
+						...process.env,
+						RELEASE_BRANCH: branch,
+						RELEASE_COMMIT: sha,
+						GIT_TRACE2_EVENT: trace,
+					},
+					stdio: ['ignore', 'pipe', 'pipe'],
+				}
 			);
-			execFileSync(process.execPath, [script], {
-				cwd: repository,
-				env: {
-					...process.env,
-					RELEASE_BRANCH: branch,
-					RELEASE_COMMIT: sha,
-					GIT_TRACE2_EVENT: trace,
-				},
-				stdio: ['ignore', 'pipe', 'pipe'],
-			});
 			const reads = (await readFile(trace, 'utf8'))
 				.trim()
 				.split('\n')
@@ -341,9 +350,10 @@ console.log(JSON.stringify({ version: JSON.parse(readFileSync('package.json', 'u
 
 	it('checks both committed version files', async () => {
 		await commit('1.4.10');
+		const pkg = JSON.parse(await readFile(join(repository, 'package.json'), 'utf8'));
 		await writeFile(
 			join(repository, 'package.json'),
-			'{"name":"release-fixture","version":"1.4.9"}'
+			JSON.stringify({ ...pkg, version: '1.4.9' })
 		);
 		git('add', 'package.json');
 		git('-c', 'commit.gpgsign=false', 'commit', '-m', 'chore: inconsistent version');
@@ -353,8 +363,8 @@ console.log(JSON.stringify({ version: JSON.parse(readFileSync('package.json', 'u
 		);
 		expect(() =>
 			execFileSync(
-				process.execPath,
-				[fileURLToPath(new URL('../../scripts/release/check.ts', import.meta.url))],
+				'pnpm',
+				['--silent', '--config.verifyDepsBeforeRun=false', 'run', 'release:check'],
 				{
 					cwd: repository,
 					env: {

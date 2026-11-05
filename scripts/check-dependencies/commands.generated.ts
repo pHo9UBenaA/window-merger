@@ -16,5 +16,6 @@ export const checkDependenciesCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
 	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 	`--allow-fs-read=${join(root, 'package.json')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/check-dependencies/check.ts'),
 ];

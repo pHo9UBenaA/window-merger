@@ -45,7 +45,7 @@ it('replaces generated commands while preserving package metadata', () => {
 		version: '1.0.0',
 		scripts: {
 			example:
-				'node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts ./scripts/example/read.ts',
+				'node --permission --allow-fs-read=./package.json --allow-fs-read=./scripts --no-allow-child-process ./scripts/example/read.ts',
 		},
 	});
 });

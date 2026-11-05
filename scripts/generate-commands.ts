@@ -97,7 +97,7 @@ export const renderCommandModule = (
 			`\t\`--allow-fs-read=\${join(PROJECT_ROOT, 'scripts')}\`,`,
 			`\t\`--allow-fs-read=\${join(root, 'package.json')}\`,`,
 			...permissionExpressions(entry).map((line) => `\t${line}`),
-			...(entry.childProcess ? ["\t'--allow-child-process',"] : []),
+			`\t${quote(entry.childProcess ? '--allow-child-process' : '--no-allow-child-process')},`,
 			`\tjoin(PROJECT_ROOT, ${quote(`scripts/${entry.file}`)}),`,
 			'];',
 		].join('\n')
@@ -118,7 +118,7 @@ export const shellCommand = (entry: Executable): string => {
 			flags.push(`--allow-fs-${kind}=./${path.replace(/^\$code\//, '')}`);
 		}
 	}
-	if (entry.childProcess) flags.push('--allow-child-process');
+	flags.push(entry.childProcess ? '--allow-child-process' : '--no-allow-child-process');
 	return ['node', ...new Set(flags), `./scripts/${entry.file}`].join(' ');
 };
 

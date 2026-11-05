@@ -11,6 +11,7 @@ export const clearArchiveCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(root, 'dist.tmp.zip')}`,
 	`--allow-fs-write=${join(root, 'dist.zip')}`,
 	`--allow-fs-write=${join(root, 'dist.tmp.zip')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/package/clear.ts'),
 ];
 
@@ -20,6 +21,7 @@ export const validatePackageCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 	`--allow-fs-read=${join(root, 'package.json')}`,
 	`--allow-fs-read=${join(root, 'dist')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/package/validate.ts'),
 ];
 

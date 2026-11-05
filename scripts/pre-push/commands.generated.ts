@@ -7,6 +7,6 @@ export const prePushCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
 	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--allow-child-process',
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/pre-push/main.ts'),
 ];

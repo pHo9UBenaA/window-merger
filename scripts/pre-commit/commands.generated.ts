@@ -18,6 +18,7 @@ export const snapshotCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(root, 'package.json')}`,
 	`--allow-fs-read=${join(root, '.window-merger-index-*')}`,
 	`--allow-fs-write=${join(root, '.window-merger-index-*')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/pre-commit/snapshot.ts'),
 ];
 

@@ -3,12 +3,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PROJECT_ROOT } from '../lib/project-root.ts';
 
+export const planReleaseCheckCommand = (root = process.cwd()): string[] => [
+	'--permission',
+	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
+	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
+	`--allow-fs-read=${join(root, 'package.json')}`,
+	'--no-allow-child-process',
+	join(PROJECT_ROOT, 'scripts/release/plan-check.ts'),
+];
+
 export const releaseCheckCommand = (root = process.cwd()): string[] => [
 	'--permission',
 	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
 	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--allow-child-process',
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/release/check.ts'),
 ];
 
@@ -28,6 +37,7 @@ export const releaseDirectoryCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(root, 'package.json')}`,
 	`--allow-fs-read=${join(tmpdir(), 'window-merger-release-*')}`,
 	`--allow-fs-write=${join(tmpdir(), 'window-merger-release-*')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/release/directory.ts'),
 ];
 
@@ -54,6 +64,7 @@ export const validateVersionsCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
 	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 	`--allow-fs-read=${join(root, 'package.json')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/release/validate-versions.ts'),
 ];
 
@@ -62,5 +73,6 @@ export const inspectReleaseCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
 	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 	`--allow-fs-read=${join(root, 'package.json')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/release/inspect.ts'),
 ];

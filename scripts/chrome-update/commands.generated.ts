@@ -11,6 +11,7 @@ export const chromeUpdateCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-write=${join(root, '.window-merger-chrome-hash-*')}`,
 	`--allow-fs-write=${join(root, 'test/browser/chrome-checksums.json')}`,
 	`--allow-fs-write=${join(root, 'test/browser/chrome-versions.json')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/chrome-update/main.ts'),
 ];
 
@@ -21,6 +22,7 @@ export const readChromeUpdateCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(root, 'package.json')}`,
 	`--allow-fs-read=${join(root, 'src/assets/manifest.json')}`,
 	`--allow-fs-read=${join(root, 'test/browser')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/chrome-update/read.ts'),
 ];
 
@@ -31,5 +33,6 @@ export const writeChromeLockCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(root, 'package.json')}`,
 	`--allow-fs-write=${join(root, 'test/browser/chrome-checksums.json')}`,
 	`--allow-fs-write=${join(root, 'test/browser/chrome-versions.json')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/chrome-update/write-lock.ts'),
 ];

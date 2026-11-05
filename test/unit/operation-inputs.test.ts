@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { expect, it, vi } from 'vitest';
-import { operate as gitRead } from '../../scripts/lib/git-read';
+import { operate as gitRead, readVersionChecks } from '../../scripts/lib/git-read';
 import { inside } from '../../scripts/lib/input';
 import { checkedRef, temporaryDirectory } from '../../scripts/lib/script-paths';
 
@@ -17,6 +17,33 @@ it.each([
 	['ls-files', '--recurse-submodules'],
 ])('rejects non-allowlisted Git arguments before execution: %j', (...args) => {
 	expect(() => gitRead({ args })).toThrow();
+	expect(execFileSync).not.toHaveBeenCalled();
+});
+
+it.each(
+	[
+		null,
+		undefined,
+		{},
+		'[]',
+		[{}],
+		[{ commit: '--output=/outside', refs: [] }],
+		[{ commit: 'HEAD\nother', refs: [] }],
+		[{ commit: 'HEAD:unreviewed-file', refs: [] }],
+		[{ commit: 'HEAD', refs: null }],
+		[{ commit: 'HEAD', refs: [0] }],
+		[
+			{ commit: 'HEAD', refs: [] },
+			{ commit: '-c', refs: [] },
+		],
+	].map((input) => ({ input }))
+)('rejects malformed version-read requests before starting Git: %j', ({ input }) => {
+	expect(() => readVersionChecks(input)).toThrow();
+	expect(execFileSync).not.toHaveBeenCalled();
+});
+
+it('does not start Git for an explicitly empty version-read batch', () => {
+	expect(readVersionChecks([])).toEqual([]);
 	expect(execFileSync).not.toHaveBeenCalled();
 });
 

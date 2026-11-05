@@ -67,8 +67,9 @@
 			"write": [".window-merger-index-*"]
 		},
 		"exportIndex": { "file": "pre-commit/export-index.ts", "childProcess": true },
-		"prePush": { "file": "pre-push/main.ts", "childProcess": true },
-		"releaseCheck": { "file": "release/check.ts", "childProcess": true },
+		"prePush": { "file": "pre-push/main.ts" },
+		"planReleaseCheck": { "file": "release/plan-check.ts" },
+		"releaseCheck": { "file": "release/check.ts" },
 		"releaseMain": { "file": "release/main.ts", "childProcess": true },
 		"releaseDirectory": {
 			"file": "release/directory.ts",
@@ -136,8 +137,8 @@
 		"chrome:update-lock": "{{readChromeUpdate}} | {{chromeUpdate}}",
 		"chrome:matrix": "{{chromeMatrix}}",
 		"hook:pre-commit": "{{preCommit}}",
-		"hook:pre-push": "{{prePush}}",
-		"release:check": "{{releaseCheck}}",
+		"hook:pre-push": "{{prePush}} | {{gitRead}} --version-checks | {{releaseCheck}} --allow-empty",
+		"release:check": "{{planReleaseCheck}} | {{gitRead}} --version-checks | {{releaseCheck}}",
 		"release:publish": "{{releaseMain}}",
 		"version": "{{readVersion}} | {{writeVersion}} && git add -- src/assets/manifest.json",
 		"zip": "{{clearArchive}} && {{buildMain}} && {{validatePackage}} && {{archive}}",

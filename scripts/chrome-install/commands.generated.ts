@@ -19,6 +19,7 @@ export const readChromeInstallationCommand = (root = process.cwd()): string[] =>
 	`--allow-fs-read=${join(root, 'package.json')}`,
 	`--allow-fs-read=${join(root, 'src/assets/manifest.json')}`,
 	`--allow-fs-read=${join(root, 'test/browser')}`,
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/chrome-install/read.ts'),
 ];
 
@@ -43,5 +44,6 @@ export const chromeEnvironmentCommand = (root = process.cwd()): string[] => [
 	...(process.env.GITHUB_ENV
 		? [`--allow-fs-write=${resolve(root, process.env.GITHUB_ENV)}`]
 		: []),
+	'--no-allow-child-process',
 	join(PROJECT_ROOT, 'scripts/chrome-install/environment.ts'),
 ];

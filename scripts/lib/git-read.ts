@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { choice, object, strings } from './input.ts';
 import { runJsonCli } from './json-cli.ts';
 import { checkedRef, gitDirectory } from './script-paths.ts';
+import type { VersionCheckSnapshot } from './version.ts';
 
 const validateArguments = (args: readonly string[]): void => {
 	const [command, ...rest] = args;
@@ -66,8 +67,30 @@ export const operate = (input: unknown): string => {
 	});
 };
 
+export const readVersionChecks = (input: unknown): VersionCheckSnapshot[] => {
+	if (!Array.isArray(input)) throw new Error('Expected version-check requests');
+	const requests = input.map((value) => {
+		const request = object(value);
+		return { commit: checkedRef(request.commit), refs: strings(request.refs) };
+	});
+	const snapshots: VersionCheckSnapshot[] = [];
+	for (const request of requests) {
+		const packageJson = operate({ args: ['show', `${request.commit}:package.json`] });
+		const manifestJson = operate({
+			args: ['show', `${request.commit}:src/assets/manifest.json`],
+		});
+		snapshots.push({ ...request, packageJson, manifestJson });
+	}
+	return snapshots;
+};
+
 if (import.meta.main) {
-	const input =
-		process.argv[2] === '--tracked-files' ? () => ({ args: ['ls-files', '-z'] }) : undefined;
-	await runJsonCli(operate, input);
+	if (process.argv[2] === '--version-checks') await runJsonCli(readVersionChecks);
+	else {
+		const input =
+			process.argv[2] === '--tracked-files'
+				? () => ({ args: ['ls-files', '-z'] })
+				: undefined;
+		await runJsonCli(operate, input);
+	}
 }
