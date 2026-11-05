@@ -7,6 +7,5 @@ export const checkSecretsCommand = (root = process.cwd()): string[] => [
 	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
 	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--allow-child-process',
 	join(PROJECT_ROOT, 'scripts/check-secrets/main.ts'),
 ];

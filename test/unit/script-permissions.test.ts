@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -9,16 +10,21 @@ import {
 	writeAssetsCommand,
 } from '../../scripts/build/commands.generated';
 import { checkDependenciesCommand } from '../../scripts/check-dependencies/commands.generated';
+import { checkSecretsCommand } from '../../scripts/check-secrets/commands.generated';
 import {
 	chromeEnvironmentCommand,
 	readChromeInstallationCommand,
 } from '../../scripts/chrome-install/commands.generated';
 import { chromeMatrixCommand } from '../../scripts/chrome-matrix/commands.generated';
 import {
+	chromeUpdateCommand,
 	readChromeUpdateCommand,
 	writeChromeLockCommand,
 } from '../../scripts/chrome-update/commands.generated';
-import { validatePackageCommand } from '../../scripts/package/commands.generated';
+import {
+	clearArchiveCommand,
+	validatePackageCommand,
+} from '../../scripts/package/commands.generated';
 import {
 	inspectReleaseCommand,
 	validateVersionsCommand,
@@ -61,6 +67,7 @@ console.log(JSON.stringify({
 const readers = [
 	prepareAssetsCommand,
 	checkDependenciesCommand,
+	checkSecretsCommand,
 	readChromeInstallationCommand,
 	readChromeUpdateCommand,
 	chromeMatrixCommand,
@@ -91,9 +98,14 @@ it.each(readers.map((command) => ({ name: command.name, command })))(
 );
 
 it.each(
-	[writeAssetsCommand, writeVersionCommand, writeChromeLockCommand, chromeEnvironmentCommand].map(
-		(command) => ({ name: command.name, command })
-	)
+	[
+		writeAssetsCommand,
+		writeVersionCommand,
+		writeChromeLockCommand,
+		chromeEnvironmentCommand,
+		clearArchiveCommand,
+		chromeUpdateCommand,
+	].map((command) => ({ name: command.name, command }))
 )('does not give $name subprocess or unrelated-file permissions', ({ command }) => {
 	const result = spawnSync(
 		process.execPath,
@@ -132,6 +144,57 @@ it('writes only approved asset destinations through the directly executed writer
 	expect(rejected.status).toBe(1);
 	expect(rejected.stderr).toContain('Path must stay inside its directory');
 	expect(JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version).toBe('1.5.0');
+});
+
+it('applies a complete Chrome update plan without subprocess permissions', async () => {
+	const versions = { '120': '120.0.6099.109' };
+	const checksums = { '120.0.6099.109': { linux64: 'a'.repeat(64) } };
+	const result = spawnSync(process.execPath, chromeUpdateCommand(root), {
+		cwd: root,
+		env: environment(),
+		encoding: 'utf8',
+		input: JSON.stringify({ versions, checksums, downloads: [] }),
+	});
+	expect(result.status, result.stderr).toBe(0);
+	expect(
+		JSON.parse(await readFile(join(root, 'test/browser/chrome-versions.json'), 'utf8'))
+	).toEqual(versions);
+	expect(
+		JSON.parse(await readFile(join(root, 'test/browser/chrome-checksums.json'), 'utf8'))
+	).toEqual(checksums);
+	expect(JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version).toBe('1.5.0');
+});
+
+it('collects Chrome hashes within the declared project-local write grant', async () => {
+	const args = chromeUpdateCommand(root);
+	const prelude = `globalThis.fetch = async () => new Response('archive fixture');`;
+	const version = '120.0.6099.109';
+	const result = spawnSync(
+		process.execPath,
+		[
+			...args.slice(0, -1),
+			`--import=data:text/javascript,${encodeURIComponent(prelude)}`,
+			...args.slice(-1),
+		],
+		{
+			cwd: root,
+			env: environment(),
+			encoding: 'utf8',
+			input: JSON.stringify({
+				versions: { '120': version },
+				checksums: {},
+				downloads: [{ version, platform: 'linux64' }],
+			}),
+		}
+	);
+	expect(result.status, result.stderr).toBe(0);
+	const sha256 = createHash('sha256').update('archive fixture').digest('hex');
+	expect(
+		JSON.parse(await readFile(join(root, 'test/browser/chrome-checksums.json'), 'utf8'))
+	).toEqual({ [version]: { linux64: sha256 } });
+	expect(
+		(await readdir(root)).filter((name) => name.startsWith('.window-merger-chrome-hash-'))
+	).toEqual([]);
 });
 
 it('builds a relative target directory without changing the caller’s working directory', async () => {

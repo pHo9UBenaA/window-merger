@@ -51,6 +51,11 @@ it('allows secretlint workers but not subprocesses, and uses the staged configur
 	}
 });
 
+it('does not invoke secretlint when there are no tracked files', () => {
+	operate({ tool: 'secretlint', files: [] });
+	expect(execFileSync).not.toHaveBeenCalled();
+});
+
 it('rejects arbitrary tool names and file paths outside the snapshot', () => {
 	const snapshot = join(process.cwd(), '.window-merger-index-test');
 	expect(() => operate({ tool: 'sh', snapshot, files: [] })).toThrow('Unsupported');

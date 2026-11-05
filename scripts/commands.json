@@ -8,7 +8,11 @@
 			"read": ["$code/node_modules"],
 			"childProcess": true
 		},
-		"packageMain": { "file": "package/main.ts", "childProcess": true },
+		"clearArchive": {
+			"file": "package/clear.ts",
+			"read": ["dist.zip", "dist.tmp.zip"],
+			"write": ["dist.zip", "dist.tmp.zip"]
+		},
 		"validatePackage": { "file": "package/validate.ts", "read": ["dist"] },
 		"archive": {
 			"file": "package/archive.ts",
@@ -18,7 +22,7 @@
 		},
 		"collectDependencies": { "file": "check-dependencies/collect.ts", "childProcess": true },
 		"checkDependencies": { "file": "check-dependencies/check.ts" },
-		"checkSecrets": { "file": "check-secrets/main.ts", "childProcess": true },
+		"checkSecrets": { "file": "check-secrets/main.ts" },
 		"chromeInstall": { "file": "chrome-install/main.ts", "childProcess": true },
 		"readChromeInstallation": {
 			"file": "chrome-install/read.ts",
@@ -35,7 +39,15 @@
 			"childProcess": true
 		},
 		"chromeEnvironment": { "file": "chrome-install/environment.ts", "write": ["$githubEnv"] },
-		"chromeUpdate": { "file": "chrome-update/main.ts", "childProcess": true },
+		"chromeUpdate": {
+			"file": "chrome-update/main.ts",
+			"read": [".window-merger-chrome-hash-*"],
+			"write": [
+				".window-merger-chrome-hash-*",
+				"test/browser/chrome-checksums.json",
+				"test/browser/chrome-versions.json"
+			]
+		},
 		"readChromeUpdate": {
 			"file": "chrome-update/read.ts",
 			"read": ["src/assets/manifest.json", "test/browser"]
@@ -119,16 +131,16 @@
 		"test:stress": "pnpm zip && playwright test --project=stress",
 		"typecheck": "tsc --noEmit",
 		"check:dependencies": "{{collectDependencies}} | {{checkDependencies}}",
-		"check:secrets": "{{checkSecrets}}",
+		"check:secrets": "{{gitRead}} --tracked-files | {{checkSecrets}} | {{checkTools}}",
 		"chrome:install": "{{chromeInstall}}",
-		"chrome:update-lock": "{{chromeUpdate}}",
+		"chrome:update-lock": "{{readChromeUpdate}} | {{chromeUpdate}}",
 		"chrome:matrix": "{{chromeMatrix}}",
 		"hook:pre-commit": "{{preCommit}}",
 		"hook:pre-push": "{{prePush}}",
 		"release:check": "{{releaseCheck}}",
 		"release:publish": "{{releaseMain}}",
 		"version": "{{readVersion}} | {{writeVersion}} && git add -- src/assets/manifest.json",
-		"zip": "{{packageMain}}",
+		"zip": "{{clearArchive}} && {{buildMain}} && {{validatePackage}} && {{archive}}",
 		"scripts:generate": "{{generateCommands}}",
 		"scripts:check": "{{checkGeneratedCommands}} --check"
 	}

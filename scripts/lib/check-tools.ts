@@ -12,6 +12,7 @@ export const operate = (input: unknown): void => {
 		request.snapshot === undefined ? undefined : snapshotDirectory(request.snapshot);
 	const cwd = snapshot ?? process.cwd();
 	const files = tool === 'secretlint' ? strings(request.files) : [];
+	if (tool === 'secretlint' && files.length === 0) return;
 	for (const file of files) inside(cwd, file);
 	if (tool === 'biome' && !snapshot) throw new Error('Biome requires an index snapshot');
 	const args =

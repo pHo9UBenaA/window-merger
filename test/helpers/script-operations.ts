@@ -6,13 +6,9 @@ import { operate as assets } from '../../scripts/build/write-assets';
 import { operate as chromeEnvironment } from '../../scripts/chrome-install/environment';
 import { operate as chromeExtract } from '../../scripts/chrome-install/extract';
 import { prepareInstallation } from '../../scripts/chrome-install/read';
-import { prepareLockUpdate } from '../../scripts/chrome-update/read';
-import { operate as chromeLock } from '../../scripts/chrome-update/write-lock';
 import { operate as chromeDownload } from '../../scripts/lib/chrome-download';
 import { operate as gitRead } from '../../scripts/lib/git-read';
 import { PROJECT_ROOT } from '../../scripts/lib/project-root';
-import { operate as archive } from '../../scripts/package/archive';
-import { validatePackage } from '../../scripts/package/validate';
 import { operate as exportIndex } from '../../scripts/pre-commit/export-index';
 import { operate as snapshot } from '../../scripts/pre-commit/snapshot';
 import { operate as releaseDirectory } from '../../scripts/release/directory';
@@ -25,15 +21,11 @@ const executables: Readonly<Record<string, (input: unknown) => unknown>> = {
 	'scripts/build/bundle.ts': bundle,
 	'scripts/build/prepare-assets.ts': prepareAssets,
 	'scripts/build/write-assets.ts': assets,
-	'scripts/package/archive.ts': archive,
-	'scripts/package/validate.ts': validatePackage,
 	'scripts/lib/git-read.ts': gitRead,
 	'scripts/lib/chrome-download.ts': chromeDownload,
 	'scripts/chrome-install/read.ts': prepareInstallation,
 	'scripts/chrome-install/environment.ts': chromeEnvironment,
 	'scripts/chrome-install/extract.ts': chromeExtract,
-	'scripts/chrome-update/read.ts': prepareLockUpdate,
-	'scripts/chrome-update/write-lock.ts': chromeLock,
 	'scripts/pre-commit/export-index.ts': exportIndex,
 	'scripts/pre-commit/snapshot.ts': snapshot,
 	'scripts/release/directory.ts': releaseDirectory,

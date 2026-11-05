@@ -66,4 +66,8 @@ export const operate = (input: unknown): string => {
 	});
 };
 
-if (import.meta.main) await runJsonCli(operate);
+if (import.meta.main) {
+	const input =
+		process.argv[2] === '--tracked-files' ? () => ({ args: ['ls-files', '-z'] }) : undefined;
+	await runJsonCli(operate, input);
+}

@@ -8,7 +8,9 @@ import { buildExtension, watchExtension } from '../../scripts/build/main';
 import { collectFiles } from '../../scripts/build/prepare-assets';
 import { PROJECT_ROOT } from '../../scripts/lib/project-root';
 import { validateExtension, validateVersion } from '../../scripts/lib/validate-extension';
-import { packageExtension } from '../../scripts/package/main';
+import { createArchive } from '../../scripts/package/archive';
+import { clearArchive } from '../../scripts/package/clear';
+import { validatePackage } from '../../scripts/package/validate';
 import { useOperationRoot } from '../helpers/script-operations';
 
 vi.mock('../../scripts/lib/run-node', async () => ({
@@ -20,6 +22,13 @@ vi.mock('esbuild', async (importOriginal) => {
 	const original = await importOriginal<typeof import('esbuild')>();
 	return { ...original, build: vi.fn(original.build) };
 });
+
+const packageExtension = async (root: string): Promise<void> => {
+	await clearArchive();
+	await buildExtension({ root });
+	await validatePackage();
+	await createArchive();
+};
 
 describe('extension artifacts', () => {
 	let root: string;

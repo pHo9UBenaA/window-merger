@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installChrome } from '../../scripts/chrome-install/main';
-import { updateLock } from '../../scripts/chrome-update/main';
+import { applyLockUpdate } from '../../scripts/chrome-update/main';
+import { prepareLockUpdate } from '../../scripts/chrome-update/read';
 import { useOperationRoot } from '../helpers/script-operations';
 
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn(), spawnSync: vi.fn() }));
@@ -159,6 +160,10 @@ describe('Chrome installer', () => {
 	});
 });
 
+const updateLock = async (): Promise<void> => applyLockUpdate(await prepareLockUpdate());
+const hashDirectories = async () =>
+	(await readdir(root)).filter((name) => name.startsWith('.window-merger-chrome-hash-'));
+
 describe('Chrome lock update', () => {
 	it.each(['linux64', 'win64', 'mac-arm64'])(
 		'rejects incomplete metadata for %s without updating locks',
@@ -174,6 +179,7 @@ describe('Chrome lock update', () => {
 		await updateLock();
 		expect(downloads).toHaveLength(3);
 		expect(exec).not.toHaveBeenCalled();
+		expect(await hashDirectories()).toEqual([]);
 		expect(JSON.parse(await readFile(checksumPath(), 'utf8'))).toEqual({
 			...checksums,
 			[nextVersion]: allPlatforms,
@@ -182,6 +188,13 @@ describe('Chrome lock update', () => {
 			'120': version,
 			'121': nextVersion,
 		});
+	});
+
+	it('does not mutate the update plan while collecting checksums', async () => {
+		const plan = await prepareLockUpdate();
+		const original = JSON.stringify(plan);
+		await applyLockUpdate(plan);
+		expect(JSON.stringify(plan)).toBe(original);
 	});
 
 	it('preserves existing checksums instead of replacing or downloading them', async () => {
@@ -199,11 +212,30 @@ describe('Chrome lock update', () => {
 		expect(downloads).toEqual([]);
 	});
 
+	it('removes temporary output and leaves both locks unchanged after a broken download stream', async () => {
+		const plan = await prepareLockUpdate();
+		vi.mocked(fetch).mockResolvedValueOnce(
+			new Response(
+				new ReadableStream({
+					start(controller) {
+						controller.enqueue(content);
+						controller.error(new Error('Stream failed'));
+					},
+				})
+			)
+		);
+		await expect(applyLockUpdate(plan)).rejects.toThrow('Stream failed');
+		expect(await hashDirectories()).toEqual([]);
+		expect(JSON.parse(await readFile(lockPath(), 'utf8'))).toEqual({ '120': version });
+		expect(JSON.parse(await readFile(checksumPath(), 'utf8'))).toEqual(checksums);
+	});
+
 	it.each([1, 2])(
 		'keeps both locks unchanged after download %s fails',
 		async (failedDownload) => {
 			downloadError = failedDownload;
 			await expect(updateLock()).rejects.toThrow('Download failed');
+			expect(await hashDirectories()).toEqual([]);
 			expect(JSON.parse(await readFile(lockPath(), 'utf8'))).toEqual({ '120': version });
 			expect(JSON.parse(await readFile(checksumPath(), 'utf8'))).toEqual(checksums);
 			expect(exec).not.toHaveBeenCalled();

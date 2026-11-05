@@ -22,6 +22,7 @@ it('keeps the committed package commands and per-command arguments up to date', 
 
 it('declares permissions for every directly executable script', async () => {
 	const entries = new Set(Object.values(config.executables).map(({ file }) => `scripts/${file}`));
+	for (const path of entries) await readFile(path, 'utf8');
 	for await (const path of glob('scripts/**/*.ts')) {
 		const source = await readFile(path, 'utf8');
 		if (source.includes('if (import.meta.main)'))

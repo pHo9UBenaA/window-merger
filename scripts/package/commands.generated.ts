@@ -2,13 +2,16 @@
 import { join } from 'node:path';
 import { PROJECT_ROOT } from '../lib/project-root.ts';
 
-export const packageMainCommand = (root = process.cwd()): string[] => [
+export const clearArchiveCommand = (root = process.cwd()): string[] => [
 	'--permission',
 	`--allow-fs-read=${join(PROJECT_ROOT, 'package.json')}`,
 	`--allow-fs-read=${join(PROJECT_ROOT, 'scripts')}`,
 	`--allow-fs-read=${join(root, 'package.json')}`,
-	'--allow-child-process',
-	join(PROJECT_ROOT, 'scripts/package/main.ts'),
+	`--allow-fs-read=${join(root, 'dist.zip')}`,
+	`--allow-fs-read=${join(root, 'dist.tmp.zip')}`,
+	`--allow-fs-write=${join(root, 'dist.zip')}`,
+	`--allow-fs-write=${join(root, 'dist.tmp.zip')}`,
+	join(PROJECT_ROOT, 'scripts/package/clear.ts'),
 ];
 
 export const validatePackageCommand = (root = process.cwd()): string[] => [
